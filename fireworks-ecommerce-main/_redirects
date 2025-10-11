@@ -1,0 +1,5 @@
+# API redirects - must come first
+/api/*  /.netlify/functions/api  200
+
+# SPA fallback - must be last
+/*    /index.html   200

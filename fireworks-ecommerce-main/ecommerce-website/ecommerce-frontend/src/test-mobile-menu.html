@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Menu Test</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        .test-container {
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .test-button {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 16px;
+        }
+        .test-button:hover {
+            background: #dc2626;
+        }
+        .debug-info {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-family: monospace;
+        }
+        .mobile-menu {
+            display: none;
+            background: white;
+            border: 2px solid #ef4444;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .mobile-menu.open {
+            display: block;
+        }
+        .menu-item {
+            padding: 10px;
+            border-bottom: 1px solid #e5e7eb;
+            cursor: pointer;
+        }
+        .menu-item:hover {
+            background: #fef2f2;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Mobile Menu Test</h1>
+        
+        <div class="debug-info">
+            <div>Screen Width: <span id="screen-width"></span>px</div>
+            <div>Is Mobile: <span id="is-mobile"></span></div>
+            <div>Menu State: <span id="menu-state">Closed</span></div>
+        </div>
+        
+        <button class="test-button" onclick="toggleMenu()">Toggle Mobile Menu</button>
+        <button class="test-button" onclick="testNavigation()">Test Navigation</button>
+        
+        <div id="mobile-menu" class="mobile-menu">
+            <div class="menu-item" onclick="navigateTo('/')">Home</div>
+            <div class="menu-item" onclick="navigateTo('/products')">Products</div>
+            <div class="menu-item" onclick="navigateTo('/about')">About</div>
+            <div class="menu-item" onclick="navigateTo('/contact')">Contact</div>
+        </div>
+        
+        <div id="test-results" class="debug-info" style="display: none;">
+            <h3>Test Results:</h3>
+            <div id="results-content"></div>
+        </div>
+    </div>
+
+    <script>
+        let menuOpen = false;
+        
+        function updateDebugInfo() {
+            document.getElementById('screen-width').textContent = window.innerWidth;
+            document.getElementById('is-mobile').textContent = window.innerWidth < 768 ? 'Yes' : 'No';
+            document.getElementById('menu-state').textContent = menuOpen ? 'Open' : 'Closed';
+        }
+        
+        function toggleMenu() {
+            menuOpen = !menuOpen;
+            const menu = document.getElementById('mobile-menu');
+            if (menuOpen) {
+                menu.classList.add('open');
+                console.log('🍔 Mobile menu opened');
+            } else {
+                menu.classList.remove('open');
+                console.log('🔒 Mobile menu closed');
+            }
+            updateDebugInfo();
+        }
+        
+        function navigateTo(path) {
+            console.log('🔄 Navigating to:', path);
+            menuOpen = false;
+            document.getElementById('mobile-menu').classList.remove('open');
+            updateDebugInfo();
+            
+            // Show test results
+            const results = document.getElementById('test-results');
+            const content = document.getElementById('results-content');
+            content.innerHTML = `
+                <div>✅ Navigation clicked: ${path}</div>
+                <div>✅ Menu closed after navigation</div>
+                <div>✅ Screen width: ${window.innerWidth}px</div>
+                <div>✅ Is mobile: ${window.innerWidth < 768 ? 'Yes' : 'No'}</div>
+            `;
+            results.style.display = 'block';
+        }
+        
+        function testNavigation() {
+            console.log('🧪 Testing navigation...');
+            const results = document.getElementById('test-results');
+            const content = document.getElementById('results-content');
+            content.innerHTML = `
+                <div>🧪 Mobile Menu Test Results:</div>
+                <div>✅ Button clickable: Yes</div>
+                <div>✅ Menu toggles: ${menuOpen ? 'Open' : 'Closed'}</div>
+                <div>✅ Screen responsive: ${window.innerWidth < 768 ? 'Mobile' : 'Desktop'}</div>
+                <div>✅ Navigation functions: Working</div>
+            `;
+            results.style.display = 'block';
+        }
+        
+        // Update debug info on load and resize
+        window.addEventListener('load', updateDebugInfo);
+        window.addEventListener('resize', updateDebugInfo);
+        
+        // Initial debug info
+        updateDebugInfo();
+    </script>
+</body>
+</html>

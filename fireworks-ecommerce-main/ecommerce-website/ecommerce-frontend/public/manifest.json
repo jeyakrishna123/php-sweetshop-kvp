@@ -1,0 +1,134 @@
+{
+  "name": "FireworksHub - Premium Fireworks Store",
+  "short_name": "FireworksHub",
+  "description": "Your one-stop destination for premium fireworks, crackers, and celebration essentials",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#dc2626",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["shopping", "entertainment", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/desktop-home.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "FireworksHub Homepage"
+    },
+    {
+      "src": "/screenshots/mobile-home.png",
+      "sizes": "375x812",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "FireworksHub Mobile Homepage"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Browse Products",
+      "short_name": "Products",
+      "description": "Browse our collection of premium fireworks",
+      "url": "/products",
+      "icons": [
+        {
+          "src": "/icons/shortcut-products.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "My Cart",
+      "short_name": "Cart",
+      "description": "View items in your cart",
+      "url": "/cart",
+      "icons": [
+        {
+          "src": "/icons/shortcut-cart.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Track Order",
+      "short_name": "Track",
+      "description": "Track your order status",
+      "url": "/tracking",
+      "icons": [
+        {
+          "src": "/icons/shortcut-tracking.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "My Orders",
+      "short_name": "Orders",
+      "description": "View your order history",
+      "url": "/myorder",
+      "icons": [
+        {
+          "src": "/icons/shortcut-orders.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  }
+}

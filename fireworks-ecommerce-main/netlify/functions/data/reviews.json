@@ -1,0 +1,114 @@
+[
+  {
+    "_id": "rev_001",
+    "productId": "prod_001",
+    "userId": "user_001",
+    "userName": "Rahul Sharma",
+    "rating": 5,
+    "title": "Amazing Golden Sparkle Fountain!",
+    "comment": "This fountain exceeded my expectations! The golden sparkles were absolutely beautiful and lasted the full 45 seconds. Perfect for our Diwali celebration. Highly recommend!",
+    "images": [
+      {
+        "public_id": "review_image_1",
+        "url": "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=400&h=400&fit=crop"
+      }
+    ],
+    "verified": true,
+    "helpful": 12,
+    "notHelpful": 1,
+    "createdAt": "2025-01-20T10:00:00.000Z",
+    "updatedAt": "2025-01-20T10:00:00.000Z"
+  },
+  {
+    "_id": "rev_002",
+    "productId": "prod_001",
+    "userId": "user_002",
+    "userName": "Priya Patel",
+    "rating": 4,
+    "title": "Great for parties",
+    "comment": "Used this at my daughter's birthday party. The kids loved it! The sparkles were bright and colorful. Only giving 4 stars because it was a bit smaller than expected.",
+    "images": [],
+    "verified": true,
+    "helpful": 8,
+    "notHelpful": 0,
+    "createdAt": "2025-01-22T14:30:00.000Z",
+    "updatedAt": "2025-01-22T14:30:00.000Z"
+  },
+  {
+    "_id": "rev_003",
+    "productId": "prod_002",
+    "userId": "user_003",
+    "userName": "Amit Kumar",
+    "rating": 5,
+    "title": "Spectacular aerial display!",
+    "comment": "This aerial shell is absolutely incredible! The multi-color explosion was breathtaking. Perfect for New Year celebrations. Worth every penny!",
+    "images": [
+      {
+        "public_id": "review_image_2",
+        "url": "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=400&h=400&fit=crop"
+      }
+    ],
+    "verified": true,
+    "helpful": 15,
+    "notHelpful": 0,
+    "createdAt": "2025-01-25T18:45:00.000Z",
+    "updatedAt": "2025-01-25T18:45:00.000Z"
+  },
+  {
+    "_id": "rev_004",
+    "productId": "prod_003",
+    "userId": "user_004",
+    "userName": "Sneha Reddy",
+    "rating": 4,
+    "title": "Perfect for kids",
+    "comment": "Bought these sparklers for my kids and they absolutely loved them! Safe to use and the electric blue color was stunning. Great value for money.",
+    "images": [],
+    "verified": true,
+    "helpful": 6,
+    "notHelpful": 1,
+    "createdAt": "2025-01-28T12:15:00.000Z",
+    "updatedAt": "2025-01-28T12:15:00.000Z"
+  },
+  {
+    "_id": "rev_1755833189148_tbe3x04r0",
+    "productId": "prod_003",
+    "userName": "upgrade",
+    "rating": 1,
+    "title": "go0d",
+    "comment": "yfygui",
+    "images": [],
+    "verified": true,
+    "helpful": 0,
+    "notHelpful": 0,
+    "createdAt": "2025-08-22T03:26:29.148Z",
+    "updatedAt": "2025-08-22T03:26:52.507Z"
+  },
+  {
+    "_id": "rev_1755877954299_hw8iqcfq4",
+    "productId": "prod_006",
+    "userName": "jeyakrishna",
+    "rating": 5,
+    "title": "euheuheghe",
+    "comment": "ejdwhjdhujd",
+    "images": [],
+    "verified": true,
+    "helpful": 0,
+    "notHelpful": 0,
+    "createdAt": "2025-08-22T15:52:34.299Z",
+    "updatedAt": "2025-08-22T15:52:34.299Z"
+  },
+  {
+    "_id": "rev_1756233660447_cx93reuks",
+    "productId": "prod_004",
+    "userName": "Test User",
+    "rating": 3,
+    "title": "goog",
+    "comment": "gvgv hbh",
+    "images": [],
+    "verified": true,
+    "helpful": 2,
+    "notHelpful": 1,
+    "createdAt": "2025-08-26T18:41:00.447Z",
+    "updatedAt": "2025-08-26T18:41:00.447Z"
+  }
+]

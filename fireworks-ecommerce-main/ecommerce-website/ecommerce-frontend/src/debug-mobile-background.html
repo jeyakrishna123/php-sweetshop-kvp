@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Mobile Background</title>
+    <style>
+        /* Simulate the exact same classes as the Home page */
+        .bg-gradient-to-br {
+            background: linear-gradient(135deg, #f9fafb 0%, #ffffff 50%, #eff6ff 100%);
+        }
+        
+        .from-gray-50 {
+            --tw-gradient-from: #f9fafb;
+        }
+        
+        .via-white {
+            --tw-gradient-via: #ffffff;
+        }
+        
+        .to-blue-50 {
+            --tw-gradient-to: #eff6ff;
+        }
+        
+        .min-h-screen {
+            min-height: 100vh;
+        }
+        
+        /* Mobile overrides */
+        @media (max-width: 640px) {
+            .bg-gradient-to-br {
+                background: linear-gradient(135deg, #f9fafb 0%, #ffffff 50%, #eff6ff 100%) !important;
+            }
+            
+            .bg-gradient-to-br.from-gray-50.via-white.to-blue-50 {
+                background: linear-gradient(135deg, #f9fafb 0%, #ffffff 50%, #eff6ff 100%) !important;
+            }
+            
+            .from-gray-50.via-white.to-blue-50 {
+                background: linear-gradient(135deg, #f9fafb 0%, #ffffff 50%, #eff6ff 100%) !important;
+            }
+            
+            div[class*="bg-gradient-to-br"] {
+                background: linear-gradient(135deg, #f9fafb 0%, #ffffff 50%, #eff6ff 100%) !important;
+            }
+            
+            .min-h-screen[class*="bg-gradient"] {
+                background: linear-gradient(135deg, #f9fafb 0%, #ffffff 50%, #eff6ff 100%) !important;
+            }
+            
+            div.bg-gradient-to-br.from-gray-50.via-white.to-blue-50.min-h-screen {
+                background: linear-gradient(135deg, #f9fafb 0%, #ffffff 50%, #eff6ff 100%) !important;
+            }
+            
+            [class*="from-gray-50"][class*="via-white"][class*="to-blue-50"] {
+                background: linear-gradient(135deg, #f9fafb 0%, #ffffff 50%, #eff6ff 100%) !important;
+            }
+        }
+        
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        
+        .debug-info {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #1f2937;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            z-index: 1000;
+            max-width: 200px;
+        }
+        
+        .test-content {
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .color-box {
+            width: 100px;
+            height: 100px;
+            margin: 20px auto;
+            border: 2px solid #333;
+            border-radius: 8px;
+        }
+        
+        .test-button {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-info">
+        <div>Screen: <span id="screen-width"></span>px</div>
+        <div>Type: <span id="screen-type"></span></div>
+        <div>Background: <span id="background-status"></span></div>
+    </div>
+
+    <!-- This simulates the exact Home page structure -->
+    <div class="bg-gradient-to-br from-gray-50 via-white to-blue-50 min-h-screen">
+        <div class="test-content">
+            <h1>🔍 Mobile Background Debug</h1>
+            <p>This should show the same gradient on both mobile and desktop</p>
+            
+            <div class="color-box bg-gradient-to-br from-gray-50 via-white to-blue-50"></div>
+            
+            <button class="test-button" onclick="checkBackground()">Check Background</button>
+            
+            <div id="result" style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.8); border-radius: 8px;"></div>
+        </div>
+    </div>
+
+    <script>
+        function updateDebugInfo() {
+            const width = window.innerWidth;
+            const isMobile = width <= 640;
+            const container = document.querySelector('.bg-gradient-to-br');
+            const computedStyle = window.getComputedStyle(container);
+            const background = computedStyle.backgroundImage;
+            
+            document.getElementById('screen-width').textContent = width;
+            document.getElementById('screen-type').textContent = isMobile ? 'Mobile' : 'Desktop';
+            document.getElementById('background-status').textContent = background && background !== 'none' ? 'Gradient' : 'None';
+        }
+        
+        function checkBackground() {
+            const container = document.querySelector('.bg-gradient-to-br');
+            const computedStyle = window.getComputedStyle(container);
+            const background = computedStyle.backgroundImage;
+            const backgroundColor = computedStyle.backgroundColor;
+            
+            const result = document.getElementById('result');
+            result.innerHTML = `
+                <h3>Background Analysis:</h3>
+                <p><strong>Background Image:</strong> ${background || 'None'}</p>
+                <p><strong>Background Color:</strong> ${backgroundColor || 'None'}</p>
+                <p><strong>Screen Width:</strong> ${window.innerWidth}px</p>
+                <p><strong>Device Type:</strong> ${window.innerWidth <= 640 ? 'Mobile' : 'Desktop'}</p>
+                <p><strong>Expected:</strong> linear-gradient(135deg, #f9fafb 0%, #ffffff 50%, #eff6ff 100%)</p>
+                <p><strong>Status:</strong> ${background && background.includes('linear-gradient') ? '✅ Gradient Found' : '❌ No Gradient'}</p>
+            `;
+        }
+        
+        window.addEventListener('load', updateDebugInfo);
+        window.addEventListener('resize', updateDebugInfo);
+        
+        updateDebugInfo();
+    </script>
+</body>
+</html>

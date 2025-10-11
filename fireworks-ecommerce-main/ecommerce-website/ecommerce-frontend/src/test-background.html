@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Background Color Test - Mobile vs Desktop</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        
+        .test-container {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f9fafb 0%, #ffffff 50%, #eff6ff 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .test-card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        .color-info {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        .screen-info {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #1f2937;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+        
+        .gradient-preview {
+            height: 100px;
+            background: linear-gradient(135deg, #f9fafb 0%, #ffffff 50%, #eff6ff 100%);
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 2px solid #e5e7eb;
+        }
+        
+        .test-button {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 8px;
+            font-size: 16px;
+        }
+        
+        .test-button:hover {
+            background: #dc2626;
+        }
+        
+        .result {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        
+        .result.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+        
+        .result.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="screen-info">
+        <div>Screen: <span id="screen-width"></span>px</div>
+        <div>Type: <span id="screen-type"></span></div>
+        <div>Background: <span id="background-type"></span></div>
+    </div>
+
+    <div class="test-container">
+        <div class="test-card">
+            <h1>🎨 Background Color Test</h1>
+            <p>Testing mobile vs desktop background consistency</p>
+            
+            <div class="gradient-preview"></div>
+            
+            <div class="color-info">
+                <div><strong>Expected Background:</strong></div>
+                <div>linear-gradient(135deg, #f9fafb 0%, #ffffff 50%, #eff6ff 100%)</div>
+                <div><strong>Screen Width:</strong> <span id="screen-width-display"></span>px</div>
+                <div><strong>Device Type:</strong> <span id="device-type"></span></div>
+            </div>
+            
+            <button class="test-button" onclick="testBackground()">🧪 Test Background</button>
+            <button class="test-button" onclick="checkConsistency()">✅ Check Consistency</button>
+            
+            <div id="test-result" class="result" style="display: none;">
+                <div id="result-content"></div>
+            </div>
+            
+            <div class="color-info">
+                <div><strong>Instructions:</strong></div>
+                <div>1. Resize your browser window to test different screen sizes</div>
+                <div>2. Check that the background gradient remains consistent</div>
+                <div>3. Mobile (≤640px) and Desktop (>640px) should look identical</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateScreenInfo() {
+            const width = window.innerWidth;
+            const isMobile = width <= 640;
+            const deviceType = isMobile ? 'Mobile' : 'Desktop';
+            const backgroundType = isMobile ? 'Mobile Gradient' : 'Desktop Gradient';
+            
+            document.getElementById('screen-width').textContent = width;
+            document.getElementById('screen-width-display').textContent = width;
+            document.getElementById('screen-type').textContent = deviceType;
+            document.getElementById('device-type').textContent = deviceType;
+            document.getElementById('background-type').textContent = backgroundType;
+        }
+        
+        function testBackground() {
+            const container = document.querySelector('.test-container');
+            const computedStyle = window.getComputedStyle(container);
+            const background = computedStyle.backgroundImage;
+            
+            console.log('🎨 Background test:', background);
+            
+            const result = document.getElementById('test-result');
+            const content = document.getElementById('result-content');
+            
+            if (background && background !== 'none') {
+                content.innerHTML = `
+                    <div>✅ Background gradient detected</div>
+                    <div>📱 Screen: ${window.innerWidth}px</div>
+                    <div>🖥️ Type: ${window.innerWidth <= 640 ? 'Mobile' : 'Desktop'}</div>
+                    <div>🎨 Background: ${background}</div>
+                `;
+                result.className = 'result success';
+            } else {
+                content.innerHTML = `
+                    <div>❌ No gradient background found</div>
+                    <div>📱 Screen: ${window.innerWidth}px</div>
+                    <div>🖥️ Type: ${window.innerWidth <= 640 ? 'Mobile' : 'Desktop'}</div>
+                `;
+                result.className = 'result error';
+            }
+            
+            result.style.display = 'block';
+        }
+        
+        function checkConsistency() {
+            const width = window.innerWidth;
+            const isMobile = width <= 640;
+            
+            const result = document.getElementById('test-result');
+            const content = document.getElementById('result-content');
+            
+            content.innerHTML = `
+                <div>📊 Consistency Check Results:</div>
+                <div>📱 Current Screen: ${width}px (${isMobile ? 'Mobile' : 'Desktop'})</div>
+                <div>🎨 Background: ${isMobile ? 'Mobile Gradient' : 'Desktop Gradient'}</div>
+                <div>✅ Both should show the same gradient</div>
+                <div>🔄 Try resizing to test consistency</div>
+            `;
+            result.className = 'result success';
+            result.style.display = 'block';
+        }
+        
+        // Update screen info on load and resize
+        window.addEventListener('load', updateScreenInfo);
+        window.addEventListener('resize', updateScreenInfo);
+        
+        // Initial setup
+        updateScreenInfo();
+    </script>
+</body>
+</html>

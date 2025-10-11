@@ -1,0 +1,16 @@
+[
+  {
+    "_id": "1",
+    "title": ".",
+    "description": "",
+    "linkUrl": "",
+    "isActive": true,
+    "displayOrder": 0,
+    "deviceType": "desktop",
+    "mobileImageUrl": null,
+    "desktopImageUrl": "/uploads/banners/desktopImage-1758911904559-543961132.webp",
+    "imageUrl": null,
+    "createdAt": "2025-09-26T18:38:24.567Z",
+    "updatedAt": "2025-09-29T07:15:06.198Z"
+  }
+]

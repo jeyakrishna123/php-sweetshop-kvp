@@ -1,0 +1,129 @@
+html, body {
+  width: 100vw;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+#root {
+  width: 100vw;
+  min-height: 100vh;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+/* Animation styles for header text */
+.opacity-0 {
+  opacity: 0;
+}
+
+.opacity-100 {
+  opacity: 1;
+}
+
+.translate-y-0 {
+  transform: translateY(0);
+}
+
+.-translate-y-4 {
+  transform: translateY(-1rem);
+}
+
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.duration-1000 {
+  transition-duration: 1000ms;
+}
+
+.ease-out {
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+}
+
+.delay-200 {
+  transition-delay: 200ms;
+}
+
+/* Force gradient rendering on all devices - Enhanced */
+.hero-gradient {
+  background: linear-gradient(to bottom right, #ef4444, #f97316, #eab308) !important;
+  background-image: linear-gradient(to bottom right, #ef4444, #f97316, #eab308) !important;
+  -webkit-background: linear-gradient(to bottom right, #ef4444, #f97316, #eab308) !important;
+  -moz-background: linear-gradient(to bottom right, #ef4444, #f97316, #eab308) !important;
+  -ms-background: linear-gradient(to bottom right, #ef4444, #f97316, #eab308) !important;
+  background-color: #f97316 !important; /* Fallback color */
+}
+
+/* Mobile hero gradient - Same as desktop */
+@media (max-width: 768px) {
+  .hero-gradient {
+    background: linear-gradient(to bottom right, #ef4444, #f97316, #eab308) !important;
+    background-image: linear-gradient(to bottom right, #ef4444, #f97316, #eab308) !important;
+    background-color: #f97316 !important; /* Fallback color */
+  }
+}
+
+/* Additional mobile specificity */
+@media (max-width: 640px) {
+  div.hero-gradient,
+  .hero-gradient.relative {
+    background: linear-gradient(to bottom right, #ef4444, #f97316, #eab308) !important;
+    background-image: linear-gradient(to bottom right, #ef4444, #f97316, #eab308) !important;
+    background-color: #f97316 !important; /* Fallback color */
+  }
+}
+
+/* Enhanced text readability for banner content */
+.hero-gradient .text-white {
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5) !important;
+}
+
+.hero-gradient h1 {
+  text-shadow: 3px 3px 6px rgba(0,0,0,0.9), 0 0 25px rgba(0,0,0,0.6) !important;
+}
+
+.hero-gradient p {
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.9), 0 0 15px rgba(0,0,0,0.6) !important;
+}
+
+/* Enhanced button visibility */
+.hero-gradient button {
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3) !important;
+}

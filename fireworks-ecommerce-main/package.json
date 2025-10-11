@@ -1,0 +1,25 @@
+{
+  "name": "fireworks-ecommerce",
+  "version": "1.0.0",
+  "description": "Fireworks E-commerce Application",
+  "main": "index.js",
+  "scripts": {
+    "start": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "cd ecommerce-website/ecommerce-frontend && npm run dev",
+    "dev:backend": "cd ecommerce-website/backend && npm run dev",
+    "build": "cd ecommerce-website/ecommerce-frontend && npm install && npm run build",
+    "build:netlify": "bash build.sh",
+    "install:all": "npm install && cd ecommerce-website/backend && npm install && cd ../ecommerce-frontend && npm install",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "keywords": ["ecommerce", "fireworks", "react", "nodejs"],
+  "author": "SK Bakers",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.11.0",
+    "concurrently": "^8.2.2"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
