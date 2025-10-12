@@ -18,7 +18,7 @@ const SecureAdminRoute = ({ children }) => {
 
       try {
         // Verify token with backend
-        const response = await axios.get('http://localhost:3001/api/auth/verify-admin', {
+        const response = await axios.get('http://localhost:8000/api/auth/verify-admin', {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`
           }

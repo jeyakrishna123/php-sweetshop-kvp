@@ -28,7 +28,7 @@ const OrderDetails = () => {
       setLoading(true);
       setError(null);
       
-      const response = await axios.get(`http://localhost:3001/api/orders/${id}`, {
+      const response = await axios.get(`http://localhost:8000/api/orders/${id}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
@@ -52,7 +52,7 @@ const OrderDetails = () => {
     
     setCancelling(true);
     try {
-      const response = await axios.put(`http://localhost:3001/api/orders/${id}/cancel`, {}, {
+      const response = await axios.put(`http://localhost:8000/api/orders/${id}/cancel`, {}, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }

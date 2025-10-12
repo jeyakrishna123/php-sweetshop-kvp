@@ -276,7 +276,7 @@ const AdminMenu = () => {
         if (response.data.success) {
           const imageUrl = response.data.imageUrl.startsWith('http') 
             ? response.data.imageUrl 
-            : `http://localhost:3001${response.data.imageUrl}`;
+            : `http://localhost:8000${response.data.imageUrl}`;
           
           console.log('🔍 Image upload successful, URL:', imageUrl);
           setFormData(prev => ({ ...prev, image: imageUrl }));

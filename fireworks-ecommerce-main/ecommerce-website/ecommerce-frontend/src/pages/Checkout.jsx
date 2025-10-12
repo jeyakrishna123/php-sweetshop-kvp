@@ -157,7 +157,7 @@ const Checkout = () => {
         throw new Error("Stripe failed to load");
       }
 
-      const response = await axios.post("http://localhost:3001/api/stripe/create-checkout-session", {
+      const response = await axios.post("http://localhost:8000/api/stripe/create-checkout-session", {
         cartItems: cart.map(item => ({
           _id: item._id,
           name: item.name,
@@ -262,7 +262,7 @@ const Checkout = () => {
       console.log('🔍 Checkout: Order data:', JSON.stringify(orderData, null, 2));
       console.log('🔍 Checkout: Cart items:', JSON.stringify(cart, null, 2));
       
-      const response = await axios.post("http://localhost:3001/api/orders", orderData, {
+      const response = await axios.post("http://localhost:8000/api/orders", orderData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         },
@@ -373,7 +373,7 @@ const Checkout = () => {
         upiId: upiId.trim()
       };
 
-      const response = await axios.post("http://localhost:3001/api/orders", orderData, {
+      const response = await axios.post("http://localhost:8000/api/orders", orderData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         },

@@ -14,7 +14,7 @@ export const getImageUrl = (imagePath) => {
   }
   
   // For other paths, construct the full URL
-  const backendUrl = 'http://localhost:3001';
+  const backendUrl = 'http://localhost:8000';
   return `${backendUrl}${imagePath}`;
 };
 

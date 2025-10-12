@@ -160,7 +160,7 @@ const ProductListing = () => {
       const paramString = params.toString();
       const menuOptionCount = (paramString.match(/menuOption=/g) || []).length;
       console.log('🔍 ProductListing: menuOption appears', menuOptionCount, 'times in URL');
-      console.log('🔍 ProductListing: Full URL:', `http://localhost:3001/api/products?${params}`);
+      console.log('🔍 ProductListing: Full URL:', `http://localhost:8000/api/products?${params}`);
       console.log('🔍 ProductListing: Axios baseURL:', axios.defaults.baseURL);
       console.log('🔍 ProductListing: Request URL will be:', `${axios.defaults.baseURL}/api/products?${params}`);
       

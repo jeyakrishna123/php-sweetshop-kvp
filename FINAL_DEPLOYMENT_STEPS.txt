@@ -1,0 +1,218 @@
+═══════════════════════════════════════════════════════════════
+    🚀 SK BAKERS - FINAL DEPLOYMENT STEPS
+═══════════════════════════════════════════════════════════════
+
+✅ COMPLETED:
+- Database created: u707629033_skbakers_main
+- Database user: u707629033_admin
+- .env file configured with database credentials
+- All SQL files ready (schema.sql + migrated-data.sql)
+- All PHP backend files ready
+
+⏳ REMAINING STEPS:
+
+═══════════════════════════════════════════════════════════════
+STEP 1: IMPORT SQL FILES TO DATABASE
+═══════════════════════════════════════════════════════════════
+
+1. Click "Enter phpMyAdmin" button (purple button on Hostinger)
+
+2. Import Schema:
+   - Click "Import" tab
+   - Choose File: php-backend/database/schema.sql
+   - Click "Go"
+   - Wait for success message
+
+3. Import Data:
+   - Click "Import" tab again
+   - Choose File: migrated-data.sql
+   - Click "Go"
+   - Wait 1-2 minutes for completion
+
+4. Verify:
+   Run this in SQL tab:
+
+   SELECT 'users' as table_name, COUNT(*) as count FROM users
+   UNION ALL SELECT 'products', COUNT(*) FROM products
+   UNION ALL SELECT 'orders', COUNT(*) FROM orders
+   UNION ALL SELECT 'categories', COUNT(*) FROM categories;
+
+   Expected: 15, 381, 68, 21
+
+═══════════════════════════════════════════════════════════════
+STEP 2: UPDATE .ENV WITH YOUR PASSWORD
+═══════════════════════════════════════════════════════════════
+
+⚠️ IMPORTANT: Before uploading, edit this file:
+   php-backend/.env
+
+Find line 14:
+   DB_PASS=YOUR_PASSWORD_HERE
+
+Replace with your actual database password!
+
+Also update line 19 (JWT Secret):
+   JWT_SECRET=hK8nP2vQ9xL4mR6yT3wS7zA1bN5cM8dF0eG2hJ4kL6pQ9rX5tU7vW9y
+   (or generate a new random 40+ character string)
+
+═══════════════════════════════════════════════════════════════
+STEP 3: UPLOAD BACKEND FILES TO HOSTINGER
+═══════════════════════════════════════════════════════════════
+
+A. Go to File Manager:
+   Hostinger → Website → File Manager
+
+B. Navigate to:
+   public_html/
+
+C. Create folder:
+   api
+
+D. Upload ALL files from "php-backend" folder to "public_html/api/":
+
+   ✓ api/ (folder with 11 PHP files)
+   ✓ config/ (folder)
+   ✓ database/ (folder)
+   ✓ includes/ (folder)
+   ✓ middleware/ (folder)
+   ✓ .env (the configured file!)
+   ✓ .htaccess (IMPORTANT!)
+   ✓ index.php
+
+E. Create these folders in public_html/api/:
+   - uploads/
+   - logs/
+
+F. Set Permissions:
+   Right-click → Permissions:
+   - uploads/ → 755
+   - logs/ → 755
+   - .env → 644
+
+═══════════════════════════════════════════════════════════════
+STEP 4: TEST YOUR API
+═══════════════════════════════════════════════════════════════
+
+Open in browser:
+   https://skbakers.com/api/
+
+Expected Response:
+   {
+     "success": true,
+     "message": "SK Bakers E-Commerce API is running",
+     "data": { ... }
+   }
+
+Test Endpoints:
+   https://skbakers.com/api/products
+   https://skbakers.com/api/categories
+   https://skbakers.com/api/health
+
+═══════════════════════════════════════════════════════════════
+STEP 5: UPDATE REACT FRONTEND
+═══════════════════════════════════════════════════════════════
+
+A. In your React project, edit .env:
+   VITE_API_BASE_URL=https://skbakers.com/api
+
+B. Rebuild:
+   npm run build
+
+C. Deploy:
+   Upload dist/ folder to your hosting
+
+═══════════════════════════════════════════════════════════════
+STEP 6: TEST EVERYTHING
+═══════════════════════════════════════════════════════════════
+
+✓ Login with existing user: admin1@shop.com
+✓ Browse products (should show 381 products)
+✓ Add to cart
+✓ Checkout process
+✓ View orders
+✓ Admin panel (if admin user)
+
+═══════════════════════════════════════════════════════════════
+📂 FILES LOCATION ON YOUR COMPUTER
+═══════════════════════════════════════════════════════════════
+
+Schema SQL:
+C:\Users\jeyakrishna\Documents\php-sweetshop-kvp\php-backend\database\schema.sql
+
+Data SQL:
+C:\Users\jeyakrishna\Documents\php-sweetshop-kvp\migrated-data.sql
+
+Backend Files:
+C:\Users\jeyakrishna\Documents\php-sweetshop-kvp\php-backend\
+
+.env File (UPDATE PASSWORD!):
+C:\Users\jeyakrishna\Documents\php-sweetshop-kvp\php-backend\.env
+
+═══════════════════════════════════════════════════════════════
+⚠️ CHECKLIST BEFORE UPLOAD
+═══════════════════════════════════════════════════════════════
+
+[ ] Schema.sql imported in phpMyAdmin
+[ ] migrated-data.sql imported in phpMyAdmin
+[ ] Data verified (15, 381, 68, 21 records)
+[ ] .env file updated with YOUR actual database password
+[ ] .env file updated with strong JWT_SECRET
+[ ] All backend files uploaded to public_html/api/
+[ ] .htaccess file uploaded
+[ ] uploads/ and logs/ folders created
+[ ] Folder permissions set (755, 644)
+[ ] API tested: https://skbakers.com/api/
+[ ] Products endpoint tested
+[ ] React frontend API URL updated
+[ ] React app rebuilt and deployed
+
+═══════════════════════════════════════════════════════════════
+🎉 AFTER DEPLOYMENT
+═══════════════════════════════════════════════════════════════
+
+Your Cost Savings:
+- Before: $20-40/month (VPS + MongoDB)
+- After: $2-10/month (Shared hosting)
+- Annual Savings: $180-360
+
+Your Data:
+- 15 users (passwords preserved!)
+- 381 products (with images)
+- 68 orders (complete history)
+- 21 categories
+- All features working!
+
+═══════════════════════════════════════════════════════════════
+🆘 TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════
+
+Issue: "Database connection failed"
+Fix: Check password in .env file
+
+Issue: "404 Not Found"
+Fix: Upload .htaccess file to public_html/api/
+
+Issue: "CORS error"
+Fix: Check ALLOWED_ORIGINS in .env
+
+Issue: "Login doesn't work"
+Fix: Check JWT_SECRET in .env
+
+═══════════════════════════════════════════════════════════════
+
+📞 NEED HELP?
+Read these documentation files:
+- DEPLOY_NOW.md
+- BACKEND_USAGE_GUIDE.md
+- UPLOAD_INSTRUCTIONS.md
+- DEPLOYMENT_CHECKLIST.md
+
+═══════════════════════════════════════════════════════════════
+
+✅ YOU'RE READY TO DEPLOY!
+
+Start with Step 1: Import SQL files in phpMyAdmin
+
+Good luck! 🚀
+
+═══════════════════════════════════════════════════════════════

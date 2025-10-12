@@ -14,13 +14,13 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost/php-backend',
         changeOrigin: true,
         secure: false,
-        ws: true,
+        rewrite: (path) => path,
       },
       '/uploads': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost/php-backend',
         changeOrigin: true,
         secure: false,
       },

@@ -27,15 +27,17 @@ const MyOrder = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await axios.get("http://localhost:3001/api/orders/my-orders", {
+
+      const response = await axios.get("http://localhost:8000/api/orders", {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
       });
-      
+
       if (response.data && response.data.success) {
-        setOrders(response.data.orders);
+        // PHP API returns data in response.data.data.data
+        const ordersData = response.data.data?.data || response.data.orders || [];
+        setOrders(ordersData);
       } else {
         throw new Error("Failed to fetch orders");
       }

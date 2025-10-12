@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fireworkshub-v1.0.0';
+const CACHE_NAME = 'skbakers-v1.0.0';
 const STATIC_CACHE = 'static-cache-v1';
 const DYNAMIC_CACHE = 'dynamic-cache-v1';
 
@@ -229,7 +229,7 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification('FireworksHub', options)
+    self.registration.showNotification('SK Bakers', options)
   );
 });
 

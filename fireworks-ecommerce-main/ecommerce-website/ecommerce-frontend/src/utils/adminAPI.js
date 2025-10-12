@@ -2,36 +2,36 @@ import axios from '../axios';
 import axiosBase from 'axios';
 import { getApiConfig } from '../config/api.js';
 
-// Create axios instance for admin routes
+// Create axios instance for admin routes (PHP Backend)
 const adminAPI = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/admin`,
+  baseURL: `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/admin`,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
   }
 });
 
-// Create axios instance for product routes
+// Create axios instance for product routes (PHP Backend)
 const productAxios = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/products`,
+  baseURL: `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/products`,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
   }
 });
 
-// Create axios instance for order routes
+// Create axios instance for order routes (PHP Backend)
 const orderAxios = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/orders`,
+  baseURL: `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/orders`,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
   }
 });
 
-// Create axios instance for user routes
+// Create axios instance for user routes (PHP Backend)
 const userAxios = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/users`,
+  baseURL: `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/users`,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'

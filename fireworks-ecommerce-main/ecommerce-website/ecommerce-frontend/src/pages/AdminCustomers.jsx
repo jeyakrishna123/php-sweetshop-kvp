@@ -43,36 +43,56 @@ const AdminCustomers = () => {
         })
       ]);
       
-      const users = usersResponse.data.users || usersResponse.data || [];
-      const allOrders = ordersResponse.data.orders || ordersResponse.data || [];
-      
+      // PHP API returns data in response.data.data structure
+      const users = usersResponse.data?.data?.users || usersResponse.data?.users || [];
+      const allOrders = ordersResponse.data?.data?.orders || ordersResponse.data?.orders || [];
+
+      // Ensure we have arrays before filtering
+      if (!Array.isArray(users)) {
+        console.error('Users is not an array:', users);
+        throw new Error('Invalid users data format');
+      }
+
       // Filter out admin users, only show customers
       const customerUsers = users.filter(u => u.role === 'user');
       
       // Calculate real analytics for each customer
       const customersData = customerUsers.map(user => {
-        const userOrders = allOrders.filter(order => order.user === user._id || order.userId === user._id);
-        const totalSpent = userOrders.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
+        const userOrders = allOrders.filter(order => order.user_id === user.id || order.userId === user.id || order.user === user.id);
+        const totalSpent = userOrders.reduce((sum, order) => sum + (parseFloat(order.total_price) || parseFloat(order.totalPrice) || 0), 0);
         const totalOrders = userOrders.length;
         const averageOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0;
-        const lastOrder = userOrders.length > 0 ? 
-          Math.max(...userOrders.map(o => new Date(o.createdAt || o.orderDate).getTime())) : 
-          new Date(user.createdAt).getTime();
-        
+
+        // Calculate last order date safely
+        let lastOrderDate;
+        if (userOrders.length > 0) {
+          const validDates = userOrders
+            .map(o => {
+              const dateStr = o.created_at || o.createdAt || o.orderDate;
+              const timestamp = dateStr ? new Date(dateStr).getTime() : null;
+              return !isNaN(timestamp) ? timestamp : null;
+            })
+            .filter(d => d !== null);
+
+          lastOrderDate = validDates.length > 0 ? new Date(Math.max(...validDates)).toISOString() : new Date(user.created_at || user.createdAt).toISOString();
+        } else {
+          lastOrderDate = new Date(user.created_at || user.createdAt).toISOString();
+        }
+
         return {
-          _id: user._id,
+          _id: user.id,
           name: user.name,
           email: user.email,
           phone: user.phone || 'Not provided',
-          joinDate: user.createdAt || new Date().toISOString(),
+          joinDate: user.created_at || user.createdAt || new Date().toISOString(),
           totalOrders: totalOrders,
-          lastOrder: new Date(lastOrder).toISOString(),
+          lastOrder: lastOrderDate,
           totalSpent: totalSpent,
           averageOrderValue: averageOrderValue,
           segment: totalSpent > 50000 ? 'vip' : totalOrders > 3 ? 'regular' : 'new',
-          status: user.isActive !== false ? 'active' : 'inactive',
-          isVerified: user.isVerified || false,
-          lastLogin: user.lastLogin || user.createdAt,
+          status: user.is_active !== false && user.is_active !== 0 ? 'active' : 'inactive',
+          isVerified: user.is_email_verified || user.isVerified || false,
+          lastLogin: user.last_login || user.lastLogin || user.created_at || user.createdAt,
           orders: userOrders
         };
       });

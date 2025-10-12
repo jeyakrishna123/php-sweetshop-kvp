@@ -501,7 +501,7 @@ export default function ProductModal({ product, onSave, onClose, categories = []
           
           if (uploadResponse.success) {
             const uploadedUrls = uploadResponse.images.map(img => 
-              img.url.startsWith('http') ? img.url : `http://localhost:3001${img.url}`
+              img.url.startsWith('http') ? img.url : `http://localhost:8000${img.url}`
             );
             imageUrls = [...imageUrls, ...uploadedUrls];
             console.log('✅ Images uploaded successfully:', uploadedUrls);

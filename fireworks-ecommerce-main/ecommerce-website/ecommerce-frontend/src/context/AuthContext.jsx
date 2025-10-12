@@ -217,24 +217,29 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       setLoading(true);
-      
+
       console.log('🔐 Attempting regular login for:', email);
-      
-      const response = await axios.post(API_CONFIG.ENDPOINTS.AUTH.LOGIN, 
+
+      const response = await axios.post(API_CONFIG.ENDPOINTS.AUTH.LOGIN,
         { email, password }
       );
-      
+
       if (response.data.success) {
-        const userData = response.data.user;
-        const token = response.data.token;
-        
+        // PHP API returns data in response.data.data
+        const userData = response.data.data?.user || response.data.user;
+        const token = response.data.data?.token || response.data.token;
+
+        if (!userData || !token) {
+          throw new Error('Invalid response from server');
+        }
+
         console.log('✅ Regular login successful:', userData.email);
-        
+
         localStorage.setItem("userInfo", JSON.stringify(userData));
         localStorage.setItem("token", token);
         setUser(userData);
         setSessionValid(true);
-        
+
         return userData;
       } else {
         throw new Error(response.data.message || 'Login failed');
@@ -242,7 +247,7 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       const errorMessage = error.response?.data?.message || error.message || 'Login failed. Please try again.';
       console.error('❌ Regular login failed:', errorMessage);
-      
+
       if (error.code === 'ECONNREFUSED' || error.message.includes('Network Error')) {
         setError('Backend server is not available. Please try again later.');
       } else {
@@ -258,33 +263,38 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       setLoading(true);
-      
+
       console.log('🔐 Attempting admin login for:', email);
-      
-      const response = await axios.post(API_CONFIG.ENDPOINTS.AUTH.ADMIN_LOGIN, 
+
+      const response = await axios.post(API_CONFIG.ENDPOINTS.AUTH.ADMIN_LOGIN,
         { email, password }
       );
-      
+
       if (response.data.success) {
-        const userData = response.data.user;
-        const token = response.data.token;
-        
+        // PHP API returns data in response.data.data
+        const userData = response.data.data?.user || response.data.user;
+        const token = response.data.data?.token || response.data.token;
+
+        if (!userData || !token) {
+          throw new Error('Invalid response from server');
+        }
+
         if (userData.role !== 'admin' && userData.role !== 'superadmin') {
           throw new Error('Access denied. Admin privileges required.');
         }
-        
+
         console.log('✅ Admin login successful:', userData.email, 'Role:', userData.role);
-        
+
         localStorage.setItem("userInfo", JSON.stringify(userData));
         localStorage.setItem("token", token);
-        
+
         // Update state synchronously
         setUser(userData);
         setSessionValid(true);
-        
+
         console.log('🔐 AuthContext: User state updated:', userData);
         console.log('🔐 AuthContext: Session valid:', true);
-        
+
         return userData;
       } else {
         throw new Error(response.data.message || 'Admin login failed');
@@ -292,7 +302,7 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       const errorMessage = error.response?.data?.message || error.message || 'Admin login failed. Please try again.';
       console.error('❌ Admin login failed:', errorMessage);
-      
+
       if (error.code === 'ECONNREFUSED' || error.message.includes('Network Error')) {
         setError('Backend server is not available. Please try again later.');
       } else {
@@ -308,21 +318,26 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       setLoading(true);
-      
+
       console.log('🔐 Attempting user registration for:', email);
-      
+
       const userData = { name, email, phone, password };
       const response = await axios.post(API_CONFIG.ENDPOINTS.AUTH.REGISTER, userData);
-      
+
       if (response.data.success) {
-        const newUserData = response.data.user;
-        const token = response.data.token;
-        
+        // PHP API returns data in response.data.data
+        const newUserData = response.data.data?.user || response.data.user;
+        const token = response.data.data?.token || response.data.token;
+
+        if (!newUserData || !token) {
+          throw new Error('Invalid response from server');
+        }
+
         console.log('✅ Registration successful:', newUserData.email);
-        
+
         // Don't automatically log in after registration
         // Just return the user data for the success message
-        
+
         return newUserData;
       } else {
         throw new Error(response.data.message || 'Registration failed');

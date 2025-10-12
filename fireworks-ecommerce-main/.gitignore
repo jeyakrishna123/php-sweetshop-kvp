@@ -31,7 +31,8 @@ pids
 coverage/
 *.lcov
 
-# nyc test coverage
+# nyc test coverage`    as `
+
 .nyc_output
 
 # Grunt intermediate storage

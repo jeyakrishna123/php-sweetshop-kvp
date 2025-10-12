@@ -33,13 +33,27 @@ const AdminBanners = () => {
       setLoading(true);
       const response = await bannerAPI.getAllBanners();
       if (response.success) {
-        setBanners(response.banners);
+        // Handle nested response structure and ensure it's an array
+        const bannersData = response.data?.banners || response.banners || [];
+
+        if (!Array.isArray(bannersData)) {
+          console.error('Banners is not an array:', bannersData);
+          setBanners([]);
+          showToast('Invalid banners data format', 'error');
+          return;
+        }
+
+        setBanners(bannersData);
         // Save to localStorage for frontend access
-        localStorage.setItem('banners', JSON.stringify(response.banners));
-        console.log('💾 Banners saved to localStorage:', response.banners.length);
+        localStorage.setItem('banners', JSON.stringify(bannersData));
+        console.log('💾 Banners saved to localStorage:', bannersData.length);
+      } else {
+        setBanners([]);
+        showToast(response.message || 'Failed to fetch banners', 'error');
       }
     } catch (error) {
       console.error('Error fetching banners:', error);
+      setBanners([]);
       showToast('Failed to fetch banners', 'error');
     } finally {
       setLoading(false);

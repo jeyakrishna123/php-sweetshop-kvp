@@ -1,14 +1,14 @@
 // API Configuration
 export const API_CONFIG = {
-  // Backend API base URL
-  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:3001',
+  // Backend API base URL (PHP Backend)
+  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
   
   // API endpoints
   ENDPOINTS: {
     AUTH: {
       REGISTER: '/api/auth/register',
       LOGIN: '/api/auth/login',
-      ADMIN_LOGIN: '/api/auth/admin-login',
+      ADMIN_LOGIN: '/api/auth/login', // PHP backend uses same endpoint for admin
       VERIFY: '/api/auth/verify',
       LOGOUT: '/api/auth/logout',
       ME: '/api/auth/me'

@@ -1,0 +1,142 @@
+═══════════════════════════════════════════════════════════════
+    🚀 IMPORT DATA TO MYSQL - STEP BY STEP
+═══════════════════════════════════════════════════════════════
+
+YOUR DATABASE IS READY:
+✅ Database: u707629033_skbakers_main
+✅ User: u707629033_admin
+✅ Host: localhost
+
+═══════════════════════════════════════════════════════════════
+STEP 1: OPEN phpMyAdmin
+═══════════════════════════════════════════════════════════════
+
+1. Click the purple "Enter phpMyAdmin" button on your screen
+2. phpMyAdmin will open in a new tab
+3. Your database "u707629033_skbakers_main" should be auto-selected
+4. You'll see the database name in the left sidebar
+
+═══════════════════════════════════════════════════════════════
+STEP 2: IMPORT SCHEMA (Creates Tables)
+═══════════════════════════════════════════════════════════════
+
+In phpMyAdmin:
+
+1. Click "Import" tab at the top
+2. Click "Choose File" button
+3. Browse to this file:
+   C:\Users\jeyakrishna\Documents\php-sweetshop-kvp\php-backend\database\schema.sql
+
+4. Select "schema.sql" file
+5. Leave all other settings as default
+6. Scroll down and click "Go" button
+7. Wait for success message
+
+✅ Expected Result: "Import has been successfully finished, 16 queries executed."
+
+═══════════════════════════════════════════════════════════════
+STEP 3: VERIFY TABLES CREATED
+═══════════════════════════════════════════════════════════════
+
+In phpMyAdmin left sidebar, you should see these tables:
+✓ users
+✓ products
+✓ orders
+✓ categories
+✓ addresses
+✓ order_items
+✓ order_shipping
+✓ order_payment
+✓ order_status_history
+✓ reviews
+✓ wishlist
+✓ banners
+✓ coupons
+✓ offer_popups
+✓ product_images
+✓ sessions
+
+Total: 16 tables ✅
+
+═══════════════════════════════════════════════════════════════
+STEP 4: IMPORT DATA (Your Products, Users, Orders)
+═══════════════════════════════════════════════════════════════
+
+In phpMyAdmin:
+
+1. Click "Import" tab again
+2. Click "Choose File"
+3. Browse to this file:
+   C:\Users\jeyakrishna\Documents\php-sweetshop-kvp\migrated-data.sql
+
+4. Select "migrated-data.sql" (572 KB file)
+5. Leave all settings as default
+6. Click "Go" button
+7. Wait 1-2 minutes (larger file)
+8. Don't close the browser!
+
+✅ Expected Result: "Import has been successfully finished, 493 queries executed."
+
+═══════════════════════════════════════════════════════════════
+STEP 5: VERIFY DATA IMPORTED
+═══════════════════════════════════════════════════════════════
+
+In phpMyAdmin:
+
+1. Click "SQL" tab at the top
+2. Clear the text box
+3. Paste this query:
+
+SELECT 'users' as table_name, COUNT(*) as count FROM users
+UNION ALL SELECT 'products', COUNT(*) FROM products
+UNION ALL SELECT 'orders', COUNT(*) FROM orders
+UNION ALL SELECT 'categories', COUNT(*) FROM categories
+UNION ALL SELECT 'reviews', COUNT(*) FROM reviews
+UNION ALL SELECT 'banners', COUNT(*) FROM banners;
+
+4. Click "Go" button
+
+✅ Expected Results:
+   users: 15
+   products: 381
+   orders: 68
+   categories: 21
+   reviews: 7
+   banners: 1
+
+If you see these numbers, SUCCESS! ✅
+
+═══════════════════════════════════════════════════════════════
+TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════
+
+Issue: "No database selected"
+Fix: Click on "u707629033_skbakers_main" in left sidebar
+
+Issue: "File too large"
+Fix: Use "Browse your computer" option, not drag-drop
+
+Issue: "Maximum execution time exceeded"
+Fix: Try importing again, or use command line
+
+Issue: "Duplicate entry"
+Fix: Drop all tables and reimport schema first
+
+═══════════════════════════════════════════════════════════════
+AFTER SUCCESSFUL IMPORT
+═══════════════════════════════════════════════════════════════
+
+✅ 16 tables created
+✅ 493 records imported
+✅ Database ready!
+
+Next Steps:
+1. Update .env file with database password
+2. Upload PHP backend to Hostinger
+3. Test API
+
+═══════════════════════════════════════════════════════════════
+
+👉 START NOW: Click "Enter phpMyAdmin" and begin with Step 2!
+
+═══════════════════════════════════════════════════════════════

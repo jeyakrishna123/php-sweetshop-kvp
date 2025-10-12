@@ -196,14 +196,14 @@ const AdminOrders = () => {
     
     // If it starts with /uploads, use backend server URL
     if (imagePath.startsWith('/uploads')) {
-      const fullUrl = `http://localhost:3001${imagePath}`;
+      const fullUrl = `http://localhost:8000${imagePath}`;
       console.log('🔗 Local upload path converted to:', fullUrl);
       return fullUrl;
     }
     
     // If it's just a filename, construct the full path
     if (imagePath.includes('.')) {
-      const fullUrl = `http://localhost:3001/uploads/products/${imagePath}`;
+      const fullUrl = `http://localhost:8000/uploads/products/${imagePath}`;
       console.log('🔗 Filename converted to:', fullUrl);
       return fullUrl;
     }

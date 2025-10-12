@@ -1,0 +1,14 @@
+{
+  "name": "mongodb-to-mysql-migration",
+  "version": "1.0.0",
+  "description": "Migration script for MongoDB to MySQL",
+  "type": "module",
+  "scripts": {
+    "migrate": "node migrate-mongodb-to-mysql.js",
+    "backup": "mongodump --db=skbakers --out=./mongodb-backup",
+    "test-connection": "node test-mongodb-connection.js"
+  },
+  "dependencies": {
+    "mongoose": "^8.17.2"
+  }
+}

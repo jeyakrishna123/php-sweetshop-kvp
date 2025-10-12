@@ -42,12 +42,27 @@ const AdminAnalytics = () => {
       setError(null);
       
       const response = await axios.get(`/api/admin/analytics?range=${timeRange}`);
-      
+
       if (response.data && response.data.success) {
-        const analyticsData = response.data.analytics;
-        
+        // Handle nested response structure from PHP API
+        const analyticsData = response.data.data?.analytics || response.data.analytics || {};
+
         // Always set the analytics data - let the UI handle empty states
-        setAnalytics(analyticsData);
+        setAnalytics(analyticsData || {
+          totalSales: 0,
+          totalOrders: 0,
+          averageOrderValue: 0,
+          topProducts: [],
+          salesByMonth: [],
+          orderStatuses: {},
+          dailySales: [],
+          recentOrders: [],
+          totalCustomers: 0,
+          activeUsers: 0,
+          newUsers: 0,
+          totalUsers: 0,
+          totalProfit: 0
+        });
         
         // Log the received data for debugging
         console.log('📊 Received Analytics Data:', analyticsData);
@@ -108,23 +123,36 @@ const AdminAnalytics = () => {
 
   // Use REAL analytics calculations from backend
   const advancedMetrics = useMemo(() => {
-    const { 
-      totalSales, 
-      totalOrders, 
-      totalCustomers, 
-      averageOrderValue, 
-      dailySales, 
-      salesByMonth,
+    if (!analytics) {
+      return {
+        salesGrowthRate: 0,
+        conversionRate: 0,
+        customerLTV: 0,
+        profitMargin: 0,
+        orderFrequency: 0,
+        revenuePerCustomer: 0,
+        dailyAverageSales: 0,
+        peakSalesDay: null
+      };
+    }
+
+    const {
+      totalSales = 0,
+      totalOrders = 0,
+      totalCustomers = 0,
+      averageOrderValue = 0,
+      dailySales = [],
+      salesByMonth = [],
       // REAL CALCULATED METRICS FROM BACKEND
-      conversionRate,
-      customerLTV,
-      orderFrequency,
-      profitMargin,
-      peakSalesDay,
-      dailyAverageSales,
-      growthRate
+      conversionRate = 0,
+      customerLTV = 0,
+      orderFrequency = 0,
+      profitMargin = 0,
+      peakSalesDay = null,
+      dailyAverageSales = 0,
+      growthRate = 0
     } = analytics;
-    
+
     // Use real calculated values from backend instead of frontend calculations
     return {
       salesGrowthRate: growthRate || 0,

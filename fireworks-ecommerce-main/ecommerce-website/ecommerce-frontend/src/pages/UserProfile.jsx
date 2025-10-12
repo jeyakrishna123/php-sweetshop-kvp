@@ -121,7 +121,7 @@ const UserProfile = () => {
     
     setLoading(true);
     try {
-      const response = await axios.put("http://localhost:3001/api/users/profile", profileData, {
+      const response = await axios.put("http://localhost:8000/api/users/profile", profileData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
@@ -151,7 +151,7 @@ const UserProfile = () => {
     
     setPasswordLoading(true);
     try {
-      const response = await axios.put("http://localhost:3001/api/users/password", {
+      const response = await axios.put("http://localhost:8000/api/users/password", {
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword
       }, {

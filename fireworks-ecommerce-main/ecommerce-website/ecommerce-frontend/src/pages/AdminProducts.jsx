@@ -91,12 +91,18 @@ const AdminProducts = () => {
     try {
       setLoading(true);
       setError("");
-      
+
       const response = await productAPI.getAllProducts();
-      
+
       if (response.success) {
-        const fetchedProducts = response.products;
-        
+        // PHP API returns data in response.data.data
+        const fetchedProducts = response.data?.data || response.products || [];
+
+        if (!Array.isArray(fetchedProducts)) {
+          console.error('fetchedProducts is not an array:', fetchedProducts);
+          throw new Error('Invalid products data format');
+        }
+
         const cleanedProducts = fetchedProducts.map(product => ({
           _id: product._id,
           name: product.name,
@@ -146,7 +152,7 @@ const AdminProducts = () => {
 
   const fetchCategories = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/categories', {
+      const response = await fetch('http://localhost:8000/api/categories', {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         }
@@ -467,7 +473,7 @@ const AdminProducts = () => {
       }
       // If it's a relative URL from backend, make it absolute
       if (image.startsWith('/uploads/')) {
-        return `http://localhost:3001${image}`;
+        return `http://localhost:8000${image}`;
       }
       return image;
     }
@@ -477,7 +483,7 @@ const AdminProducts = () => {
         return image.url;
       }
       if (image.url.startsWith('/uploads/')) {
-        return `http://localhost:3001${image.url}`;
+        return `http://localhost:8000${image.url}`;
       }
       return image.url;
     }

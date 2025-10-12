@@ -1,7 +1,7 @@
 {
-  "name": "FireworksHub - Premium Fireworks Store",
-  "short_name": "FireworksHub",
-  "description": "Your one-stop destination for premium fireworks, crackers, and celebration essentials",
+  "name": "SK Bakers - Fresh Cakes & Sweet Delights",
+  "short_name": "SK Bakers",
+  "description": "Your trusted bakery for fresh cakes, pastries, and sweet delights. Crafted with love, baked to perfection.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -9,7 +9,7 @@
   "orientation": "portrait-primary",
   "scope": "/",
   "lang": "en",
-  "categories": ["shopping", "entertainment", "lifestyle"],
+  "categories": ["shopping", "food", "bakery"],
   "icons": [
     {
       "src": "/icons/icon-72x72.png",
@@ -66,21 +66,21 @@
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "FireworksHub Homepage"
+      "label": "SK Bakers Homepage"
     },
     {
       "src": "/screenshots/mobile-home.png",
       "sizes": "375x812",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "FireworksHub Mobile Homepage"
+      "label": "SK Bakers Mobile Homepage"
     }
   ],
   "shortcuts": [
     {
       "name": "Browse Products",
       "short_name": "Products",
-      "description": "Browse our collection of premium fireworks",
+      "description": "Browse our delicious cakes and pastries",
       "url": "/products",
       "icons": [
         {

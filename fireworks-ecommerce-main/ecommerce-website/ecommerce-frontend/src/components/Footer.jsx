@@ -12,13 +12,13 @@ const Footer = () => {
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-pink-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">E</span>
+                <span className="text-white font-bold text-lg">🎂</span>
               </div>
-              <span className="text-xl font-bold">ModernEcommerce</span>
+              <span className="text-xl font-bold">SK Bakers</span>
             </div>
             <p className="text-gray-300 text-sm leading-relaxed">
-              Your one-stop destination for modern fashion, electronics, and lifestyle products. 
-              Quality products at competitive prices.
+              Your trusted bakery for fresh cakes, pastries, and sweet delights.
+              Crafted with love, baked to perfection. Quality ingredients, unforgettable taste.
             </p>
             <div className="flex space-x-4">
               <a href="#" aria-label="Follow us on Twitter" className="text-gray-400 hover:text-pink-500 transition duration-200">
@@ -97,7 +97,7 @@ const Footer = () => {
               </li>
               <li>
                 <a href="#" className="text-gray-300 hover:text-pink-500 transition duration-200">
-                  Size Guide
+                  Custom Orders
                 </a>
               </li>
               <li>
@@ -114,7 +114,7 @@ const Footer = () => {
         <div className="mt-12 pt-8 border-t border-gray-800">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <div className="text-gray-400 text-sm">
-              © {currentYear} ModernEcommerce. All rights reserved.
+              © {currentYear} SK Bakers. All rights reserved.
             </div>
             <div className="flex space-x-6 text-sm">
               <a href="#" className="text-gray-400 hover:text-pink-500 transition duration-200">
