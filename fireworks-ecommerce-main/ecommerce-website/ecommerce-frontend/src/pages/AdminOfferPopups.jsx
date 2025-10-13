@@ -71,7 +71,7 @@ const AdminOfferPopups = () => {
       _id: "mock-popup-1",
       couponCode: "WELCOME20",
       endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      popupImage: "https://images.unsplash.com/photo-1578985545062-69aa9484c9c2?w=400&h=300&fit=crop&q=80&fm=jpg&crop=center",
+      popupImage: "https://via.placeholder.com/400x300/4F46E5/FFFFFF?text=Welcome+20%25+OFF",
       showOnInitialPage: true,
       triggerType: 'page_load',
       showOnPages: ['home'],
@@ -85,7 +85,7 @@ const AdminOfferPopups = () => {
       _id: "mock-popup-2",
       couponCode: "SAVE15",
       endDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-      popupImage: "https://images.unsplash.com/photo-1578985545063-69aa9484c9c3?w=400&h=300&fit=crop&q=80&fm=jpg&crop=center",
+      popupImage: "https://via.placeholder.com/400x300/7C3AED/FFFFFF?text=Save+15%25",
       showOnInitialPage: false,
       triggerType: 'click_specific_pages',
       showOnPages: ['home', 'contact'],
@@ -99,7 +99,7 @@ const AdminOfferPopups = () => {
       _id: "mock-popup-3",
       couponCode: "NEWUSER",
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      popupImage: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop&q=80&fm=jpg&crop=center",
+      popupImage: "https://via.placeholder.com/400x300/EC4899/FFFFFF?text=New+User+Special",
       showOnInitialPage: true,
       triggerType: 'page_load',
       showOnPages: ['home'],
@@ -207,15 +207,17 @@ const AdminOfferPopups = () => {
           data: apiError.response?.data,
           message: apiError.message
         });
-        
-        // Check if it's an authentication error - handle gracefully without redirect
+
+        // Check if it's an authentication error or 404 (not found) - handle gracefully without redirect
         if (apiError.response?.status === 401) {
           console.log('🔐 Authentication error - using mock save instead of redirecting');
           showToast('Using offline mode - changes saved locally', 'warning');
-          
-          // Don't let the error propagate to trigger axios interceptor
-          // Continue with mock save
+        } else if (apiError.response?.status === 404) {
+          console.log('🔍 API endpoint not found (404) - using mock save');
+          showToast('Using local storage - API not available', 'info');
         }
+
+        // Continue with mock save for all errors
         
         // Mock save - update localStorage and local state
         const allPopups = loadPopupsFromStorage();
