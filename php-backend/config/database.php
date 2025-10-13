@@ -56,16 +56,20 @@ class Database {
         $connected = false;
         $lastError = '';
         
-        foreach ($configs as $config) {
+        foreach ($configs as $configIndex => $config) {
             try {
                 $this->host = $config['host'];
                 $this->db_name = $config['db'];
                 $this->username = $config['user'];
                 $this->password = $config['pass'];
                 $this->charset = 'utf8mb4';
-                
+
                 $dsn = "mysql:host={$this->host};dbname={$this->db_name};charset={$this->charset}";
-                
+
+                $debugMsg = "Trying config #" . ($configIndex + 1) . ": {$this->username}@{$this->host}/{$this->db_name}";
+                error_log($debugMsg);
+                file_put_contents('php://stderr', $debugMsg . "\n");
+
                 $options = [
                     PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -76,23 +80,27 @@ class Database {
                 if (defined('PDO::MYSQL_ATTR_INIT_COMMAND')) {
                     $options[PDO::MYSQL_ATTR_INIT_COMMAND] = "SET NAMES utf8mb4";
                 }
-                
+
                 $this->conn = new PDO($dsn, $this->username, $this->password, $options);
-                
+
                 // Test the connection
                 $stmt = $this->conn->prepare("SELECT 1 as test");
                 $stmt->execute();
                 $result = $stmt->fetch();
-                
+
                 if ($result && $result['test'] == 1) {
                     $connected = true;
-                    error_log("Database connected successfully with: {$this->host}/{$this->db_name}");
+                    $successMsg = "✅ Database connected successfully with: {$this->username}@{$this->host}/{$this->db_name}";
+                    error_log($successMsg);
+                    file_put_contents('php://stderr', $successMsg . "\n");
                     break;
                 }
-                
+
             } catch(PDOException $e) {
                 $lastError = $e->getMessage();
-                error_log("Database connection failed with {$config['host']}/{$config['db']}: " . $e->getMessage());
+                $errorMsg = "❌ Config #" . ($configIndex + 1) . " failed: " . $e->getMessage();
+                error_log($errorMsg);
+                file_put_contents('php://stderr', $errorMsg . "\n");
                 continue;
             }
         }

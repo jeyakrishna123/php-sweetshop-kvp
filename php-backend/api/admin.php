@@ -101,9 +101,9 @@ try {
             break;
 
         case 'banners':
-            if ($method === 'GET') {
-                getAllBanners($db);
-            }
+            // Forward all banner requests to the banners.php file
+            require_once __DIR__ . '/banners.php';
+            exit;
             break;
 
         case 'marketing':
