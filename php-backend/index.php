@@ -109,6 +109,26 @@ switch ($resource) {
         require_once __DIR__ . '/api/menu.php';
         break;
 
+    case 'contacts':
+        require_once __DIR__ . '/api/contacts.php';
+        break;
+
+    case 'inventory':
+        require_once __DIR__ . '/api/inventory.php';
+        break;
+
+    case 'analytics':
+        require_once __DIR__ . '/api/analytics.php';
+        break;
+
+    case 'hide-sections':
+        require_once __DIR__ . '/api/hide-sections.php';
+        break;
+
+    case 'team':
+        require_once __DIR__ . '/api/team.php';
+        break;
+
     case 'health':
         // Health check endpoint
         sendSuccess('Server is healthy', [

@@ -18,6 +18,16 @@ const AdminContacts = () => {
     responded: 0,
     closed: 0
   });
+
+  // Ensure stats always has all required properties
+  const safeStats = {
+    total: stats?.total ?? 0,
+    new: stats?.new ?? 0,
+    read: stats?.read ?? 0,
+    unread: stats?.unread ?? 0,
+    responded: stats?.responded ?? 0,
+    closed: stats?.closed ?? 0
+  };
   const [filter, setFilter] = useState('all');
 
   useEffect(() => {
@@ -29,12 +39,29 @@ const AdminContacts = () => {
     try {
       setLoading(true);
       const response = await axios.get('/api/contacts');
-      if (response.data.success) {
-        setContacts(response.data.contacts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+      if (response.data.success && Array.isArray(response.data.contacts)) {
+        const sortedContacts = response.data.contacts.sort((a, b) =>
+          new Date(b.createdAt) - new Date(a.createdAt)
+        );
+        setContacts(sortedContacts);
+      } else {
+        // Response was successful but contacts data is missing or invalid
+        setContacts([]);
       }
     } catch (error) {
       console.error('Error fetching contacts:', error);
-      showToast('Failed to fetch contacts', 'error');
+
+      // Handle 404 gracefully - API endpoint doesn't exist yet
+      if (error.response?.status === 404) {
+        console.log('🔍 Contacts API endpoint not found (404) - using empty state');
+        showToast('Contacts API not available - using local view', 'info');
+      } else if (error.response?.status === 401) {
+        console.log('🔐 Authentication error - user may need to log in');
+        showToast('Authentication required', 'warning');
+      } else {
+        showToast('Failed to fetch contacts', 'error');
+      }
+      setContacts([]);
     } finally {
       setLoading(false);
     }
@@ -48,6 +75,14 @@ const AdminContacts = () => {
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
+
+      // Handle errors gracefully and ensure stats remain initialized
+      if (error.response?.status === 404) {
+        console.log('🔍 Stats API endpoint not found (404) - using default stats');
+      } else if (error.response?.status === 401) {
+        console.log('🔐 Authentication error for stats - using default stats');
+      }
+      // Keep default stats state regardless of error
     }
   };
 
@@ -65,13 +100,18 @@ const AdminContacts = () => {
     try {
       const response = await axios.put(`/api/contacts/${contactId}/read`);
       if (response.data.success) {
-        setContacts(prev => prev.map(contact => 
+        setContacts(prev => prev.map(contact =>
           contact.id === contactId ? { ...contact, isRead: true } : contact
         ));
         fetchStats();
       }
     } catch (error) {
       console.error('Error marking contact as read:', error);
+
+      // Handle 404 gracefully - API endpoint doesn't exist yet
+      if (error.response?.status === 404) {
+        console.log('🔍 Mark as read API endpoint not found (404)');
+      }
     }
   };
 
@@ -82,7 +122,7 @@ const AdminContacts = () => {
         adminNotes
       });
       if (response.data.success) {
-        setContacts(prev => prev.map(contact => 
+        setContacts(prev => prev.map(contact =>
           contact.id === contactId ? { ...contact, status, adminNotes } : contact
         ));
         showToast('Contact status updated successfully', 'success');
@@ -90,7 +130,14 @@ const AdminContacts = () => {
       }
     } catch (error) {
       console.error('Error updating contact status:', error);
-      showToast('Failed to update contact status', 'error');
+
+      // Handle 404 gracefully - API endpoint doesn't exist yet
+      if (error.response?.status === 404) {
+        console.log('🔍 Update status API endpoint not found (404)');
+        showToast('API not available - changes not saved', 'info');
+      } else {
+        showToast('Failed to update contact status', 'error');
+      }
     }
   };
 
@@ -108,7 +155,14 @@ const AdminContacts = () => {
       }
     } catch (error) {
       console.error('Error deleting contact:', error);
-      showToast('Failed to delete contact', 'error');
+
+      // Handle 404 gracefully - API endpoint doesn't exist yet
+      if (error.response?.status === 404) {
+        console.log('🔍 Delete contact API endpoint not found (404)');
+        showToast('API not available - delete operation not supported', 'info');
+      } else {
+        showToast('Failed to delete contact', 'error');
+      }
     }
   };
 
@@ -172,7 +226,7 @@ const AdminContacts = () => {
           <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold text-gray-900">{stats.total}</div>
+                <div className="text-3xl font-bold text-gray-900">{safeStats.total}</div>
                 <div className="text-sm font-medium text-gray-600 mt-1">Total Contacts</div>
               </div>
               <div className="p-3 bg-gradient-to-r from-gray-500 to-gray-600 rounded-lg">
@@ -187,7 +241,7 @@ const AdminContacts = () => {
           <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-blue-100">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold text-blue-600">{stats.new}</div>
+                <div className="text-3xl font-bold text-blue-600">{safeStats.new}</div>
                 <div className="text-sm font-medium text-gray-600 mt-1">New</div>
               </div>
               <div className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg">
@@ -202,7 +256,7 @@ const AdminContacts = () => {
           <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-green-100">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold text-green-600">{stats.responded}</div>
+                <div className="text-3xl font-bold text-green-600">{safeStats.responded}</div>
                 <div className="text-sm font-medium text-gray-600 mt-1">Responded</div>
               </div>
               <div className="p-3 bg-gradient-to-r from-green-500 to-green-600 rounded-lg">
@@ -217,7 +271,7 @@ const AdminContacts = () => {
           <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-red-100">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold text-red-600">{stats.unread}</div>
+                <div className="text-3xl font-bold text-red-600">{safeStats.unread}</div>
                 <div className="text-sm font-medium text-gray-600 mt-1">Unread</div>
               </div>
               <div className="p-3 bg-gradient-to-r from-red-500 to-red-600 rounded-lg">
@@ -232,7 +286,7 @@ const AdminContacts = () => {
           <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold text-gray-600">{stats.read}</div>
+                <div className="text-3xl font-bold text-gray-600">{safeStats.read}</div>
                 <div className="text-sm font-medium text-gray-600 mt-1">Read</div>
               </div>
               <div className="p-3 bg-gradient-to-r from-gray-500 to-gray-600 rounded-lg">
@@ -248,7 +302,7 @@ const AdminContacts = () => {
           <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold text-gray-500">{stats.closed}</div>
+                <div className="text-3xl font-bold text-gray-500">{safeStats.closed}</div>
                 <div className="text-sm font-medium text-gray-600 mt-1">Closed</div>
               </div>
               <div className="p-3 bg-gradient-to-r from-gray-400 to-gray-500 rounded-lg">
@@ -271,10 +325,10 @@ const AdminContacts = () => {
           <div className="flex flex-wrap gap-2">
             {[
               { key: 'all', label: 'All', count: contacts.length, color: 'gray' },
-              { key: 'unread', label: 'Unread', count: stats.unread, color: 'red' },
-              { key: 'new', label: 'New', count: stats.new, color: 'blue' },
-              { key: 'responded', label: 'Responded', count: stats.responded, color: 'green' },
-              { key: 'closed', label: 'Closed', count: stats.closed, color: 'gray' }
+              { key: 'unread', label: 'Unread', count: safeStats.unread, color: 'red' },
+              { key: 'new', label: 'New', count: safeStats.new, color: 'blue' },
+              { key: 'responded', label: 'Responded', count: safeStats.responded, color: 'green' },
+              { key: 'closed', label: 'Closed', count: safeStats.closed, color: 'gray' }
             ].map(tab => (
               <button
                 key={tab.key}

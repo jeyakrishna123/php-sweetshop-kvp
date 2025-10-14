@@ -51,12 +51,19 @@ const AdminHideSections = () => {
     try {
       setLoading(true);
       const response = await axios.get('/api/hide-sections');
-      if (response.data.success) {
-        setHiddenSections(response.data.hiddenSections.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+      if (response.data.success && Array.isArray(response.data.data?.sections)) {
+        const sortedSections = response.data.data.sections.sort((a, b) =>
+          new Date(b.createdAt) - new Date(a.createdAt)
+        );
+        setHiddenSections(sortedSections);
+      } else {
+        // Response was successful but data is missing or invalid
+        setHiddenSections([]);
       }
     } catch (error) {
       console.error('Error fetching hidden sections:', error);
       showToast('Failed to fetch hidden sections', 'error');
+      setHiddenSections([]);
     } finally {
       setLoading(false);
     }

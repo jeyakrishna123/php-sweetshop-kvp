@@ -23,11 +23,15 @@ const AboutUs = () => {
   const fetchTeamMembers = async () => {
     try {
       const response = await axios.get('/api/team');
-      if (response.data.success) {
-        setTeamMembers(response.data.teamMembers.filter(member => member.isActive));
+      if (response.data.success && Array.isArray(response.data.data?.team)) {
+        const activeMembers = response.data.data.team.filter(member => member.isActive);
+        setTeamMembers(activeMembers);
+      } else {
+        setTeamMembers([]);
       }
     } catch (error) {
       console.error('Error fetching team members:', error);
+      setTeamMembers([]);
     } finally {
       setLoading(false);
     }
@@ -243,7 +247,7 @@ const AboutUs = () => {
                       />
                     </div>
                     <h3 className="text-xl font-bold text-gray-900 mb-2">{member.name}</h3>
-                    <p className="text-red-600 font-semibold mb-3">{member.position}</p>
+                    <p className="text-red-600 font-semibold mb-3">{member.role || member.position}</p>
                     <p className="text-gray-600 text-sm mb-4">{member.bio}</p>
                     
                     {/* Social Links */}
