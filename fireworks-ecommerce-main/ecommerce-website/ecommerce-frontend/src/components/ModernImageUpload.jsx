@@ -103,6 +103,12 @@ const ModernImageUpload = ({
     e.preventDefault();
   };
 
+  const handleClick = () => {
+    if (!isUploading && images.length < maxImages) {
+      fileInputRef.current?.click();
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Mode Toggle */}
@@ -134,13 +140,14 @@ const ModernImageUpload = ({
       {/* Upload Mode */}
       {uploadMode === 'upload' && (
         <div
-          className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 ${
+          className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer ${
             isUploading
-              ? 'border-blue-400 bg-blue-50'
+              ? 'border-blue-400 bg-blue-50 cursor-not-allowed'
               : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
           }`}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
+          onClick={handleClick}
         >
           <div className="space-y-4">
             <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
@@ -165,24 +172,13 @@ const ModernImageUpload = ({
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading || images.length >= maxImages}
-              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 font-medium"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Choose Files
-            </button>
-
             <input
               ref={fileInputRef}
               type="file"
               multiple
               accept="image/*"
               onChange={(e) => handleFileUpload(Array.from(e.target.files))}
+              disabled={isUploading || images.length >= maxImages}
               className="hidden"
             />
           </div>

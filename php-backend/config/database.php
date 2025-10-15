@@ -68,7 +68,7 @@ class Database {
 
                 $debugMsg = "Trying config #" . ($configIndex + 1) . ": {$this->username}@{$this->host}/{$this->db_name}";
                 error_log($debugMsg);
-                file_put_contents('php://stderr', $debugMsg . "\n");
+                // file_put_contents('php://stderr', $debugMsg . "\n"); // Disabled to prevent output pollution
 
                 $options = [
                     PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
@@ -92,7 +92,7 @@ class Database {
                     $connected = true;
                     $successMsg = "✅ Database connected successfully with: {$this->username}@{$this->host}/{$this->db_name}";
                     error_log($successMsg);
-                    file_put_contents('php://stderr', $successMsg . "\n");
+                    // file_put_contents('php://stderr', $successMsg . "\n"); // Disabled to prevent output pollution
                     break;
                 }
 
@@ -100,7 +100,7 @@ class Database {
                 $lastError = $e->getMessage();
                 $errorMsg = "❌ Config #" . ($configIndex + 1) . " failed: " . $e->getMessage();
                 error_log($errorMsg);
-                file_put_contents('php://stderr', $errorMsg . "\n");
+                // file_put_contents('php://stderr', $errorMsg . "\n"); // Disabled to prevent output pollution
                 continue;
             }
         }
