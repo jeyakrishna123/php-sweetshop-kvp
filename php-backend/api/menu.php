@@ -115,6 +115,9 @@ function getAllMenuItems($db) {
     AuthMiddleware::requireAdmin($authUser);
 
     try {
+        // DEBUG: Log what we're fetching from database
+        error_log("🔍 getAllMenuItems - Fetching menu items from database");
+        
         $stmt = $db->prepare("
             SELECT
                 id as _id,
@@ -132,6 +135,12 @@ function getAllMenuItems($db) {
         ");
         $stmt->execute();
         $menuItems = $stmt->fetchAll();
+
+        // DEBUG: Log what was fetched from database
+        error_log("🔍 getAllMenuItems - Fetched " . count($menuItems) . " menu items");
+        foreach ($menuItems as $item) {
+            error_log("🔍 getAllMenuItems - Item: " . $item['name'] . " | Image: " . ($item['image'] ?: 'EMPTY'));
+        }
 
         sendSuccess('Menu items retrieved successfully', $menuItems);
     } catch (Exception $e) {
@@ -191,6 +200,10 @@ function createMenuItem($db) {
     }
 
     try {
+        // DEBUG: Log the input data
+        error_log("🔍 createMenuItem - Input data: " . json_encode($input));
+        error_log("🔍 createMenuItem - Image value: " . ($input['image'] ?? 'NULL'));
+        
         $stmt = $db->prepare("
             INSERT INTO menu_items (name, description, image, color, `order`, link, is_active)
             VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -241,6 +254,10 @@ function updateMenuItem($db, $menuId) {
     AuthMiddleware::requireAdmin($authUser);
 
     $input = json_decode(file_get_contents('php://input'), true);
+
+    // DEBUG: Log the input data
+    error_log("🔍 updateMenuItem - Input data: " . json_encode($input));
+    error_log("🔍 updateMenuItem - Image value: " . ($input['image'] ?? 'NULL'));
 
     try {
         // Check if menu item exists
@@ -294,6 +311,10 @@ function updateMenuItem($db, $menuId) {
 
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
+
+        // DEBUG: Log what was actually saved to database
+        error_log("🔍 updateMenuItem - SQL executed: " . $sql);
+        error_log("🔍 updateMenuItem - Parameters: " . json_encode($params));
 
         // Fetch updated item
         $stmt = $db->prepare("

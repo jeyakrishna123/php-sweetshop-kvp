@@ -391,6 +391,24 @@ CREATE TABLE IF NOT EXISTS `weight_options` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ================================================================
+-- Menu Items Table
+-- ================================================================
+CREATE TABLE IF NOT EXISTS `menu_items` (
+  `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `name` VARCHAR(100) NOT NULL,
+  `description` TEXT DEFAULT NULL,
+  `image` VARCHAR(500) DEFAULT NULL,
+  `color` VARCHAR(7) DEFAULT '#f59e0b',
+  `order` INT DEFAULT 0,
+  `link` VARCHAR(500) DEFAULT NULL,
+  `is_active` TINYINT(1) DEFAULT 1,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX `idx_order` (`order`),
+  INDEX `idx_is_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ================================================================
 -- Analytics Table
 -- ================================================================
 CREATE TABLE IF NOT EXISTS `analytics` (

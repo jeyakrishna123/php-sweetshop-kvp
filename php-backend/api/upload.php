@@ -31,12 +31,15 @@ if (isset($pathParts[1]) && $pathParts[1] === 'php-backend' && isset($pathParts[
 
 try {
     // All upload endpoints require authentication
+    error_log("🔍 Upload API called - Method: " . $method . ", Type: " . $uploadType);
+    
     $authUser = AuthMiddleware::authenticate();
     AuthMiddleware::requireAdmin($authUser);
 
     if ($method === 'POST') {
         switch ($uploadType) {
             case 'menu-image':
+                error_log("🔍 Calling uploadMenuImage");
                 uploadMenuImage();
                 break;
             case 'product-image':
@@ -59,7 +62,12 @@ try {
  * Upload menu image
  */
 function uploadMenuImage() {
+    error_log("🔍 uploadMenuImage called");
+    error_log("🔍 FILES: " . json_encode($_FILES));
+    error_log("🔍 POST: " . json_encode($_POST));
+    
     if (!isset($_FILES['image'])) {
+        error_log("❌ No image file provided");
         sendError('No image file provided', [], 400);
         return;
     }
@@ -82,10 +90,12 @@ function uploadMenuImage() {
         $host = $_SERVER['HTTP_HOST'];
         $fullImageUrl = $protocol . '://' . $host . $imagePath;
 
+        error_log("✅ Image upload successful: " . $fullImageUrl);
         sendSuccess('Image uploaded successfully', [
             'imageUrl' => $fullImageUrl
         ], 201);
     } else {
+        error_log("❌ Image upload failed - no path returned");
         sendError('Failed to upload image', [], 500);
     }
 }

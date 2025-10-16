@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const ModernImageUpload = ({ 
   images = [], 
@@ -112,6 +112,11 @@ const ModernImageUpload = ({
       fileInputRef.current?.click();
     }
   };
+
+  // Debug: Log images prop changes
+  useEffect(() => {
+    console.log('🔵 ModernImageUpload: Images prop changed:', images);
+  }, [images]);
 
   return (
     <div className="space-y-4">

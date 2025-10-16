@@ -24,7 +24,7 @@ const AdminMenu = () => {
     isActive: true
   });
   const [imageUploading, setImageUploading] = useState(false);
-  const [imagePreview, setImagePreview] = useState(null);
+  // const [imagePreview, setImagePreview] = useState(null); // REMOVED: Using menuImages instead
   const [menuImages, setMenuImages] = useState([]);
 
   // Debug formData changes
@@ -160,11 +160,13 @@ const AdminMenu = () => {
       link: menuItem.link || '',
       isActive: menuItem.isActive
     });
-    setImagePreview(menuItem.image || null);
+    // setImagePreview(menuItem.image || null); // REMOVED: Using menuImages instead
     // Initialize menuImages with existing image if available
     if (menuItem.image) {
+      console.log('🔍 Setting menuImages for edit with image:', menuItem.image);
       setMenuImages([menuItem.image]);
     } else {
+      console.log('🔍 No existing image, clearing menuImages');
       setMenuImages([]);
     }
     setIsModalOpen(true);
@@ -259,58 +261,11 @@ const AdminMenu = () => {
       link: '',
       isActive: true
     });
-    setImagePreview(null);
+    // setImagePreview(null); // REMOVED: Using menuImages instead
     setMenuImages([]);
   };
 
-  const handleImageUpload = async (file) => {
-    if (!file) return;
-
-    try {
-      setImageUploading(true);
-      
-      // Create preview immediately
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target.result);
-      };
-      reader.readAsDataURL(file);
-
-      // Try to upload to server
-      const formData = new FormData();
-      formData.append('image', file);
-      formData.append('type', 'menu-item');
-
-      try {
-        const token = localStorage.getItem('token');
-        const response = await axios.post('/api/upload/menu-image', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (response.data.success) {
-          const imageUrl = response.data.imageUrl.startsWith('http') 
-            ? response.data.imageUrl 
-            : `http://localhost:8000${response.data.imageUrl}`;
-          
-          console.log('🔍 Image upload successful, URL:', imageUrl);
-          setFormData(prev => ({ ...prev, image: imageUrl }));
-          setImagePreview(null); // Clear local preview, use server URL
-          showToast('Image uploaded successfully', 'success');
-        }
-      } catch (uploadError) {
-        console.log('Upload failed, using local preview:', uploadError.message);
-        showToast('Using local preview (upload will be processed on save)', 'warning');
-      }
-    } catch (error) {
-      console.error('Error processing image:', error);
-      showToast('Error processing image', 'error');
-    } finally {
-      setImageUploading(false);
-    }
-  };
+  // REMOVED: This function was conflicting with handleMenuImagesChange
 
   const handleCreateNew = () => {
     setEditingMenuItem(null);
@@ -319,121 +274,44 @@ const AdminMenu = () => {
   };
 
   const handleMenuImagesChange = async (newImages) => {
-    console.log('🔍 handleMenuImagesChange called with:', newImages);
-    console.log('🔍 Current formData before change:', formData);
     setMenuImages(newImages);
 
-    // If there's a new image to upload
     if (newImages.length > 0) {
       const lastImage = newImages[newImages.length - 1];
-      console.log('🔍 Last image:', lastImage);
-      console.log('🔍 Has file property:', !!lastImage.file);
-      console.log('🔍 Has url property:', !!lastImage.url);
-      console.log('🔍 Is string:', typeof lastImage === 'string');
-
-      // Check if it's a file object (not a URL string)
+      
       if (lastImage.file) {
+        // Upload file to server
+        setImageUploading(true);
         try {
-          console.log('🔍 Starting image upload...');
-          console.log('🔍 File object:', lastImage.file);
-          console.log('🔍 File name:', lastImage.file.name);
-          console.log('🔍 File size:', lastImage.file.size);
-          setImageUploading(true);
           const formDataUpload = new FormData();
           formDataUpload.append('image', lastImage.file);
-
+          
           const token = localStorage.getItem('token');
-          console.log('🔍 Token exists:', !!token);
-
-          console.log('🔍 About to make upload request...');
-          console.log('🔍 FormData contents:');
-          for (let [key, value] of formDataUpload.entries()) {
-            console.log('🔍 FormData entry:', key, value);
-          }
-          
-          // Test server connectivity first
-          try {
-            console.log('🔍 Testing server connectivity...');
-            const testResponse = await axios.get('/api/menu', {
-              headers: { Authorization: `Bearer ${token}` },
-              timeout: 5000
-            });
-            console.log('🔍 Server connectivity test passed:', testResponse.status);
-          } catch (testError) {
-            console.error('❌ Server connectivity test failed:', testError.message);
-            throw new Error('Server not responding. Please check if PHP backend is running on port 8000.');
-          }
-          
           const response = await axios.post('/api/upload/menu-image', formDataUpload, {
             headers: {
               'Content-Type': 'multipart/form-data',
               Authorization: `Bearer ${token}`
-            },
-            timeout: 10000 // 10 second timeout
+            }
           });
-
-          console.log('🔍 Upload response status:', response.status);
-          console.log('🔍 Upload response data:', response.data);
-          console.log('🔍 Upload response headers:', response.headers);
 
           if (response.data.success) {
             const imageUrl = response.data.imageUrl;
-            console.log('✅ Image upload successful, URL:', imageUrl);
-
-            // Update formData with the uploaded image URL
-            setFormData(prev => {
-              console.log('🔍 Updating formData with image:', imageUrl);
-              const updated = { ...prev, image: imageUrl };
-              console.log('🔍 Updated formData:', updated);
-              return updated;
-            });
-
-            // Update menuImages to show the uploaded URL instead of preview
+            setFormData(prev => ({ ...prev, image: imageUrl }));
             setMenuImages([imageUrl]);
-
-            // Force a re-render to ensure state is updated
-            setTimeout(() => {
-              console.log('🔍 Final formData after timeout:', formData);
-            }, 100);
-
             showToast('Image uploaded successfully', 'success');
           }
-        } catch (uploadError) {
-          console.error('❌ Upload failed:', uploadError);
-          console.error('❌ Upload error message:', uploadError.message);
-          console.error('❌ Upload error code:', uploadError.code);
-          console.error('❌ Upload error response:', uploadError.response?.data);
-          console.error('❌ Upload error status:', uploadError.response?.status);
-          console.error('❌ Upload error config:', uploadError.config);
-          
-          if (uploadError.response) {
-            // Server responded with error status
-            showToast('Server error: ' + (uploadError.response?.data?.message || uploadError.message), 'error');
-          } else if (uploadError.request) {
-            // Request was made but no response received
-            showToast('Network error: No response from server', 'error');
-          } else {
-            // Something else happened
-            showToast('Upload error: ' + uploadError.message, 'error');
-          }
-          
-          // Keep the preview
-          setFormData(prev => ({ ...prev, image: lastImage.preview }));
+        } catch (error) {
+          console.error('Upload failed:', error);
+          showToast('Upload failed: ' + error.message, 'error');
         } finally {
           setImageUploading(false);
         }
-      } else if (lastImage.url) {
-        // It's a URL input
-        console.log('🔍 Using URL input:', lastImage.url);
-        setFormData(prev => ({ ...prev, image: lastImage.url }));
-      } else if (typeof lastImage === 'string') {
-        // It's already a URL string
-        console.log('🔍 Using string URL:', lastImage);
-        setFormData(prev => ({ ...prev, image: lastImage }));
+      } else if (lastImage.url || typeof lastImage === 'string') {
+        // Use URL directly
+        const imageUrl = lastImage.url || lastImage;
+        setFormData(prev => ({ ...prev, image: imageUrl }));
       }
     } else {
-      // No images, clear the form data
-      console.log('🔍 No images, clearing form data');
       setFormData(prev => ({ ...prev, image: '' }));
     }
   };

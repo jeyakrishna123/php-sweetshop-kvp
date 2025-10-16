@@ -224,10 +224,22 @@ function validateImageUpload($file) {
         $errors[] = 'File size exceeds maximum allowed size';
     }
 
-    // Check file type
-    $finfo = finfo_open(FILEINFO_MIME_TYPE);
-    $mimeType = finfo_file($finfo, $file['tmp_name']);
-    finfo_close($finfo);
+    // Check file type using finfo if available, otherwise use mime_content_type or extension
+    if (function_exists('finfo_open')) {
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+    } elseif (function_exists('mime_content_type')) {
+        $mimeType = mime_content_type($file['tmp_name']);
+    } else {
+        // Fallback to checking file extension
+        $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        $validExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        if (!in_array($extension, $validExtensions)) {
+            $errors[] = 'Invalid file extension. Only JPG, PNG, WebP, and GIF are allowed';
+        }
+        return $errors;
+    }
 
     if (!in_array($mimeType, ALLOWED_IMAGE_TYPES)) {
         $errors[] = 'Invalid file type. Only JPEG, PNG, WebP, and GIF are allowed';
