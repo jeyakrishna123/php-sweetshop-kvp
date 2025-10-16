@@ -3,11 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import axios from '../axios';
+import ModernImageUpload from '../components/ModernImageUpload';
 
 const AdminMenu = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
-  const fileInputRef = React.useRef(null);
 
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +25,13 @@ const AdminMenu = () => {
   });
   const [imageUploading, setImageUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
+  const [menuImages, setMenuImages] = useState([]);
+
+  // Debug formData changes
+  useEffect(() => {
+    console.log('🔍 FormData changed:', formData);
+    console.log('🔍 Image in formData:', formData.image);
+  }, [formData]);
 
   // Check admin access
   useEffect(() => {
@@ -96,6 +103,8 @@ const AdminMenu = () => {
       };
 
       console.log('🔍 AdminMenu: Request config:', config);
+      console.log('🔍 AdminMenu: FormData being sent:', formData);
+      console.log('🔍 AdminMenu: Image in formData:', formData.image);
       
       if (editingMenuItem) {
         // Update existing menu item
@@ -152,6 +161,12 @@ const AdminMenu = () => {
       isActive: menuItem.isActive
     });
     setImagePreview(menuItem.image || null);
+    // Initialize menuImages with existing image if available
+    if (menuItem.image) {
+      setMenuImages([menuItem.image]);
+    } else {
+      setMenuImages([]);
+    }
     setIsModalOpen(true);
   };
 
@@ -245,6 +260,7 @@ const AdminMenu = () => {
       isActive: true
     });
     setImagePreview(null);
+    setMenuImages([]);
   };
 
   const handleImageUpload = async (file) => {
@@ -300,6 +316,126 @@ const AdminMenu = () => {
     setEditingMenuItem(null);
     resetForm();
     setIsModalOpen(true);
+  };
+
+  const handleMenuImagesChange = async (newImages) => {
+    console.log('🔍 handleMenuImagesChange called with:', newImages);
+    console.log('🔍 Current formData before change:', formData);
+    setMenuImages(newImages);
+
+    // If there's a new image to upload
+    if (newImages.length > 0) {
+      const lastImage = newImages[newImages.length - 1];
+      console.log('🔍 Last image:', lastImage);
+      console.log('🔍 Has file property:', !!lastImage.file);
+      console.log('🔍 Has url property:', !!lastImage.url);
+      console.log('🔍 Is string:', typeof lastImage === 'string');
+
+      // Check if it's a file object (not a URL string)
+      if (lastImage.file) {
+        try {
+          console.log('🔍 Starting image upload...');
+          console.log('🔍 File object:', lastImage.file);
+          console.log('🔍 File name:', lastImage.file.name);
+          console.log('🔍 File size:', lastImage.file.size);
+          setImageUploading(true);
+          const formDataUpload = new FormData();
+          formDataUpload.append('image', lastImage.file);
+
+          const token = localStorage.getItem('token');
+          console.log('🔍 Token exists:', !!token);
+
+          console.log('🔍 About to make upload request...');
+          console.log('🔍 FormData contents:');
+          for (let [key, value] of formDataUpload.entries()) {
+            console.log('🔍 FormData entry:', key, value);
+          }
+          
+          // Test server connectivity first
+          try {
+            console.log('🔍 Testing server connectivity...');
+            const testResponse = await axios.get('/api/menu', {
+              headers: { Authorization: `Bearer ${token}` },
+              timeout: 5000
+            });
+            console.log('🔍 Server connectivity test passed:', testResponse.status);
+          } catch (testError) {
+            console.error('❌ Server connectivity test failed:', testError.message);
+            throw new Error('Server not responding. Please check if PHP backend is running on port 8000.');
+          }
+          
+          const response = await axios.post('/api/upload/menu-image', formDataUpload, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              Authorization: `Bearer ${token}`
+            },
+            timeout: 10000 // 10 second timeout
+          });
+
+          console.log('🔍 Upload response status:', response.status);
+          console.log('🔍 Upload response data:', response.data);
+          console.log('🔍 Upload response headers:', response.headers);
+
+          if (response.data.success) {
+            const imageUrl = response.data.imageUrl;
+            console.log('✅ Image upload successful, URL:', imageUrl);
+
+            // Update formData with the uploaded image URL
+            setFormData(prev => {
+              console.log('🔍 Updating formData with image:', imageUrl);
+              const updated = { ...prev, image: imageUrl };
+              console.log('🔍 Updated formData:', updated);
+              return updated;
+            });
+
+            // Update menuImages to show the uploaded URL instead of preview
+            setMenuImages([imageUrl]);
+
+            // Force a re-render to ensure state is updated
+            setTimeout(() => {
+              console.log('🔍 Final formData after timeout:', formData);
+            }, 100);
+
+            showToast('Image uploaded successfully', 'success');
+          }
+        } catch (uploadError) {
+          console.error('❌ Upload failed:', uploadError);
+          console.error('❌ Upload error message:', uploadError.message);
+          console.error('❌ Upload error code:', uploadError.code);
+          console.error('❌ Upload error response:', uploadError.response?.data);
+          console.error('❌ Upload error status:', uploadError.response?.status);
+          console.error('❌ Upload error config:', uploadError.config);
+          
+          if (uploadError.response) {
+            // Server responded with error status
+            showToast('Server error: ' + (uploadError.response?.data?.message || uploadError.message), 'error');
+          } else if (uploadError.request) {
+            // Request was made but no response received
+            showToast('Network error: No response from server', 'error');
+          } else {
+            // Something else happened
+            showToast('Upload error: ' + uploadError.message, 'error');
+          }
+          
+          // Keep the preview
+          setFormData(prev => ({ ...prev, image: lastImage.preview }));
+        } finally {
+          setImageUploading(false);
+        }
+      } else if (lastImage.url) {
+        // It's a URL input
+        console.log('🔍 Using URL input:', lastImage.url);
+        setFormData(prev => ({ ...prev, image: lastImage.url }));
+      } else if (typeof lastImage === 'string') {
+        // It's already a URL string
+        console.log('🔍 Using string URL:', lastImage);
+        setFormData(prev => ({ ...prev, image: lastImage }));
+      }
+    } else {
+      // No images, clear the form data
+      console.log('🔍 No images, clearing form data');
+      setFormData(prev => ({ ...prev, image: '' }));
+    }
   };
 
   const colorOptions = [
@@ -515,25 +651,8 @@ const AdminMenu = () => {
         )}
       </div>
 
-      {/* File Input Outside Modal */}
+      {/* Professional Modal - Modern Design */}
       {isModalOpen && (
-        <>
-          <input
-            ref={fileInputRef}
-            id="menu-image-upload-outside"
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              console.log('File input changed:', e.target.files);
-              if (e.target.files && e.target.files[0]) {
-                handleImageUpload(e.target.files[0]);
-                e.target.value = ''; // Reset input
-              }
-            }}
-            style={{ position: 'absolute', left: '-9999px' }}
-          />
-
-          {/* Professional Modal - Modern Design */}
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 sm:p-6 overflow-y-auto">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl my-4 sm:my-8 max-h-[95vh] overflow-hidden flex flex-col">
             {/* Modal Header */}
@@ -610,116 +729,29 @@ const AdminMenu = () => {
                   <label className="block text-base sm:text-lg font-bold text-gray-800 mb-2">
                     Menu Item Image
                   </label>
-
-                  {/* Image Upload Options */}
-                  <div className="space-y-3 sm:space-y-4">
-                    {/* File Upload */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        console.log('Button clicked - triggering file input');
-                        if (fileInputRef.current) {
-                          fileInputRef.current.click();
-                        }
-                      }}
-                      disabled={imageUploading}
-                      className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 sm:p-6 text-center hover:border-indigo-400 transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <div className="flex flex-col items-center">
-                        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-indigo-50 rounded-xl flex items-center justify-center mb-2 sm:mb-3 group-hover:bg-indigo-100 transition-colors">
-                          {imageUploading ? (
-                            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                          ) : (
-                            <svg className="w-7 h-7 sm:w-8 sm:h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                          )}
-                        </div>
-                        <p className="text-base sm:text-lg font-semibold text-gray-700 mb-1">
-                          {imageUploading ? 'Uploading...' : 'Click to Upload Image'}
-                        </p>
-                        <p className="text-xs sm:text-sm text-gray-400">
-                          PNG, JPG, GIF up to 10MB
-                        </p>
-                      </div>
-                    </button>
-
-                    {/* URL Input */}
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                        </svg>
-                      </div>
-                      <input
-                        type="url"
-                        value={formData.image}
-                        onChange={(e) => {
-                          setFormData({ ...formData, image: e.target.value });
-                          setImagePreview(e.target.value);
-                        }}
-                        className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all duration-200 text-base"
-                        placeholder="Or enter image URL"
-                      />
+                  <ModernImageUpload
+                    images={menuImages}
+                    onImagesChange={(newImages) => {
+                      console.log('🔍 ModernImageUpload onImagesChange called with:', newImages);
+                      handleMenuImagesChange(newImages);
+                    }}
+                    maxImages={1}
+                    required={false}
+                  />
+                  {/* Debug: Show current formData.image */}
+                  {formData.image && (
+                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
+                      <strong>Image URL saved:</strong> {formData.image.substring(0, 50)}...
                     </div>
-                  </div>
-
-                  {/* Image Preview */}
-                  {(imagePreview || formData.image) && (
-                    <div className="mt-3 sm:mt-4">
-                      <p className="text-sm sm:text-base font-semibold text-gray-700 mb-2">Preview:</p>
-                      <div className="relative group">
-                        <img
-                          src={formData.image || imagePreview}
-                          alt="Preview"
-                          className="w-full h-32 sm:h-40 object-cover rounded-xl border-2 border-gray-200 shadow-lg"
-                          crossOrigin="anonymous"
-                          onLoad={() => {
-                            console.log('🔍 Image loaded successfully:', formData.image || imagePreview);
-                          }}
-                          onError={(e) => {
-                            console.log('❌ Image failed to load:', formData.image || imagePreview);
-                            console.log('❌ Error details:', e);
-                            console.log('❌ Trying fallback approach...');
-                            
-                            // Try to load the image with a different approach
-                            const img = new Image();
-                            img.crossOrigin = 'anonymous';
-                            img.onload = () => {
-                              console.log('🔍 Fallback image loaded successfully');
-                              e.target.src = img.src;
-                              e.target.style.display = 'block';
-                              e.target.nextSibling.style.display = 'none';
-                            };
-                            img.onerror = () => {
-                              console.log('❌ Fallback also failed');
-                              e.target.style.display = 'none';
-                              e.target.nextSibling.style.display = 'flex';
-                            };
-                            img.src = formData.image || imagePreview;
-                          }}
-                        />
-                        <div className="w-full h-32 sm:h-40 bg-gray-100 rounded-xl border-2 border-gray-200 flex items-center justify-center text-gray-500 text-sm hidden">
-                          <div className="text-center">
-                            <svg className="w-16 h-16 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                            </svg>
-                            Image failed to load
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setFormData({ ...formData, image: '' });
-                            setImagePreview(null);
-                          }}
-                          className="absolute top-3 right-3 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-all duration-200 opacity-0 group-hover:opacity-100"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
+                  )}
+                  {imageUploading && (
+                    <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                      Uploading image...
+                    </div>
+                  )}
+                  {menuImages.length > 0 && !formData.image && (
+                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                      <strong>Warning:</strong> Image selected but not uploaded yet. Please wait for upload to complete.
                     </div>
                   )}
                 </div>
@@ -841,7 +873,6 @@ const AdminMenu = () => {
             </div>
           </div>
         </div>
-        </>
       )}
     </div>
   );

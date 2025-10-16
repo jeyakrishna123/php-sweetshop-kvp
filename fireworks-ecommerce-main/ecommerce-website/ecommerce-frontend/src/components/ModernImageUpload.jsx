@@ -13,6 +13,7 @@ const ModernImageUpload = ({
   const fileInputRef = useRef(null);
 
   const handleFileUpload = async (files) => {
+    console.log('🔵 ModernImageUpload: handleFileUpload called with files:', files);
     if (!files || files.length === 0) return;
 
     setIsUploading(true);
@@ -20,7 +21,8 @@ const ModernImageUpload = ({
 
     for (let i = 0; i < files.length && images.length + newImages.length < maxImages; i++) {
       const file = files[i];
-      
+      console.log('🔵 Processing file:', file.name, file.size, file.type);
+
       // Validate file type
       if (!file.type.startsWith('image/')) {
         alert(`File ${file.name} is not an image. Please select only image files.`);
@@ -42,12 +44,14 @@ const ModernImageUpload = ({
           name: file.name,
           size: file.size
         });
+        console.log('🔵 File processed successfully:', file.name);
       } catch (error) {
         console.error('Error processing file:', error);
         alert(`Error processing file ${file.name}`);
       }
     }
 
+    console.log('🔵 ModernImageUpload: Calling onImagesChange with:', [...images, ...newImages]);
     onImagesChange([...images, ...newImages]);
     setIsUploading(false);
   };

@@ -38,7 +38,10 @@ try {
 
     switch ($method) {
         case 'GET':
-            if ($sectionId) {
+            // Check for visibility/check endpoint
+            if ($sectionId === 'visibility' && $action === 'check') {
+                checkSectionVisibility($db);
+            } elseif ($sectionId) {
                 getHiddenSection($db, $sectionId);
             } else {
                 getAllHiddenSections($db);
@@ -391,5 +394,51 @@ function deleteHiddenSection($db, $sectionId) {
         ]);
     } catch (Exception $e) {
         sendError('Failed to delete hidden section', ['error' => $e->getMessage()], 500);
+    }
+}
+
+/**
+ * Check section visibility (Public endpoint)
+ * GET /api/hide-sections/visibility/check?pagePath=/&sectionName=menu
+ */
+function checkSectionVisibility($db) {
+    try {
+        // Get query parameters
+        $pagePath = isset($_GET['pagePath']) ? $_GET['pagePath'] : '/';
+        $sectionName = isset($_GET['sectionName']) ? $_GET['sectionName'] : null;
+
+        if (!$sectionName) {
+            sendError('Section name is required', [], 400);
+            return;
+        }
+
+        // Check if section is hidden for this page or globally
+        $stmt = $db->prepare("
+            SELECT is_hidden
+            FROM hide_sections
+            WHERE section_name = ?
+            AND (page_path = ? OR page_path = 'all')
+            ORDER BY
+                CASE
+                    WHEN page_path = ? THEN 1
+                    ELSE 2
+                END
+            LIMIT 1
+        ");
+        $stmt->execute([$sectionName, $pagePath, $pagePath]);
+        $result = $stmt->fetch();
+
+        // If no record found, section is visible by default
+        $isHidden = $result ? (bool)$result['is_hidden'] : false;
+        $isVisible = !$isHidden;
+
+        sendSuccess('Section visibility checked successfully', [
+            'isVisible' => $isVisible,
+            'isHidden' => $isHidden,
+            'sectionName' => $sectionName,
+            'pagePath' => $pagePath
+        ]);
+    } catch (Exception $e) {
+        sendError('Failed to check section visibility', ['error' => $e->getMessage()], 500);
     }
 }

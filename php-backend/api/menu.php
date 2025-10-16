@@ -382,72 +382,34 @@ function updateMenuOrder($db) {
 }
 
 /**
- * Get active menu items
+ * Get active menu items (Public endpoint)
  */
 function getActiveMenu($db) {
-    // Get categories as menu items
-    $stmt = $db->prepare("
-        SELECT DISTINCT category as name, category as slug, COUNT(*) as product_count
-        FROM products 
-        WHERE is_active = 1 
-        GROUP BY category 
-        ORDER BY category
-    ");
-    $stmt->execute();
-    $menuItems = $stmt->fetchAll();
-    
-    // Add menu structure
-    $menu = [
-        [
-            'id' => 1,
-            'name' => 'Home',
-            'slug' => 'home',
-            'url' => '/',
-            'icon' => '🏠',
-            'order' => 1
-        ],
-        [
-            'id' => 2,
-            'name' => 'Products',
-            'slug' => 'products',
-            'url' => '/products',
-            'icon' => '🍰',
-            'order' => 2
-        ],
-        [
-            'id' => 3,
-            'name' => 'About',
-            'slug' => 'about',
-            'url' => '/about',
-            'icon' => 'ℹ️',
-            'order' => 3
-        ],
-        [
-            'id' => 4,
-            'name' => 'Contact',
-            'slug' => 'contact',
-            'url' => '/contact',
-            'icon' => '📞',
-            'order' => 4
-        ]
-    ];
-    
-    // Add category menu items
-    foreach ($menuItems as $item) {
-        $menu[] = [
-            'id' => count($menu) + 1,
-            'name' => $item['name'],
-            'slug' => $item['slug'],
-            'url' => '/products?category=' . urlencode($item['name']),
-            'icon' => '📦',
-            'order' => count($menu) + 1,
-            'product_count' => $item['product_count']
-        ];
-    }
+    try {
+        // Get active menu items from menu_items table
+        $stmt = $db->prepare("
+            SELECT
+                id as _id,
+                name,
+                description,
+                image,
+                color,
+                `order`,
+                link,
+                is_active as isActive,
+                created_at as createdAt,
+                updated_at as updatedAt
+            FROM menu_items
+            WHERE is_active = 1
+            ORDER BY `order` ASC, created_at DESC
+        ");
+        $stmt->execute();
+        $menuItems = $stmt->fetchAll();
 
-    sendSuccess('Active menu retrieved successfully', [
-        'menu' => $menu,
-        'count' => count($menu)
-    ]);
+        // Return menu items directly in data field for frontend compatibility
+        sendSuccess('Active menu retrieved successfully', $menuItems);
+    } catch (Exception $e) {
+        sendError('Failed to fetch active menu', ['error' => $e->getMessage()], 500);
+    }
 }
 ?>
