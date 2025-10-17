@@ -183,7 +183,7 @@ function getAllProducts($db) {
 
     $stmt = $db->prepare("
         SELECT id, name, slug, description, price, original_price, discount_percentage,
-               category, cake_flavor, product_types, is_new, brand, stock, images, thumbnail,
+               category, sub_category, menu_option, cake_flavor, product_types, is_new, brand, stock, images, thumbnail,
                specifications, tags, featured, sku, weight, has_weight_options, weight_options,
                average_rating, num_reviews, sold_count, view_count, created_at, updated_at
         FROM products
@@ -447,9 +447,9 @@ function createProduct($db) {
     $stmt = $db->prepare("
         INSERT INTO products (
             name, slug, description, price, original_price, discount_percentage,
-            category, cake_flavor, product_types, is_new, brand, stock, images, thumbnail,
+            category, sub_category, menu_option, cake_flavor, product_types, is_new, brand, stock, images, thumbnail,
             specifications, tags, featured, sku, weight, has_weight_options, weight_options
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     $result = $stmt->execute([
@@ -460,6 +460,8 @@ function createProduct($db) {
         $data['originalPrice'] ?? null,
         $data['discountPercentage'] ?? 0,
         sanitizeInput($data['category']),
+        sanitizeInput($data['subCategory'] ?? ''),
+        sanitizeInput($data['menuOption'] ?? ''),
         $data['cakeFlavor'] ?? null,
         $productTypes,
         $data['isNew'] ?? 0,
@@ -514,7 +516,7 @@ function updateProduct($db, $id) {
 
     $allowedFields = [
         'name', 'description', 'price', 'original_price', 'discount_percentage',
-        'category', 'cake_flavor', 'is_new', 'brand', 'stock', 'thumbnail',
+        'category', 'sub_category', 'menu_option', 'cake_flavor', 'is_new', 'brand', 'stock', 'thumbnail',
         'featured', 'sku', 'weight', 'has_weight_options', 'is_active'
     ];
 

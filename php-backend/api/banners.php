@@ -89,8 +89,10 @@ try {
  */
 function getActiveBanners($db) {
     $stmt = $db->prepare("
-        SELECT id, title, subtitle, image_url, mobile_image_url, desktop_image_url,
-               link, button_text, is_active, sort_order, start_date, end_date
+        SELECT id as _id, title, subtitle, image_url as imageUrl, mobile_image_url as mobileImageUrl,
+               desktop_image_url as desktopImageUrl, link as linkUrl, button_text as buttonText,
+               is_active as isActive, sort_order as displayOrder, start_date as startDate,
+               end_date as endDate, created_at as createdAt, updated_at as updatedAt
         FROM banners
         WHERE is_active = 1
         AND (start_date IS NULL OR start_date <= NOW())
@@ -111,9 +113,10 @@ function getAllBanners($db) {
     AuthMiddleware::requireAdmin($authUser);
 
     $stmt = $db->prepare("
-        SELECT id, title, subtitle, image_url, mobile_image_url, desktop_image_url,
-               link, button_text, is_active, sort_order, start_date, end_date,
-               created_at, updated_at
+        SELECT id as _id, title, subtitle, image_url as imageUrl, mobile_image_url as mobileImageUrl,
+               desktop_image_url as desktopImageUrl, link as linkUrl, button_text as buttonText,
+               is_active as isActive, sort_order as displayOrder, start_date as startDate,
+               end_date as endDate, created_at as createdAt, updated_at as updatedAt
         FROM banners
         ORDER BY sort_order ASC, created_at DESC
     ");
@@ -154,24 +157,65 @@ function createBanner($db) {
     $authUser = AuthMiddleware::authenticate();
     AuthMiddleware::requireAdmin($authUser);
 
-    $data = getRequestBody();
+    // Handle multipart/form-data
+    $title = isset($_POST['title']) ? sanitizeInput($_POST['title']) : null;
+    $description = isset($_POST['description']) ? sanitizeInput($_POST['description']) : null;
+    $linkUrl = isset($_POST['linkUrl']) ? sanitizeInput($_POST['linkUrl']) : null;
+    $isActive = isset($_POST['isActive']) && $_POST['isActive'] === 'true' ? 1 : 0;
+    $displayOrder = isset($_POST['displayOrder']) ? (int)$_POST['displayOrder'] : 0;
+    $deviceType = isset($_POST['deviceType']) ? sanitizeInput($_POST['deviceType']) : 'both';
 
-    $errors = validateRequired($data, ['title', 'imageUrl']);
-    if (!empty($errors)) {
-        sendError('Validation failed', $errors, 400);
+    // Validate required fields
+    if (!$title) {
+        sendError('Title is required', [], 400);
     }
 
-    $title = sanitizeInput($data['title']);
-    $subtitle = isset($data['subtitle']) ? sanitizeInput($data['subtitle']) : null;
-    $imageUrl = sanitizeInput($data['imageUrl']);
-    $mobileImageUrl = isset($data['mobileImageUrl']) ? sanitizeInput($data['mobileImageUrl']) : null;
-    $desktopImageUrl = isset($data['desktopImageUrl']) ? sanitizeInput($data['desktopImageUrl']) : null;
-    $link = isset($data['link']) ? sanitizeInput($data['link']) : null;
-    $buttonText = isset($data['buttonText']) ? sanitizeInput($data['buttonText']) : null;
-    $isActive = isset($data['isActive']) ? (int)$data['isActive'] : 1;
-    $sortOrder = isset($data['sortOrder']) ? (int)$data['sortOrder'] : 0;
-    $startDate = isset($data['startDate']) ? $data['startDate'] : null;
-    $endDate = isset($data['endDate']) ? $data['endDate'] : null;
+    // Handle image uploads
+    $mobileImageUrl = null;
+    $desktopImageUrl = null;
+    $imageUrl = null; // Main image URL
+
+    // Process mobile image if uploaded
+    if (isset($_FILES['mobileImage']) && $_FILES['mobileImage']['error'] === UPLOAD_ERR_OK) {
+        $uploadDir = __DIR__ . '/../uploads/banners/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        $extension = strtolower(pathinfo($_FILES['mobileImage']['name'], PATHINFO_EXTENSION));
+        $filename = uniqid() . '_' . time() . '.' . $extension;
+        $filepath = $uploadDir . $filename;
+
+        if (move_uploaded_file($_FILES['mobileImage']['tmp_name'], $filepath)) {
+            $mobileImageUrl = '/uploads/banners/' . $filename;
+            error_log("✅ Mobile image uploaded: $mobileImageUrl");
+        }
+    }
+
+    // Process desktop image if uploaded
+    if (isset($_FILES['desktopImage']) && $_FILES['desktopImage']['error'] === UPLOAD_ERR_OK) {
+        $uploadDir = __DIR__ . '/../uploads/banners/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        $extension = strtolower(pathinfo($_FILES['desktopImage']['name'], PATHINFO_EXTENSION));
+        $filename = uniqid() . '_' . time() . '.' . $extension;
+        $filepath = $uploadDir . $filename;
+
+        if (move_uploaded_file($_FILES['desktopImage']['tmp_name'], $filepath)) {
+            $desktopImageUrl = '/uploads/banners/' . $filename;
+            error_log("✅ Desktop image uploaded: $desktopImageUrl");
+        }
+    }
+
+    // Set main image URL (prefer desktop, fallback to mobile)
+    $imageUrl = $desktopImageUrl ?: $mobileImageUrl;
+
+    // Validate at least one image is uploaded
+    if (!$imageUrl) {
+        sendError('At least one banner image is required', [], 400);
+    }
 
     $stmt = $db->prepare("
         INSERT INTO banners (title, subtitle, image_url, mobile_image_url, desktop_image_url,
@@ -179,12 +223,18 @@ function createBanner($db) {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
-    if ($stmt->execute([$title, $subtitle, $imageUrl, $mobileImageUrl, $desktopImageUrl,
-                       $link, $buttonText, $isActive, $sortOrder, $startDate, $endDate])) {
+    if ($stmt->execute([$title, $description, $imageUrl, $mobileImageUrl, $desktopImageUrl,
+                       $linkUrl, null, $isActive, $displayOrder, null, null])) {
         $bannerId = $db->lastInsertId();
 
-        // Get created banner
-        $stmt = $db->prepare("SELECT * FROM banners WHERE id = ?");
+        // Get created banner with camelCase fields
+        $stmt = $db->prepare("
+            SELECT id as _id, title, subtitle, image_url as imageUrl, mobile_image_url as mobileImageUrl,
+                   desktop_image_url as desktopImageUrl, link as linkUrl, button_text as buttonText,
+                   is_active as isActive, sort_order as displayOrder, start_date as startDate,
+                   end_date as endDate, created_at as createdAt, updated_at as updatedAt
+            FROM banners WHERE id = ?
+        ");
         $stmt->execute([$bannerId]);
         $banner = $stmt->fetch();
 

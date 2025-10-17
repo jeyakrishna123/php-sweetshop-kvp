@@ -454,12 +454,20 @@ export const categoryAPI = {
   }
 };
 
-// Banner Management API
+// Banner Management API - Uses /api/banners endpoint directly
+const bannerAxios = axiosBase.create({
+  baseURL: `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/banners`,
+  timeout: 30000, // Longer timeout for uploads
+});
+
+// Add auth interceptor to banner axios
+addAuthInterceptor(bannerAxios);
+
 export const bannerAPI = {
   // Get all banners
   getAllBanners: async () => {
     try {
-      const response = await adminAPI.get('/banners');
+      const response = await bannerAxios.get('/');
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to fetch banners');
@@ -479,13 +487,16 @@ export const bannerAPI = {
   // Create new banner
   createBanner: async (bannerData) => {
     try {
-      const response = await adminAPI.post('/banners', bannerData, {
+      console.log('📤 Creating banner with FormData');
+      const response = await bannerAxios.post('/', bannerData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       });
+      console.log('✅ Banner created:', response.data);
       return response.data;
     } catch (error) {
+      console.error('❌ Banner creation failed:', error.response?.data);
       throw new Error(error.response?.data?.message || 'Failed to create banner');
     }
   },
@@ -493,7 +504,7 @@ export const bannerAPI = {
   // Update banner
   updateBanner: async (id, bannerData) => {
     try {
-      const response = await adminAPI.put(`/banners/${id}`, bannerData, {
+      const response = await bannerAxios.put(`/${id}`, bannerData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -507,7 +518,7 @@ export const bannerAPI = {
   // Delete banner
   deleteBanner: async (id) => {
     try {
-      const response = await adminAPI.delete(`/banners/${id}`);
+      const response = await bannerAxios.delete(`/${id}`);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to delete banner');
@@ -517,7 +528,7 @@ export const bannerAPI = {
   // Toggle banner status
   toggleBannerStatus: async (id) => {
     try {
-      const response = await adminAPI.patch(`/banners/${id}/toggle`);
+      const response = await bannerAxios.patch(`/${id}/toggle`);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to toggle banner status');
@@ -527,7 +538,7 @@ export const bannerAPI = {
   // Reorder banners
   reorderBanners: async (bannerIds) => {
     try {
-      const response = await adminAPI.post('/banners/reorder', { bannerIds });
+      const response = await bannerAxios.post('/reorder', { bannerIds });
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to reorder banners');
