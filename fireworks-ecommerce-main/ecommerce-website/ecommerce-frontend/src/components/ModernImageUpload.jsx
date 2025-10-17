@@ -13,7 +13,6 @@ const ModernImageUpload = ({
   const fileInputRef = useRef(null);
 
   const handleFileUpload = async (files) => {
-    console.log('🔵 ModernImageUpload: handleFileUpload called with files:', files);
     if (!files || files.length === 0) return;
 
     setIsUploading(true);
@@ -21,7 +20,6 @@ const ModernImageUpload = ({
 
     for (let i = 0; i < files.length && images.length + newImages.length < maxImages; i++) {
       const file = files[i];
-      console.log('🔵 Processing file:', file.name, file.size, file.type);
 
       // Validate file type
       if (!file.type.startsWith('image/')) {
@@ -44,14 +42,12 @@ const ModernImageUpload = ({
           name: file.name,
           size: file.size
         });
-        console.log('🔵 File processed successfully:', file.name);
       } catch (error) {
         console.error('Error processing file:', error);
         alert(`Error processing file ${file.name}`);
       }
     }
 
-    console.log('🔵 ModernImageUpload: Calling onImagesChange with:', [...images, ...newImages]);
     onImagesChange([...images, ...newImages]);
     setIsUploading(false);
   };
@@ -113,10 +109,6 @@ const ModernImageUpload = ({
     }
   };
 
-  // Debug: Log images prop changes
-  useEffect(() => {
-    console.log('🔵 ModernImageUpload: Images prop changed:', images);
-  }, [images]);
 
   return (
     <div className="space-y-4">
@@ -246,17 +238,41 @@ const ModernImageUpload = ({
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {images.map((image, index) => (
+            {images.map((image, index) => {
+              // Safely extract image URL from different possible formats
+              let imageUrl;
+              if (typeof image === 'string') {
+                imageUrl = image;
+              } else if (image && typeof image === 'object') {
+                imageUrl = image.preview || image.url || null;
+              } else {
+                imageUrl = null;
+              }
+
+              // Prepend API base URL if it's a relative path
+              if (imageUrl && !imageUrl.startsWith('http://') && !imageUrl.startsWith('https://') && !imageUrl.startsWith('data:')) {
+                const apiURL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+                imageUrl = `${apiURL}${imageUrl}`;
+              }
+
+              return (
               <div key={index} className="relative group">
                 <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 border-2 border-gray-200">
-                  <img
-                    src={typeof image === 'string' ? image : (image.preview || image.url || image)}
-                    alt={`Preview ${index + 1}`}
-                    className="w-full h-full object-contain"
-                    onError={(e) => {
-                      e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%23666" font-size="12"%3EError%3C/text%3E%3C/svg%3E';
-                    }}
-                  />
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt={`Preview ${index + 1}`}
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        console.error('Image load error:', imageUrl);
+                        e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%23666" font-size="12"%3EError%3C/text%3E%3C/svg%3E';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">
+                      No preview
+                    </div>
+                  )}
                 </div>
                 
                 {/* Remove Button */}
@@ -269,14 +285,15 @@ const ModernImageUpload = ({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
-                
+
                 {/* Image Info */}
                 <div className="mt-2 text-xs text-gray-500 truncate">
-                  {image.name}
-                  {image.size && ` (${(image.size / 1024).toFixed(1)}KB)`}
+                  {typeof image === 'object' && image.name ? image.name : 'Image'}
+                  {typeof image === 'object' && image.size && ` (${(image.size / 1024).toFixed(1)}KB)`}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

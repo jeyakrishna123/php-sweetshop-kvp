@@ -65,7 +65,7 @@ function uploadMenuImage() {
     error_log("🔍 uploadMenuImage called");
     error_log("🔍 FILES: " . json_encode($_FILES));
     error_log("🔍 POST: " . json_encode($_POST));
-    
+
     if (!isset($_FILES['image'])) {
         error_log("❌ No image file provided");
         sendError('No image file provided', [], 400);
@@ -85,14 +85,11 @@ function uploadMenuImage() {
     $imagePath = uploadImage($file, 'menu-items');
 
     if ($imagePath) {
-        // Return the full URL for the image
-        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'];
-        $fullImageUrl = $protocol . '://' . $host . $imagePath;
-
-        error_log("✅ Image upload successful: " . $fullImageUrl);
+        // Return relative path instead of absolute URL
+        // This ensures compatibility across different environments (dev, production, etc.)
+        error_log("✅ Image upload successful: " . $imagePath);
         sendSuccess('Image uploaded successfully', [
-            'imageUrl' => $fullImageUrl
+            'imageUrl' => $imagePath
         ], 201);
     } else {
         error_log("❌ Image upload failed - no path returned");

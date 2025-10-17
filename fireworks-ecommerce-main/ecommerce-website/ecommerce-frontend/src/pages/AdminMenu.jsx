@@ -27,11 +27,6 @@ const AdminMenu = () => {
   // const [imagePreview, setImagePreview] = useState(null); // REMOVED: Using menuImages instead
   const [menuImages, setMenuImages] = useState([]);
 
-  // Debug formData changes
-  useEffect(() => {
-    console.log('🔍 FormData changed:', formData);
-    console.log('🔍 Image in formData:', formData.image);
-  }, [formData]);
 
   // Check admin access
   useEffect(() => {
@@ -51,12 +46,6 @@ const AdminMenu = () => {
       const response = await axios.get('/api/menu');
       if (response.data.success) {
         setMenuItems(response.data.data);
-        console.log('📋 Menu items loaded:', response.data.data.length);
-        console.log('📋 Menu items data:', response.data.data);
-        // Log each menu item's image URL
-        response.data.data.forEach(item => {
-          console.log(`📋 ${item.name}: image = "${item.image}"`);
-        });
       }
     } catch (error) {
       console.error('Error fetching menu items:', error);
@@ -69,14 +58,9 @@ const AdminMenu = () => {
   const handleSaveMenuItem = async (formData) => {
     try {
       setOperationLoading(true);
-      
-      console.log('🔍 AdminMenu: Saving menu item with data:', formData);
-      console.log('🔍 AdminMenu: User context:', user);
-      console.log('🔍 AdminMenu: Token exists:', !!localStorage.getItem('token'));
-      
+
       // Check if user is authenticated
       if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) {
-        console.log('❌ AdminMenu: User not authenticated or not admin');
         showToast('Authentication required. Please log in again.', 'error');
         setOperationLoading(false);
         return;
@@ -85,14 +69,10 @@ const AdminMenu = () => {
       // Get fresh token and verify it's valid
       const token = localStorage.getItem('token');
       if (!token) {
-        console.log('❌ AdminMenu: No token found');
         showToast('Please log in again.', 'error');
         setOperationLoading(false);
         return;
       }
-
-      console.log('🔍 AdminMenu: Token found:', token.substring(0, 20) + '...');
-      console.log('🔍 AdminMenu: Full token length:', token.length);
 
       // Create axios config with explicit headers
       const config = {
@@ -102,18 +82,12 @@ const AdminMenu = () => {
         }
       };
 
-      console.log('🔍 AdminMenu: Request config:', config);
-      console.log('🔍 AdminMenu: FormData being sent:', formData);
-      console.log('🔍 AdminMenu: Image in formData:', formData.image);
-      
       if (editingMenuItem) {
         // Update existing menu item
-        console.log('🔍 AdminMenu: Updating existing menu item:', editingMenuItem._id);
         const response = await axios.put(`/api/menu/${editingMenuItem._id}`, formData, config);
-        console.log('🔍 AdminMenu: Update response:', response.data);
         if (response.data.success) {
-          setMenuItems(prev => 
-            prev.map(item => 
+          setMenuItems(prev =>
+            prev.map(item =>
               item._id === editingMenuItem._id ? response.data.data : item
             )
           );
@@ -123,9 +97,7 @@ const AdminMenu = () => {
         }
       } else {
         // Create new menu item
-        console.log('🔍 AdminMenu: Creating new menu item');
         const response = await axios.post('/api/menu', formData, config);
-        console.log('🔍 AdminMenu: Create response:', response.data);
         if (response.data.success) {
           setMenuItems(prev => [...prev, response.data.data]);
           showToast('Menu item created successfully', 'success');
@@ -148,8 +120,6 @@ const AdminMenu = () => {
   };
 
   const handleEdit = (menuItem) => {
-    console.log('🔍 Editing menu item:', menuItem);
-    console.log('🔍 Menu item image URL:', menuItem.image);
     setEditingMenuItem(menuItem);
     setFormData({
       name: menuItem.name,
@@ -160,13 +130,15 @@ const AdminMenu = () => {
       link: menuItem.link || '',
       isActive: menuItem.isActive
     });
-    // setImagePreview(menuItem.image || null); // REMOVED: Using menuImages instead
     // Initialize menuImages with existing image if available
     if (menuItem.image) {
-      console.log('🔍 Setting menuImages for edit with image:', menuItem.image);
-      setMenuImages([menuItem.image]);
+      setMenuImages([{
+        url: menuItem.image,
+        preview: menuItem.image,
+        name: 'Current Image',
+        isUrl: true
+      }]);
     } else {
-      console.log('🔍 No existing image, clearing menuImages');
       setMenuImages([]);
     }
     setIsModalOpen(true);
@@ -274,18 +246,21 @@ const AdminMenu = () => {
   };
 
   const handleMenuImagesChange = async (newImages) => {
+    console.log('📸 handleMenuImagesChange called with:', newImages);
     setMenuImages(newImages);
 
     if (newImages.length > 0) {
       const lastImage = newImages[newImages.length - 1];
-      
+      console.log('📸 Last image:', lastImage);
+
       if (lastImage.file) {
         // Upload file to server
+        console.log('📤 Uploading file to server:', lastImage.file.name);
         setImageUploading(true);
         try {
           const formDataUpload = new FormData();
           formDataUpload.append('image', lastImage.file);
-          
+
           const token = localStorage.getItem('token');
           const response = await axios.post('/api/upload/menu-image', formDataUpload, {
             headers: {
@@ -294,24 +269,54 @@ const AdminMenu = () => {
             }
           });
 
+          console.log('📥 Upload response:', response.data);
+
           if (response.data.success) {
-            const imageUrl = response.data.imageUrl;
+            const imageUrl = response.data.data?.imageUrl || response.data.imageUrl;
+            console.log('✅ Image uploaded successfully, URL:', imageUrl);
+
             setFormData(prev => ({ ...prev, image: imageUrl }));
-            setMenuImages([imageUrl]);
+
+            // Update menuImages with proper object format for ModernImageUpload
+            setMenuImages([{
+              url: imageUrl,
+              preview: imageUrl,
+              name: 'Uploaded Image',
+              isUrl: true
+            }]);
+
             showToast('Image uploaded successfully', 'success');
+          } else {
+            console.error('❌ Upload failed: Server returned unsuccessful response');
+            showToast('Upload failed: Server returned unsuccessful response', 'error');
           }
         } catch (error) {
-          console.error('Upload failed:', error);
-          showToast('Upload failed: ' + error.message, 'error');
+          console.error('❌ Upload error:', error);
+          // Show detailed error to user
+          let errorMessage = 'Upload failed: ';
+          if (error.response?.data?.message) {
+            errorMessage += error.response.data.message;
+          } else if (error.response?.status === 401) {
+            errorMessage += 'Authentication required. Please log in again.';
+          } else if (error.response?.status === 403) {
+            errorMessage += 'Permission denied. Admin access required.';
+          } else {
+            errorMessage += error.message;
+          }
+
+          showToast(errorMessage, 'error');
+          setFormData(prev => ({ ...prev, image: '' }));
         } finally {
           setImageUploading(false);
         }
       } else if (lastImage.url || typeof lastImage === 'string') {
         // Use URL directly
         const imageUrl = lastImage.url || lastImage;
+        console.log('🔗 Using URL directly:', imageUrl);
         setFormData(prev => ({ ...prev, image: imageUrl }));
       }
     } else {
+      console.log('🗑️ No images, clearing formData.image');
       setFormData(prev => ({ ...prev, image: '' }));
     }
   };
@@ -438,31 +443,6 @@ const AdminMenu = () => {
                                     alt={item.name}
                                     className="w-12 h-12 rounded-full object-cover"
                                     crossOrigin="anonymous"
-                                    onLoad={() => {
-                                      console.log('🔍 Menu item image loaded successfully:', item.name, item.image);
-                                    }}
-                                    onError={(e) => {
-                                      console.log('❌ Menu item image failed to load:', item.name, item.image);
-                                      console.log('❌ Error event:', e);
-                                      console.log('❌ Error target:', e.target);
-                                      console.log('❌ Trying fallback approach...');
-                                      
-                                      // Try to load the image with a different approach
-                                      const img = new Image();
-                                      img.crossOrigin = 'anonymous';
-                                      img.onload = () => {
-                                        console.log('🔍 Fallback menu item image loaded successfully');
-                                        e.target.src = img.src;
-                                        e.target.style.display = 'block';
-                                        e.target.nextSibling.style.display = 'none';
-                                      };
-                                      img.onerror = () => {
-                                        console.log('❌ Fallback also failed');
-                                        e.target.style.display = 'none';
-                                        e.target.nextSibling.style.display = 'flex';
-                                      };
-                                      img.src = item.image;
-                                    }}
                                   />
                                 ) : null}
                                 <div
@@ -609,10 +589,7 @@ const AdminMenu = () => {
                   </label>
                   <ModernImageUpload
                     images={menuImages}
-                    onImagesChange={(newImages) => {
-                      console.log('🔍 ModernImageUpload onImagesChange called with:', newImages);
-                      handleMenuImagesChange(newImages);
-                    }}
+                    onImagesChange={handleMenuImagesChange}
                     maxImages={1}
                     required={false}
                   />

@@ -129,6 +129,94 @@ const defaultImages = {
   "Customize Cakes": "https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=300&fit=crop&q=80&fm=jpg&crop=center"
 };
 
+// Menu Item Card Component with image error handling
+const MenuItemCard = ({ item, index, colorConfig, navigate }) => {
+  const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  const handleImageError = (e) => {
+    console.error('Image failed to load:', item.name, item.image, e);
+    setImageError(true);
+    setImageLoaded(false);
+  };
+
+  const handleImageLoad = () => {
+    console.log('Image loaded successfully:', item.name, item.image);
+    setImageLoaded(true);
+    setImageError(false);
+  };
+
+  // Get the full image URL - use relative path to go through Vite proxy
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    // If already a full URL (starts with http:// or https://), use as is
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    // Use relative path - Vite proxy will handle it
+    return imagePath;
+  };
+
+  const imageUrl = getImageUrl(item.image);
+  const showImage = imageUrl && !imageError;
+  console.log('MenuItemCard rendering:', item.name, 'showImage:', showImage, 'imageURL:', imageUrl);
+
+  return (
+    <div
+      className="group cursor-pointer transform transition-all duration-300 hover:scale-105 hover:-translate-y-2 w-full"
+      onClick={() => {
+        if (item.link) {
+          navigate(item.link);
+        } else {
+          navigate(`/products?menuOption=${encodeURIComponent(item.name)}`);
+        }
+      }}
+    >
+      <div className="relative bg-white rounded-xl xs:rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden h-full">
+
+        {/* Image Container */}
+        <div className={`relative h-32 xs:h-40 sm:h-48 md:h-52 lg:h-56 bg-gradient-to-br ${colorConfig.bg} flex items-center justify-center overflow-hidden`}>
+          {/* Actual Image */}
+          {showImage && (
+            <img
+              src={imageUrl}
+              alt={item.name}
+              className="w-full h-full object-cover"
+              crossOrigin="anonymous"
+              onError={handleImageError}
+              onLoad={handleImageLoad}
+            />
+          )}
+
+          {/* Fallback with colored circle and initials */}
+          {!showImage && (
+            <div className={`absolute inset-0 bg-gradient-to-br ${colorConfig.circle} flex items-center justify-center`}>
+              <div className="text-center">
+                <div className={`w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-1 xs:mb-2`}>
+                  <span className="text-white text-lg xs:text-xl sm:text-2xl font-bold">
+                    {item.name.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <p className="text-white text-xs xs:text-sm font-medium">{item.name}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Sparkler effect for first item */}
+          {index === 0 && (
+            <div className="absolute top-4 right-4 w-6 h-6 bg-yellow-400 rounded-full animate-ping"></div>
+          )}
+        </div>
+
+        {/* Category name */}
+        <div className="p-2 xs:p-3 sm:p-4 text-center">
+          <h3 className="text-sm xs:text-base sm:text-lg font-black text-gray-900 uppercase tracking-wide">{item.name}</h3>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 function Home() {
 
   const [products, setProducts] = useState([]);
@@ -244,15 +332,17 @@ function Home() {
     const fetchMenuItems = async () => {
       try {
         setMenuLoading(true);
+        console.log('🍽️ Fetching menu items from API...');
         const response = await axios.get('/api/menu/active');
+        console.log('🍽️ API Response:', response.data);
         if (response.data.success) {
+          console.log('✅ Menu items loaded successfully:', response.data.data.length, 'items');
+          console.log('🖼️ Menu items with images:', response.data.data.map(item => ({
+            name: item.name,
+            image: item.image,
+            hasImage: !!item.image
+          })));
           setMenuItems(response.data.data);
-          console.log('📋 Menu items loaded from API:', response.data.data.length);
-          console.log('📋 Frontend menu items data:', response.data.data);
-          // Log each menu item's image URL
-          response.data.data.forEach(item => {
-            console.log(`📋 Frontend ${item.name}: image = "${item.image}"`);
-          });
           // Save to localStorage for offline access
           localStorage.setItem('menuItems', JSON.stringify(response.data.data));
         } else {
@@ -274,7 +364,7 @@ function Home() {
         }
       } catch (error) {
         console.error('Error fetching menu items from API:', error);
-        
+
         // Fallback to localStorage if API fails
         const saved = localStorage.getItem('menuItems');
         if (saved) {
@@ -303,7 +393,7 @@ function Home() {
     };
 
     window.addEventListener('menuUpdated', handleMenuUpdate);
-    
+
     return () => {
       window.removeEventListener('menuUpdated', handleMenuUpdate);
     };
@@ -531,81 +621,17 @@ function Home() {
                     '#ef4444': { bg: 'from-red-100 to-red-200', circle: 'from-red-200 to-red-300', text: 'text-red-700' },
                     '#f97316': { bg: 'from-orange-100 to-orange-200', circle: 'from-orange-200 to-orange-300', text: 'text-orange-700' }
                   };
-                  
+
                   const colorConfig = colorMap[item.color] || colorMap['#f59e0b'];
-                  
+
                   return (
-                    <div 
-                      key={item._id || index} 
-                      className="group cursor-pointer transform transition-all duration-300 hover:scale-105 hover:-translate-y-2 w-full"
-                      onClick={() => {
-                        if (item.link) {
-                          navigate(item.link);
-                        } else {
-                          // Navigate to products page with menuOption filter
-                          console.log('🔍 Navigating to products with menuOption:', item.name);
-                          navigate(`/products?menuOption=${encodeURIComponent(item.name)}`);
-                        }
-                      }}
-                    >
-                      <div className="relative bg-white rounded-xl xs:rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden h-full">
-                        
-                        {/* Image */}
-                        <div className={`relative h-32 xs:h-40 sm:h-48 md:h-52 lg:h-56 bg-gradient-to-br ${colorConfig.bg} flex items-center justify-center overflow-hidden`}>
-                          {item.image ? (
-                            <img
-                              src={item.image}
-                              alt={item.name}
-                              className="w-full h-full object-cover"
-                              crossOrigin="anonymous"
-                              onLoad={() => {
-                                console.log('🔍 Frontend menu item image loaded successfully:', item.name, item.image);
-                              }}
-                              onError={(e) => {
-                                console.log('❌ Frontend menu item image failed to load:', item.name, item.image);
-                                console.log('❌ Error event:', e);
-                                console.log('❌ Trying fallback approach...');
-                                
-                                // Try to load the image with a different approach
-                                const img = new Image();
-                                img.crossOrigin = 'anonymous';
-                                img.onload = () => {
-                                  console.log('🔍 Fallback frontend menu item image loaded successfully');
-                                  e.target.src = img.src;
-                                  e.target.style.display = 'block';
-                                  e.target.nextSibling.style.display = 'none';
-                                };
-                                img.onerror = () => {
-                                  console.log('❌ Fallback also failed');
-                                  e.target.style.display = 'none';
-                                  e.target.nextSibling.style.display = 'flex';
-                                };
-                                img.src = item.image;
-                              }}
-                            />
-                          ) : null}
-                          <div className={`w-full h-full bg-gradient-to-br ${colorConfig.circle} flex items-center justify-center ${item.image ? 'hidden' : 'flex'}`}>
-                            <div className="text-center">
-                              <div className={`w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-1 xs:mb-2`}>
-                                <span className="text-white text-lg xs:text-xl sm:text-2xl font-bold">
-                                  {item.name.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                              <p className="text-white text-xs xs:text-sm font-medium">{item.name}</p>
-                            </div>
-                          </div>
-                          {/* Sparkler effect for first item */}
-                          {index === 0 && (
-                            <div className="absolute top-4 right-4 w-6 h-6 bg-yellow-400 rounded-full animate-ping"></div>
-                          )}
-                        </div>
-                        
-                        {/* Category name */}
-                        <div className="p-2 xs:p-3 sm:p-4 text-center">
-                          <h3 className="text-sm xs:text-base sm:text-lg font-black text-gray-900 uppercase tracking-wide">{item.name}</h3>
-                        </div>
-                      </div>
-                    </div>
+                    <MenuItemCard
+                      key={item._id || index}
+                      item={item}
+                      index={index}
+                      colorConfig={colorConfig}
+                      navigate={navigate}
+                    />
                   );
                 })}
               </div>

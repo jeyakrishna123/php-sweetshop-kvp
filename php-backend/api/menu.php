@@ -427,6 +427,12 @@ function getActiveMenu($db) {
         $stmt->execute();
         $menuItems = $stmt->fetchAll();
 
+        // DEBUG: Log what's being returned to frontend
+        error_log("🍽️ getActiveMenu - Returning " . count($menuItems) . " active menu items");
+        foreach ($menuItems as $item) {
+            error_log("🍽️ getActiveMenu - Item: " . $item['name'] . " | Image: " . ($item['image'] ?: 'EMPTY'));
+        }
+
         // Return menu items directly in data field for frontend compatibility
         sendSuccess('Active menu retrieved successfully', $menuItems);
     } catch (Exception $e) {
