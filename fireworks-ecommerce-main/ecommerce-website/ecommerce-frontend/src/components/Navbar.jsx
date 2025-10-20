@@ -24,6 +24,14 @@ const Navbar = () => {
   const [isBirthdayDropdownOpen, setIsBirthdayDropdownOpen] = useState(false);
   const [isAnniversaryDropdownOpen, setIsAnniversaryDropdownOpen] = useState(false);
   const [isMobileCategoryOpen, setIsMobileCategoryOpen] = useState(false);
+  const [isMobileTrendingOpen, setIsMobileTrendingOpen] = useState(false);
+  const [isMobileByTypeOpen, setIsMobileByTypeOpen] = useState(false);
+  const [isMobileByFlavoursOpen, setIsMobileByFlavoursOpen] = useState(false);
+  const [isMobileThemeCakesOpen, setIsMobileThemeCakesOpen] = useState(false);
+  const [isMobileByRelationshipOpen, setIsMobileByRelationshipOpen] = useState(false);
+  const [isMobileDessertsOpen, setIsMobileDessertsOpen] = useState(false);
+  const [isMobileBirthdayOpen, setIsMobileBirthdayOpen] = useState(false);
+  const [isMobileAnniversaryOpen, setIsMobileAnniversaryOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const [themeCakesDropdownPosition, setThemeCakesDropdownPosition] = useState({ top: 0, left: 0 });
   const [byRelationshipDropdownPosition, setByRelationshipDropdownPosition] = useState({ top: 0, left: 0 });
@@ -241,9 +249,9 @@ const Navbar = () => {
                </Link>
              </div>
 
-            {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center space-x-8 ml-8">
-              <button 
+            {/* Desktop Navigation - Hidden since links are in category nav below */}
+            <div className="hidden">
+              <button
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -256,9 +264,9 @@ const Navbar = () => {
                 <Icon name="home" className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
                 <span>Home</span>
               </button>
-              
 
-              <button 
+
+              <button
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -272,7 +280,7 @@ const Navbar = () => {
                 <span>About</span>
               </button>
 
-              <button 
+              <button
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -1303,403 +1311,622 @@ const Navbar = () => {
           </div>
         </div>
 
-        {/* Enhanced Mobile Menu - Slide Down Animation */}
-        {isMobileMenuOpen && (
-          <div 
-            className="lg:hidden mobile-menu-container bg-white border-t border-gray-200 shadow-2xl backdrop-blur-sm"
-            style={{ 
-              zIndex: 9998,
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              width: '100%',
-              display: 'block',
-              animation: 'slideDown 0.3s ease-out'
-            }}
+
+        {/* Advanced Search Modal */}
+        <AdvancedSearch
+          isOpen={isAdvancedSearchOpen}
+          onClose={() => setIsAdvancedSearchOpen(false)}
+        />
+      </nav>
+
+      {/* Enhanced Mobile Menu - Moved Outside Nav for Proper Overlay */}
+      {isMobileMenuOpen && (
+        <>
+          {/* Backdrop Overlay */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-60 z-[9998] lg:hidden"
+            onClick={() => setIsMobileMenuOpen(false)}
+            style={{ touchAction: 'none' }}
+          />
+
+          {/* Sidebar Menu */}
+          <div
             ref={mobileMenuRef}
+            className="fixed left-0 top-0 h-full w-80 max-w-[85vw] shadow-2xl z-[9999] lg:hidden overflow-hidden flex flex-col"
+            style={{
+              animation: 'slideInLeft 0.3s ease-out',
+              backgroundColor: '#FEF3E2',
+              opacity: 1
+            }}
           >
-            
-             {/* Mobile Logo Header */}
-             <div className="px-3 py-4 bg-gradient-to-r from-red-50 to-red-50 border-b border-gray-100">
-               <div className="flex items-center justify-center">
-                 <Logo 
-                   size="mobile" 
-                   showText={false}
-                   onClick={() => {
-                     handleNavigation("/");
-                     setIsMobileMenuOpen(false);
-                   }}
-                 />
-               </div>
-             </div>
-            
-            {/* Compact Mobile Search Bar */}
-            <div className="px-3 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Icon name="search" className="w-4 h-4 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search cakes..."
-                  className="w-full pl-10 pr-16 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 transition-all duration-300 text-sm bg-white shadow-sm hover:shadow-md"
-                />
+            {/* Header */}
+            <div className="flex-shrink-0 bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white">Menu</h2>
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"
+                aria-label="Close menu"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Categories List - Bakingo Style with Scrolling */}
+            <div className="flex-1 overflow-y-auto" style={{ backgroundColor: '#FEF3E2' }}>
+              {/* Home */}
+              <div className="border-b border-gray-200">
                 <button
-                  onClick={() => setIsAdvancedSearchOpen(true)}
-                  className="absolute right-1 top-1/2 transform -translate-y-1/2 p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+                  onClick={() => {
+                    handleNavigation("/");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
                 >
-                  <Icon name="filter" className="w-3 h-3" />
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-medium">Home</span>
+                  </div>
                 </button>
               </div>
-            </div>
 
-            {/* Mobile Categories Section - Sidebar Style */}
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 lg:hidden">
-              <div className="fixed left-0 top-0 h-full w-80 bg-amber-50 shadow-2xl overflow-y-auto flex flex-col">
-                {/* Header */}
-                <div className="flex-shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-4 flex items-center justify-between">
-                  <h2 className="text-lg font-bold text-gray-900">All Categories</h2>
-              <button 
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-amber-100"
-                  >
-                    <Icon name="x" className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Search Bar */}
-                <div className="flex-shrink-0 px-4 py-3 bg-amber-50 border-b border-amber-200">
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Icon name="search" className="w-4 h-4 text-gray-400" />
-                </div>
-                    <input
-                      type="text"
-                      placeholder="Search cakes..."
-                      className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 text-sm bg-white"
-                    />
+              {/* About */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => {
+                    handleNavigation("/about");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-medium">About</span>
                   </div>
-                </div>
+                </button>
+              </div>
 
-                {/* Categories List - Scrollable */}
-                <div className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-                  {/* Home */}
-                  <button
-                    onClick={() => {
-                      handleNavigation("/");
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="flex items-center w-full text-left px-3 py-3 text-gray-700 hover:bg-amber-100 rounded-lg group"
+              {/* Contact */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => {
+                    handleNavigation("/contact");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-medium">Contact</span>
+                  </div>
+                </button>
+              </div>
+
+              {/* Daughters Day Cakes */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => {
+                    handleNavigation("/products?category=Daughters%20Day%20Cakes");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-medium">Daughters Day Cakes</span>
+                  </div>
+                </button>
+              </div>
+
+              {/* Cakes - Expandable */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => setIsMobileCategoryOpen(!isMobileCategoryOpen)}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-bold">Cakes</span>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-gray-600 transition-transform duration-200 ${isMobileCategoryOpen ? 'rotate-0' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    <Icon name="home" className="w-5 h-5 text-gray-500 mr-3" />
-                    <span className="font-medium">Home</span>
-                  </button>
-
-                  {/* About */}
-                  <button
-                    onClick={() => {
-                      handleNavigation("/about");
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="flex items-center w-full text-left px-3 py-3 text-gray-700 hover:bg-amber-100 rounded-lg group"
-                  >
-                    <Icon name="info" className="w-5 h-5 text-gray-500 mr-3" />
-                    <span className="font-medium">About</span>
-                  </button>
-
-                  {/* Contact */}
-                  <button
-                    onClick={() => {
-                      handleNavigation("/contact");
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="flex items-center w-full text-left px-3 py-3 text-gray-700 hover:bg-amber-100 rounded-lg group"
-                  >
-                    <Icon name="mail" className="w-5 h-5 text-gray-500 mr-3" />
-                    <span className="font-medium">Contact</span>
-                  </button>
-
-                  {/* Daughters Day Cakes */}
-                  <button
-                    onClick={() => {
-                      handleNavigation("/products?category=Daughters%20Day%20Cakes");
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="flex items-center w-full text-left px-3 py-3 text-gray-700 hover:bg-amber-100 rounded-lg group"
-                  >
-                    <Icon name="cake" className="w-5 h-5 text-gray-500 mr-3" />
-                    <span className="font-medium">Daughters Day Cakes</span>
-              </button>
-
-                  {/* Cakes - Expandable */}
-                  <div className="space-y-1">
-              <button 
-                      onClick={() => setIsMobileCategoryOpen(!isMobileCategoryOpen)}
-                      className="flex items-center justify-between w-full text-left px-3 py-3 text-gray-700 hover:bg-amber-100 rounded-lg group"
-                    >
-                      <div className="flex items-center">
-                        <Icon name="info" className="w-4 h-4 text-gray-500 mr-3" />
-                        <span className="font-bold">Cakes</span>
-                      </div>
-                      <Icon 
-                        name={isMobileCategoryOpen ? "minus" : "plus"} 
-                        className="w-4 h-4 text-gray-400" 
-                      />
-                    </button>
-                    
-                    {isMobileCategoryOpen && (
-                      <div className="ml-7 space-y-1">
-                        {['Theme Cakes', 'By Relationship'].map((item) => (
-                          <button
-                            key={item}
-                            onClick={() => {
-                  handleNavigation("/products");
-                              setIsMobileMenuOpen(false);
-                }}
-                            className="flex items-center justify-between w-full text-left px-3 py-2 text-gray-600 hover:bg-amber-100 rounded-lg group"
-              >
-                            <div className="flex items-center">
-                              <Icon name="info" className="w-3 h-3 text-gray-500 mr-3" />
-                              <span className="text-sm">{item}</span>
-                </div>
-                            <Icon name="plus" className="w-3 h-3 text-gray-400" />
-              </button>
-                        ))}
-                      </div>
+                    {isMobileCategoryOpen ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                     )}
-                  </div>
+                  </svg>
+                </button>
 
-                  {/* Other Categories */}
-                  {['Desserts', 'Birthday', 'Anniversary'].map((category) => (
-              <button 
-                      key={category}
-                      onClick={() => {
-                        handleNavigation("/products");
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className="flex items-center justify-between w-full text-left px-3 py-3 text-gray-700 hover:bg-amber-100 rounded-lg group"
-                    >
-                      <div className="flex items-center">
-                        <Icon name="info" className="w-4 h-4 text-gray-500 mr-3" />
-                        <span className="font-medium">{category}</span>
-                </div>
-                      <Icon name="plus" className="w-4 h-4 text-gray-400" />
-                    </button>
-                  ))}
-                </div>
-
-                {/* User Actions - Fixed at Bottom */}
-                <div className="flex-shrink-0 px-4 py-4 bg-amber-50 border-t border-amber-200 space-y-3">
-                  {user ? (
-                    <>
-                      <button 
-                        onClick={() => {
-                          handleNavigation("/profile");
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className="flex items-center w-full text-left px-3 py-3 text-gray-700 hover:bg-amber-100 rounded-lg group"
+                {/* Cakes Subcategories */}
+                {isMobileCategoryOpen && (
+                  <div className="bg-white border-t border-gray-100">
+                    {/* Trending Cakes - Expandable */}
+                    <div>
+                      <button
+                        onClick={() => setIsMobileTrendingOpen(!isMobileTrendingOpen)}
+                        className="flex items-center justify-between w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors group"
                       >
-                        <Icon name="user" className="w-4 h-4 text-gray-500 mr-3" />
-                        <span className="font-medium">Profile</span>
-              </button>
-
-              <button 
-                        onClick={() => {
-                          handleNavigation("/myorder");
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className="flex items-center w-full text-left px-3 py-3 text-gray-700 hover:bg-amber-100 rounded-lg group"
-                      >
-                        <Icon name="package" className="w-4 h-4 text-gray-500 mr-3" />
-                        <span className="font-medium">Orders</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">Trending Cakes</span>
+                        </div>
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isMobileTrendingOpen ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"} />
+                        </svg>
                       </button>
-                      
-                      {(user.role === 'admin' || user.role === 'superadmin') && (
-                        <button 
-                          onClick={() => {
-                            handleNavigation("/admin");
-                            setIsMobileMenuOpen(false);
-                          }}
-                          className="flex items-center w-full text-left px-3 py-3 text-gray-700 hover:bg-amber-100 rounded-lg group"
-                        >
-                          <Icon name="shield" className="w-4 h-4 text-gray-500 mr-3" />
-                          <span className="font-medium">Admin</span>
-                        </button>
+                      {isMobileTrendingOpen && (
+                        <div className="bg-amber-50 border-t border-gray-100">
+                          {['Gourmet Cakes', 'Bento Cakes', 'Labubu Cakes', 'Cricket Cakes', 'Pinata Cakes', 'Drip Cakes'].map((item) => (
+                            <button
+                              key={item}
+                              onClick={() => {
+                                handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                                setIsMobileMenuOpen(false);
+                              }}
+                              className="flex items-center w-full px-4 py-2 pl-20 text-left hover:bg-white transition-colors"
+                            >
+                              <span className="text-gray-600 text-xs">{item}</span>
+                            </button>
+                          ))}
+                        </div>
                       )}
-                      
-                      <button 
-                        onClick={handleLogout}
-                        className="flex items-center w-full text-left px-3 py-3 text-red-600 hover:bg-red-50 rounded-lg group"
+                    </div>
+
+                    {/* By Type - Expandable */}
+                    <div>
+                      <button
+                        onClick={() => setIsMobileByTypeOpen(!isMobileByTypeOpen)}
+                        className="flex items-center justify-between w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors group"
                       >
-                        <Icon name="logout" className="w-4 h-4 text-red-600 mr-3" />
-                        <span className="font-medium">Sign Out</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">By Type</span>
+                        </div>
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isMobileByTypeOpen ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"} />
+                        </svg>
                       </button>
-                    </>
-                  ) : (
-                    <div className="space-y-2">
-                      <button 
+                      {isMobileByTypeOpen && (
+                        <div className="bg-amber-50 border-t border-gray-100">
+                          {['Bestsellers', 'Eggless Cakes', 'Photo Cakes', 'Cheese Cakes', 'Half Cakes', 'Heart Shaped'].map((item) => (
+                            <button
+                              key={item}
+                              onClick={() => {
+                                handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                                setIsMobileMenuOpen(false);
+                              }}
+                              className="flex items-center w-full px-4 py-2 pl-20 text-left hover:bg-white transition-colors"
+                            >
+                              <span className="text-gray-600 text-xs">{item}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* By Flavours - Expandable */}
+                    <div>
+                      <button
+                        onClick={() => setIsMobileByFlavoursOpen(!isMobileByFlavoursOpen)}
+                        className="flex items-center justify-between w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors group"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">By Flavours</span>
+                        </div>
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isMobileByFlavoursOpen ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"} />
+                        </svg>
+                      </button>
+                      {isMobileByFlavoursOpen && (
+                        <div className="bg-amber-50 border-t border-gray-100">
+                          {['Chocolate Cakes', 'Butterscotch Cakes', 'Pineapple Cakes', 'Kit Kat Cakes', 'Black Forest Cakes', 'Red Velvet Cakes'].map((item) => (
+                            <button
+                              key={item}
+                              onClick={() => {
+                                handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                                setIsMobileMenuOpen(false);
+                              }}
+                              className="flex items-center w-full px-4 py-2 pl-20 text-left hover:bg-white transition-colors"
+                            >
+                              <span className="text-gray-600 text-xs">{item}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                )}
+              </div>
+
+              {/* Theme Cakes - Expandable */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => setIsMobileThemeCakesOpen(!isMobileThemeCakesOpen)}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-bold">Theme Cakes</span>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-gray-600 transition-transform duration-200`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    {isMobileThemeCakesOpen ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    )}
+                  </svg>
+                </button>
+
+                {isMobileThemeCakesOpen && (
+                  <div className="bg-white border-t border-gray-100">
+                    {/* Kids Cakes */}
+                    <div className="px-4 py-2 bg-gray-50">
+                      <span className="text-xs font-bold text-gray-600">Kids Cakes</span>
+                    </div>
+                    {['1st Birthday Cakes', 'Princess Cakes', 'Animal Cakes', 'Masha & The Bear Cakes', 'Cakes For Boys', 'Cakes For Girls', 'Number Cakes', 'Alphabet Cakes'].map((item) => (
+                      <button
+                        key={item}
                         onClick={() => {
-                          handleNavigation("/login");
+                          handleNavigation(`/products?category=${encodeURIComponent(item)}`);
                           setIsMobileMenuOpen(false);
                         }}
-                        className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                        className="flex items-center w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors"
                       >
-                        Login
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">{item}</span>
+                        </div>
                       </button>
-                      <button 
+                    ))}
+
+                    {/* Character Cakes */}
+                    <div className="px-4 py-2 bg-gray-50">
+                      <span className="text-xs font-bold text-gray-600">Character Cakes</span>
+                    </div>
+                    {['Spiderman Cakes', 'Unicorn Cakes', 'Barbie Cakes', 'Harry Potter Cakes', 'Avenger Cakes', 'Peppa Pig Cakes', 'Doraemon Cakes', 'Naruto Cakes'].map((item) => (
+                      <button
+                        key={item}
                         onClick={() => {
-                          handleNavigation("/signup");
+                          handleNavigation(`/products?category=${encodeURIComponent(item)}`);
                           setIsMobileMenuOpen(false);
                         }}
-                        className="w-full bg-white hover:bg-gray-50 text-red-600 font-medium py-2 px-4 rounded-lg border border-red-600 transition-colors"
+                        className="flex items-center w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors"
                       >
-                        Sign Up
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">{item}</span>
+                        </div>
                       </button>
-                </div>
-                  )}
-                </div>
+                    ))}
+
+                    {/* Grown Up Cakes */}
+                    <div className="px-4 py-2 bg-gray-50">
+                      <span className="text-xs font-bold text-gray-600">Grown Up Cakes</span>
+                    </div>
+                    {['Makeup Cakes', 'Bride To Be Cakes', 'Wedding Cakes', 'Gym Cakes', 'Party Cakes', 'BTS Cakes'].map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => {
+                          handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="flex items-center w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">{item}</span>
+                        </div>
+                      </button>
+                    ))}
+
+                    {/* More Cakes */}
+                    <div className="px-4 py-2 bg-gray-50">
+                      <span className="text-xs font-bold text-gray-600">More Cakes</span>
+                    </div>
+                    {['Jungle Theme Cakes', 'Cricket Cakes', 'Football Cakes', 'Basketball Cakes', 'Rainbow Cakes', 'Butterfly Cakes', 'Shinchan Cakes', 'Dinosaur Cakes'].map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => {
+                          handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="flex items-center w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">{item}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* By Relationship */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => setIsMobileByRelationshipOpen(!isMobileByRelationshipOpen)}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-bold">By Relationship</span>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-gray-600 transition-transform duration-200`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    {isMobileByRelationshipOpen ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    )}
+                  </svg>
+                </button>
+
+                {isMobileByRelationshipOpen && (
+                  <div className="bg-white border-t border-gray-100">
+                    {/* For Him */}
+                    <div className="px-4 py-2 bg-gray-50">
+                      <span className="text-xs font-bold text-gray-600">For Him</span>
+                    </div>
+                    {['Cakes For Friend', 'Cakes For Father', 'Cakes For Husband', 'Cakes For Brother', 'Cakes For Boyfriend'].map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => {
+                          handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="flex items-center w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">{item}</span>
+                        </div>
+                      </button>
+                    ))}
+
+                    {/* For Her */}
+                    <div className="px-4 py-2 bg-gray-50">
+                      <span className="text-xs font-bold text-gray-600">For Her</span>
+                    </div>
+                    {['Cakes For Friend', 'Cakes For Mother', 'Cakes For Wife', 'Cakes For Girlfriend', 'Cakes For Sister'].map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => {
+                          handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="flex items-center w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">{item}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Desserts */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => setIsMobileDessertsOpen(!isMobileDessertsOpen)}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-bold">Desserts</span>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-gray-600 transition-transform duration-200`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    {isMobileDessertsOpen ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    )}
+                  </svg>
+                </button>
+
+                {isMobileDessertsOpen && (
+                  <div className="bg-white border-t border-gray-100">
+                    {['All Desserts', 'Jar Cakes', 'Pastries', 'Cheese Cakes', 'Cup Cakes', 'Brownies', 'Cookies', 'Tea Cakes'].map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => {
+                          handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="flex items-center w-full px-4 py-3 pl-8 text-left hover:bg-amber-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">{item}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Birthday */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => setIsMobileBirthdayOpen(!isMobileBirthdayOpen)}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-bold">Birthday</span>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-gray-600 transition-transform duration-200`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    {isMobileBirthdayOpen ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    )}
+                  </svg>
+                </button>
+
+                {isMobileBirthdayOpen && (
+                  <div className="bg-white border-t border-gray-100">
+                    {['Birthday Cakes', '1st Birthday Cakes', 'Birthday Photo Cakes', 'Half Birthday Cakes'].map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => {
+                          handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="flex items-center w-full px-4 py-3 pl-8 text-left hover:bg-amber-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">{item}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Anniversary */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => setIsMobileAnniversaryOpen(!isMobileAnniversaryOpen)}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-bold">Anniversary</span>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-gray-600 transition-transform duration-200`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    {isMobileAnniversaryOpen ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    )}
+                  </svg>
+                </button>
+
+                {isMobileAnniversaryOpen && (
+                  <div className="bg-white border-t border-gray-100">
+                    {['All Anniversary Cakes', '1st Anniversary Cakes', '25th Anniversary Cakes', 'Anniversary Cakes For Parents', '5th Anniversary Cakes', 'Anniversary Photo Cakes', '10th Anniversary Cakes', '50th Anniversary Cakes'].map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => {
+                          handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="flex items-center w-full px-4 py-3 pl-8 text-left hover:bg-amber-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">{item}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Optimized Mobile User Actions */}
-            <div className="px-3 py-4 border-t border-gray-100 space-y-3 bg-gradient-to-b from-gray-50 to-white">
+            {/* User Actions Footer */}
+            <div className="flex-shrink-0 px-4 py-4 bg-gray-50 border-t border-gray-200">
               {user ? (
                 <div className="space-y-3">
-                  {/* Compact User Profile Card */}
-                  <div className="flex items-center space-x-3 px-4 py-3 bg-white rounded-xl shadow-md border border-gray-100">
-                    <div className="w-12 h-12 bg-gradient-to-br from-red-600 to-red-700 rounded-xl flex items-center justify-center shadow-md">
-                      <span className="text-white text-lg font-bold">
+                  {/* User Profile */}
+                  <div className="flex items-center gap-3 px-3 py-2 bg-white rounded-lg">
+                    <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-700 rounded-full flex items-center justify-center">
+                      <span className="text-white text-sm font-bold">
                         {user.name?.charAt(0)?.toUpperCase() || 'U'}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-base text-gray-900 truncate">{user.name}</h3>
-                      <p className="text-sm text-gray-600 truncate">{user.email}</p>
-                      <div className="inline-flex items-center px-2 py-0.5 bg-red-100 text-red-800 text-xs font-medium rounded-full mt-1 capitalize">
-                        {user.role || 'user'}
-                      </div>
+                      <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
+                      <p className="text-xs text-gray-600 truncate">{user.email}</p>
                     </div>
                   </div>
 
-                  {/* Compact Quick Actions */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <button 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('👤 Profile button clicked');
+                  {/* Quick Actions */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => {
                         handleNavigation("/profile");
                         setIsMobileMenuOpen(false);
                       }}
-                      className="flex flex-col items-center space-y-1.5 px-3 py-3 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 group"
-                      style={{ minHeight: '48px' }}
+                      className="flex items-center justify-center gap-2 px-3 py-2 bg-white hover:bg-gray-100 rounded-lg transition-colors"
                     >
-                      <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center group-hover:bg-red-200 transition-colors">
-                        <Icon name="user" className="w-4 h-4 text-red-600" />
-                      </div>
-                      <span className="text-xs font-medium text-gray-700">Profile</span>
+                      <Icon name="user" className="w-4 h-4 text-red-600" />
+                      <span className="text-sm font-medium text-gray-700">Profile</span>
                     </button>
-
-                    <button 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('📦 Orders button clicked');
+                    <button
+                      onClick={() => {
                         handleNavigation("/myorder");
                         setIsMobileMenuOpen(false);
                       }}
-                      className="flex flex-col items-center space-y-1.5 px-3 py-3 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 group"
-                      style={{ minHeight: '48px' }}
+                      className="flex items-center justify-center gap-2 px-3 py-2 bg-white hover:bg-gray-100 rounded-lg transition-colors"
                     >
-                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
-                        <Icon name="package" className="w-4 h-4 text-green-600" />
-                      </div>
-                      <span className="text-xs font-medium text-gray-700">Orders</span>
+                      <Icon name="package" className="w-4 h-4 text-green-600" />
+                      <span className="text-sm font-medium text-gray-700">Orders</span>
                     </button>
-
-                    {user.role === 'admin' || user.role === 'superadmin' ? (
-                      <button 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          console.log('🛡️ Admin button clicked');
-                          handleNavigation("/admin");
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className="flex flex-col items-center space-y-1.5 px-3 py-3 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 group"
-                        style={{ minHeight: '48px' }}
-                      >
-                        <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-                          <Icon name="shield" className="w-4 h-4 text-purple-600" />
-                        </div>
-                        <span className="text-xs font-medium text-gray-700">Admin</span>
-                      </button>
-                    ) : (
-                      <button 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          console.log('❤️ Wishlist button clicked');
-                          handleNavigation("/wishlist");
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className="flex flex-col items-center space-y-1.5 px-3 py-3 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 group"
-                        style={{ minHeight: '48px' }}
-                      >
-                        <div className="w-8 h-8 bg-pink-100 rounded-lg flex items-center justify-center group-hover:bg-pink-200 transition-colors">
-                          <Icon name="heart" className="w-4 h-4 text-pink-600" />
-                        </div>
-                        <span className="text-xs font-medium text-gray-700">Wishlist</span>
-                      </button>
-                    )}
                   </div>
 
-                  <button 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      console.log('🚪 Logout button clicked');
-                      handleLogout();
-                    }}
-                    className="flex items-center justify-center space-x-2 w-full px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-all duration-300 font-medium bg-white shadow-sm hover:shadow-md group"
-                    style={{ minHeight: '48px' }}
+                  {/* Logout Button */}
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
                   >
-                    <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center group-hover:bg-red-200 transition-colors">
-                      <Icon name="logout" className="w-4 h-4 text-red-600" />
-                    </div>
-                    <span className="text-base">Sign Out</span>
+                    <Icon name="logout" className="w-4 h-4" />
+                    <span className="text-sm font-medium">Sign Out</span>
                   </button>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  <div className="text-center py-3">
-                    <h3 className="text-base font-semibold text-gray-900 mb-1">Welcome to Sweet Dreams Bakery</h3>
-                    <p className="text-xs text-gray-600">Sign in for exclusive benefits</p>
-                  </div>
-                  
-                  <button 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      console.log('🔑 Login button clicked');
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
                       handleNavigation("/login");
+                      setIsMobileMenuOpen(false);
                     }}
-                    className="w-full text-center px-4 py-3 text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-300 font-medium bg-white shadow-sm hover:shadow-md border border-gray-200 hover:border-red-300"
-                    style={{ minHeight: '48px' }}
+                    className="w-full px-4 py-2.5 bg-white hover:bg-gray-100 text-gray-700 rounded-lg transition-colors text-sm font-medium border border-gray-300"
                   >
                     Sign In
                   </button>
-                  
-                  <button 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      console.log('📝 Signup button clicked');
+                  <button
+                    onClick={() => {
                       handleNavigation("/signup");
+                      setIsMobileMenuOpen(false);
                     }}
-                    className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-3 rounded-xl hover:shadow-lg transition-all duration-300 font-medium shadow-md"
-                    style={{ minHeight: '48px' }}
+                    className="w-full px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium"
                   >
                     Create Account
                   </button>
@@ -1707,14 +1934,8 @@ const Navbar = () => {
               )}
             </div>
           </div>
-        )}
-
-        {/* Advanced Search Modal */}
-        <AdvancedSearch 
-          isOpen={isAdvancedSearchOpen} 
-          onClose={() => setIsAdvancedSearchOpen(false)} 
-        />
-      </nav>
+        </>
+      )}
     </>
   );
 };

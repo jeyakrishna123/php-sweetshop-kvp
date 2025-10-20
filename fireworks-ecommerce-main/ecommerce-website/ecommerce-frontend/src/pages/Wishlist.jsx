@@ -247,36 +247,36 @@ const Wishlist = () => {
                 </div>
 
                 {/* Product Info */}
-                <div className="p-3 flex-1 flex flex-col">
-                  <h3 className="font-semibold text-gray-900 mb-1.5 line-clamp-2 text-xs leading-tight">
+                <div className="p-2 sm:p-3 flex-1 flex flex-col">
+                  <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2 text-[11px] sm:text-xs leading-tight">
                     {item.name || 'Unnamed Product'}
                   </h3>
 
                   {/* Rating */}
-                  <div className="flex items-center mb-1.5">
-                    <span className="text-yellow-400 text-xs">★</span>
-                    <span className="ml-0.5 text-gray-900 text-xs font-medium">
+                  <div className="flex items-center mb-1">
+                    <span className="text-yellow-400 text-[10px] sm:text-xs">★</span>
+                    <span className="ml-0.5 text-gray-900 text-[10px] sm:text-xs font-medium">
                       {(parseFloat(item.average_rating) || parseFloat(item.ratings) || 0).toFixed(1)}
                     </span>
-                    <span className="ml-0.5 text-gray-500 text-[10px]">
+                    <span className="ml-0.5 text-gray-500 text-[9px] sm:text-[10px]">
                       ({parseInt(item.num_reviews) || parseInt(item.numOfReviews) || 0})
                     </span>
                   </div>
 
                   {/* Price */}
-                  <div className="mb-1.5">
-                    <div className="text-base font-bold text-gray-900">
+                  <div className="mb-1">
+                    <div className="text-sm sm:text-base font-bold text-gray-900">
                       ₹{item.price?.toLocaleString() || '0'}
                     </div>
                     {item.original_price && item.original_price > item.price && (
-                      <div className="text-[10px] text-gray-500 line-through">
+                      <div className="text-[9px] sm:text-[10px] text-gray-500 line-through">
                         ₹{item.original_price?.toLocaleString()}
                       </div>
                     )}
                   </div>
 
-                  {/* Stock Status */}
-                  <div className="mb-2">
+                  {/* Stock Status - Hidden on mobile to save space */}
+                  <div className="mb-1 hidden sm:block">
                     <div className={`inline-flex items-center text-[10px] font-medium ${
                       (item.stock || 0) > 0
                         ? 'text-green-600'
@@ -296,11 +296,11 @@ const Wishlist = () => {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="mt-auto space-y-1.5">
+                  <div className="mt-auto space-y-1">
                     <button
                       onClick={() => addToCart(item)}
                       disabled={(item.stock || 0) === 0}
-                      className={`w-full px-3 py-2 text-xs font-semibold rounded transition-colors ${
+                      className={`w-full px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs font-semibold rounded transition-colors ${
                         (item.stock || 0) > 0
                           ? 'bg-red-600 text-white hover:bg-red-700'
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -311,14 +311,14 @@ const Wishlist = () => {
 
                     <button
                       onClick={() => navigate(`/product/${item.product_id}`)}
-                      className="w-full px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                      className="w-full px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
                     >
                       View Details
                     </button>
                   </div>
 
-                  {/* Added Date */}
-                  <div className="mt-2 text-center">
+                  {/* Added Date - Hidden on mobile */}
+                  <div className="mt-1 sm:mt-2 text-center hidden sm:block">
                     <p className="text-[10px] text-gray-500">
                       Added {new Date(item.created_at).toLocaleDateString('en-US', {
                         month: 'short',

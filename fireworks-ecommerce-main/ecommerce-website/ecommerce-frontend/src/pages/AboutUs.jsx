@@ -71,41 +71,47 @@ const AboutUs = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-red-50">
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-br from-red-600 via-red-700 to-red-800 text-white py-24 lg:py-32 overflow-hidden">
+      <div
+        className="relative text-white py-16 sm:py-24 lg:py-32 overflow-hidden min-h-[500px] sm:min-h-[600px]"
+        style={{
+          background: 'linear-gradient(to bottom right, #dc2626, #b91c1c, #991b1b)',
+          backgroundImage: 'linear-gradient(to bottom right, rgb(220, 38, 38), rgb(185, 28, 28), rgb(153, 27, 27))'
+        }}
+      >
         {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div className="absolute inset-0" style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
           }}></div>
         </div>
         
-        <div ref={headerTextRef} className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-5xl md:text-7xl font-bold mb-8 opacity-0 transform -translate-y-4 transition-all duration-1000 ease-out">
-            About <span className="text-yellow-300">SK Bakers</span>
+        <div ref={headerTextRef} className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col justify-center items-center min-h-[450px] sm:min-h-[550px]">
+          <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold mb-6 sm:mb-8 opacity-0 transform -translate-y-4 transition-all duration-1000 ease-out leading-tight text-white">
+            About <span className="text-yellow-400 md:text-yellow-300 block sm:inline mt-2 sm:mt-0">SK Bakers</span>
           </h1>
-          <p className="text-xl md:text-2xl text-red-100 mb-10 opacity-0 transform -translate-y-4 transition-all duration-1000 ease-out delay-200 max-w-4xl mx-auto leading-relaxed">
-            Your trusted partner in creating magical moments with premium quality cakes and exceptional service. 
+          <p className="text-base sm:text-xl md:text-2xl text-white sm:text-red-100 mb-6 sm:mb-10 opacity-0 transform -translate-y-4 transition-all duration-1000 ease-out delay-200 max-w-4xl mx-auto leading-relaxed px-2">
+            Your trusted partner in creating magical moments with premium quality cakes and exceptional service.
             We sweeten celebrations with taste, quality, and joy.
           </p>
-          <div className="text-sm mb-8 opacity-0 transform -translate-y-4 transition-all duration-1000 ease-out delay-400">
-            <Link to="/" className="hover:text-yellow-300 transition-colors duration-200 text-red-200">Home</Link> 
-            <span className="text-red-300 mx-3">//</span> 
-            <span className="text-yellow-300 font-semibold">About Us</span>
+          <div className="text-xs sm:text-sm mb-6 sm:mb-8 opacity-0 transform -translate-y-4 transition-all duration-1000 ease-out delay-400">
+            <Link to="/" className="hover:text-yellow-300 transition-colors duration-200 text-white opacity-80 hover:opacity-100">Home</Link>
+            <span className="text-white opacity-60 mx-2 sm:mx-3">//</span>
+            <span className="text-yellow-400 md:text-yellow-300 font-semibold">About Us</span>
           </div>
         </div>
       </div>
 
       {/* Stats Section */}
-      <div className="py-20 bg-white relative">
+      <div className="py-12 sm:py-20 bg-white relative">
         <div className="absolute inset-0 bg-gradient-to-r from-red-50 to-yellow-50 opacity-50"></div>
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8">
             {stats.map((stat, index) => (
               <div key={index} className="text-center group">
-                <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-red-100">
-                  <div className="text-4xl mb-3 group-hover:scale-110 transition-transform duration-300">{stat.icon}</div>
-                  <div className="text-4xl md:text-5xl font-bold text-red-600 mb-2">{stat.number}</div>
-                  <div className="text-gray-700 font-medium text-sm">{stat.label}</div>
+                <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-red-100">
+                  <div className="text-3xl sm:text-4xl mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">{stat.icon}</div>
+                  <div className="text-2xl sm:text-4xl md:text-5xl font-bold text-red-600 mb-1 sm:mb-2">{stat.number}</div>
+                  <div className="text-gray-700 font-medium text-xs sm:text-sm">{stat.label}</div>
                 </div>
               </div>
             ))}
@@ -114,31 +120,37 @@ const AboutUs = () => {
       </div>
 
       {/* Vision & Mission Section */}
-      <div className="py-20 bg-gradient-to-br from-red-600 to-red-800 text-white">
+      <div
+        className="py-12 sm:py-20 text-white"
+        style={{
+          background: 'linear-gradient(to bottom right, #dc2626, #b91c1c, #991b1b)',
+          backgroundColor: '#dc2626'
+        }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">Our Vision & Mission</h2>
-            <p className="text-xl text-red-100 max-w-3xl mx-auto">
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6 text-white">Our Vision & Mission</h2>
+            <p className="text-base sm:text-xl text-white font-medium max-w-3xl mx-auto leading-relaxed px-2">
               Delivering premium-quality cakes crafted with expertise and passion, bringing new and creative baking techniques to our customers.
             </p>
           </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-12">
             {/* Vision */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-8 lg:p-10 hover:bg-white/20 transition-all duration-300 border border-white/20">
-              <div className="text-6xl mb-6">🎯</div>
-              <h3 className="text-3xl font-bold mb-6 text-yellow-300">Our Vision</h3>
-              <p className="text-lg leading-relaxed text-red-50">
-                At SK Bakers, our goal is to deliver premium-quality cakes crafted with expertise and passion. 
+            <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-6 sm:p-8 lg:p-10 hover:bg-white/20 transition-all duration-300 border border-white/20">
+              <div className="text-5xl sm:text-6xl mb-4 sm:mb-6">🎯</div>
+              <h3 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-yellow-400 sm:text-yellow-300">Our Vision</h3>
+              <p className="text-base sm:text-lg leading-relaxed text-white font-normal">
+                At SK Bakers, our goal is to deliver premium-quality cakes crafted with expertise and passion.
                 We are committed to bringing new and creative baking techniques to our customers, ensuring every bite is a delightful experience.
               </p>
             </div>
 
             {/* Mission */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-8 lg:p-10 hover:bg-white/20 transition-all duration-300 border border-white/20">
-              <div className="text-6xl mb-6">🚀</div>
-              <h3 className="text-3xl font-bold mb-6 text-yellow-300">Our Mission</h3>
-              <p className="text-lg leading-relaxed text-red-50">
+            <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-6 sm:p-8 lg:p-10 hover:bg-white/20 transition-all duration-300 border border-white/20">
+              <div className="text-5xl sm:text-6xl mb-4 sm:mb-6">🚀</div>
+              <h3 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-yellow-400 sm:text-yellow-300">Our Mission</h3>
+              <p className="text-base sm:text-lg leading-relaxed text-white font-normal">
                 We bake with heart, using only the finest ingredients to craft irresistible treats that spread happiness and love in every bite.
               </p>
             </div>
@@ -147,22 +159,22 @@ const AboutUs = () => {
       </div>
 
       {/* Values Section */}
-      <div className="py-20 bg-white">
+      <div className="py-12 sm:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">Our Core Values</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-4 sm:mb-6">Our Core Values</h2>
+            <p className="text-base sm:text-xl text-gray-600 max-w-3xl mx-auto px-2">
               The principles that guide everything we do and every decision we make.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
             {values.map((value, index) => (
               <div key={index} className="group">
-                <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-2xl p-8 text-center hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-3 border border-red-200 hover:border-red-300">
-                  <div className="text-5xl mb-6 group-hover:scale-110 transition-transform duration-300">{value.icon}</div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-4">{value.title}</h3>
-                  <p className="text-gray-600 leading-relaxed">{value.description}</p>
+                <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl sm:rounded-2xl p-6 sm:p-8 text-center hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-3 border border-red-200 hover:border-red-300">
+                  <div className="text-4xl sm:text-5xl mb-4 sm:mb-6 group-hover:scale-110 transition-transform duration-300">{value.icon}</div>
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">{value.title}</h3>
+                  <p className="text-sm sm:text-base text-gray-600 leading-relaxed">{value.description}</p>
                 </div>
               </div>
             ))}
@@ -171,48 +183,54 @@ const AboutUs = () => {
       </div>
 
       {/* Story Section */}
-      <div className="py-20 bg-gradient-to-br from-gray-50 to-red-50">
+      <div className="py-12 sm:py-20 bg-gradient-to-br from-gray-50 to-red-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-16 items-center">
             <div>
-              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-8">Our Story</h2>
-              <div className="space-y-6">
-                <p className="text-lg text-gray-700 leading-relaxed">
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-6 sm:mb-8">Our Story</h2>
+              <div className="space-y-4 sm:space-y-6">
+                <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
                   <span className="text-red-600 font-semibold">Our Journey</span><br/>
                   During the COVID-19 period, my wife and I spent our free time experimenting with cake making. We shared our cakes with our neighbors, who loved the taste and encouraged us to do more. This inspired us to start baking birthday cakes and other specialty cakes for our family members. Their positive feedback motivated us to take our passion to the next level.
                 </p>
-                <p className="text-lg text-gray-700 leading-relaxed">
+                <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
                   <span className="text-red-600 font-semibold">Our Growth</span><br/>
                   We focused on maintaining high-quality standards in every cake we made. To enhance our skills, we traveled abroad to learn advanced cake-making techniques. We were proud to introduce these innovative concepts to Kovilpatti, making us pioneers in the region.
                 </p>
-                <p className="text-lg text-gray-700 leading-relaxed">
-                  Today, we continue to innovate and expand our offerings while maintaining the same dedication to 
+                <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
+                  Today, we continue to innovate and expand our offerings while maintaining the same dedication to
                   freshness, quality, and customer service that has been our foundation since day one.
                 </p>
               </div>
             </div>
-            <div className="bg-gradient-to-br from-red-600 to-red-800 rounded-3xl p-8 lg:p-10 text-white shadow-2xl">
-              <h3 className="text-3xl font-bold mb-8 text-yellow-300">Why Choose SK Bakers?</h3>
-              <ul className="space-y-4">
-                <li className="flex items-center">
-                  <span className="text-2xl mr-4 text-yellow-300">✅</span>
-                  <span className="text-lg">100% fresh daily baked products</span>
+            <div
+              className="rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-10 text-white shadow-2xl"
+              style={{
+                background: 'linear-gradient(to bottom right, #dc2626, #b91c1c, #991b1b)',
+                backgroundColor: '#dc2626'
+              }}
+            >
+              <h3 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8 text-yellow-400 sm:text-yellow-300">Why Choose SK Bakers?</h3>
+              <ul className="space-y-3 sm:space-y-4">
+                <li className="flex items-start sm:items-center">
+                  <span className="text-xl sm:text-2xl mr-3 sm:mr-4 text-yellow-400 sm:text-yellow-300 flex-shrink-0">✅</span>
+                  <span className="text-base sm:text-lg text-white font-medium">100% fresh daily baked products</span>
                 </li>
-                <li className="flex items-center">
-                  <span className="text-2xl mr-4 text-yellow-300">✅</span>
-                  <span className="text-lg">Expert baking techniques</span>
+                <li className="flex items-start sm:items-center">
+                  <span className="text-xl sm:text-2xl mr-3 sm:mr-4 text-yellow-400 sm:text-yellow-300 flex-shrink-0">✅</span>
+                  <span className="text-base sm:text-lg text-white font-medium">Expert baking techniques</span>
                 </li>
-                <li className="flex items-center">
-                  <span className="text-2xl mr-4 text-yellow-300">✅</span>
-                  <span className="text-lg">Wide range of flavors</span>
+                <li className="flex items-start sm:items-center">
+                  <span className="text-xl sm:text-2xl mr-3 sm:mr-4 text-yellow-400 sm:text-yellow-300 flex-shrink-0">✅</span>
+                  <span className="text-base sm:text-lg text-white font-medium">Wide range of flavors</span>
                 </li>
-                <li className="flex items-center">
-                  <span className="text-2xl mr-4 text-yellow-300">✅</span>
-                  <span className="text-lg">Reliable delivery service</span>
+                <li className="flex items-start sm:items-center">
+                  <span className="text-xl sm:text-2xl mr-3 sm:mr-4 text-yellow-400 sm:text-yellow-300 flex-shrink-0">✅</span>
+                  <span className="text-base sm:text-lg text-white font-medium">Reliable delivery service</span>
                 </li>
-                <li className="flex items-center">
-                  <span className="text-2xl mr-4 text-yellow-300">✅</span>
-                  <span className="text-lg">24/7 customer support</span>
+                <li className="flex items-start sm:items-center">
+                  <span className="text-xl sm:text-2xl mr-3 sm:mr-4 text-yellow-400 sm:text-yellow-300 flex-shrink-0">✅</span>
+                  <span className="text-base sm:text-lg text-white font-medium">24/7 customer support</span>
                 </li>
               </ul>
             </div>
@@ -221,11 +239,11 @@ const AboutUs = () => {
       </div>
 
       {/* Team Section */}
-      <div className="py-20 bg-white">
+      <div className="py-12 sm:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">Meet Our Team</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-4 sm:mb-6">Meet Our Team</h2>
+            <p className="text-base sm:text-xl text-gray-600 max-w-3xl mx-auto px-2">
               The passionate professionals behind SK Bakers' success and commitment to excellence.
             </p>
           </div>
@@ -296,18 +314,24 @@ const AboutUs = () => {
       </div>
 
       {/* CTA Section */}
-      <div className="py-20 bg-gradient-to-br from-red-600 via-red-700 to-red-800 text-white relative overflow-hidden">
+      <div
+        className="py-12 sm:py-20 text-white relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(to bottom right, #dc2626, #b91c1c, #991b1b)',
+          backgroundColor: '#dc2626'
+        }}
+      >
         {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div className="absolute inset-0" style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
           }}></div>
         </div>
-        
+
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold mb-8">Ready to Create Magic?</h2>
-          <p className="text-xl text-red-100 mb-10 max-w-3xl mx-auto leading-relaxed">
-            Explore our collection of premium cakes and start planning your next celebration. 
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6 sm:mb-8 text-white">Ready to Create Magic?</h2>
+          <p className="text-base sm:text-xl text-white font-medium mb-8 sm:mb-10 max-w-3xl mx-auto leading-relaxed px-2">
+            Explore our collection of premium cakes and start planning your next celebration.
             Let us help you make every moment unforgettable.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
