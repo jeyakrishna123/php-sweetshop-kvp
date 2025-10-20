@@ -8,6 +8,13 @@ import axios from "../axios";
 export default function EnhancedProductModal({ product, onSave, onClose, categories = [] }) {
   const { user } = useAuth();
   const { showToast } = useToast();
+
+  // Debug: Log when modal component renders
+  useEffect(() => {
+    console.log('🎨 EnhancedProductModal: Component rendered/mounted');
+    console.log('🎨 EnhancedProductModal: Product prop:', product);
+    console.log('🎨 EnhancedProductModal: Mode:', product ? 'EDIT' : 'CREATE');
+  }, []);
   
   // Main categories from menu navigation
   const mainCategories = [
@@ -126,7 +133,11 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
 
   // Initialize form when product prop changes
   useEffect(() => {
-    if (product) {
+    console.log('🔍 EnhancedProductModal: product prop changed:', product);
+
+    if (product && product._id) {
+      // EDIT MODE: Load existing product data
+      console.log('🔄 EnhancedProductModal: Loading product data for editing');
       setForm({
         name: product.name || "",
         originalPrice: product.originalPrice || "",
@@ -162,13 +173,42 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
         hasWeightOptions: product.hasWeightOptions || false,
         weightOptions: product.weightOptions || []
       });
-      
+
       // Set the selected main category based on the product's category
       const productCategory = product.category || product.categoryName || product.cakeFlavor || "";
       if (productCategory) {
         setSelectedMainCategory(productCategory);
       }
-      
+    } else {
+      // CREATE MODE: Reset form to empty values
+      console.log('➕ EnhancedProductModal: Resetting form for new product creation');
+      setForm({
+        name: "",
+        originalPrice: "",
+        offerPrice: "",
+        price: "",
+        discountPercentage: 0,
+        stock: "",
+        images: [],
+        brand: "",
+        category: "",
+        subCategory: "",
+        menuOption: "",
+        description: "",
+        features: "",
+        specifications: "",
+        tags: "",
+        isActive: true,
+        isFeatured: false,
+        isNew: false,
+        isSpecial: false,
+        isBestseller: false,
+        hasWeightOptions: false,
+        weightOptions: []
+      });
+      setSelectedMainCategory("");
+      setSelectedSubCategory("");
+      setErrors({});
     }
   }, [product]);
 
@@ -328,21 +368,50 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
   // Validate form
   const validateForm = () => {
     const newErrors = {};
-    
-    if (!form.name.trim()) newErrors.name = "Product name is required";
-    if (!form.category) newErrors.category = "Category is required";
-    
+
+    if (!form.name.trim()) {
+      newErrors.name = "Product name is required";
+      console.error('❌ Validation Error: Product name is required');
+    }
+    if (!form.category) {
+      newErrors.category = "Category is required";
+      console.error('❌ Validation Error: Category is required');
+    }
+
     // Validate sub-category if the category has sub-categories
     if (form.category && subCategories[form.category] && subCategories[form.category].length > 0) {
       if (!form.subCategory) {
         newErrors.subCategory = "Sub-category is required";
+        console.error('❌ Validation Error: Sub-category is required for category:', form.category);
       }
     }
-    
-    if (!form.originalPrice) newErrors.originalPrice = "Original price is required";
-    if (!form.stock) newErrors.stock = "Stock quantity is required";
-    if (form.images.length === 0) newErrors.images = "At least one image is required";
-    
+
+    if (!form.originalPrice || parseFloat(form.originalPrice) <= 0) {
+      newErrors.originalPrice = "Original price is required and must be greater than 0";
+      console.error('❌ Validation Error: Original price is required');
+    }
+    if (!form.stock || parseInt(form.stock) < 0) {
+      newErrors.stock = "Stock quantity is required";
+      console.error('❌ Validation Error: Stock quantity is required');
+    }
+    if (!form.images || form.images.length === 0) {
+      newErrors.images = "At least one image is required";
+      console.error('❌ Validation Error: At least one image is required');
+    }
+
+    console.log('🔍 Form Validation:', {
+      hasErrors: Object.keys(newErrors).length > 0,
+      errors: newErrors,
+      formData: {
+        name: form.name,
+        category: form.category,
+        subCategory: form.subCategory,
+        originalPrice: form.originalPrice,
+        stock: form.stock,
+        imagesCount: form.images?.length || 0
+      }
+    });
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -350,14 +419,19 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (isLoading) {
       console.log('🚀 EnhancedProductModal: Already submitting, ignoring duplicate submission');
       return;
     }
-    
+
     if (!validateForm()) {
       showToast("Please fix the errors below", "error");
+      // Scroll to top of modal to show error summary
+      const modalContent = document.querySelector('.modal-content');
+      if (modalContent) {
+        modalContent.scrollTop = 0;
+      }
       return;
     }
     
@@ -397,15 +471,34 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
       
       console.log('🚀 EnhancedProductModal: Submitting product data:', productData);
       console.log('🔍 EnhancedProductModal: Menu option being saved:', productData.menuOption);
-      
-      const response = await productAPI.createProduct(productData);
-      
-      if (response.success) {
-        showToast("Product created successfully!", "success");
-        onSave(response.product);
-        onClose();
+      console.log('🔍 EnhancedProductModal: Editing mode:', !!product);
+
+      let response;
+
+      if (product && product._id) {
+        // Update existing product
+        console.log('🔄 EnhancedProductModal: Updating product ID:', product._id);
+        response = await productAPI.updateProduct(product._id, productData);
+
+        if (response.success) {
+          showToast("Product updated successfully!", "success");
+          onSave(productData);
+          onClose();
+        } else {
+          showToast(response.message || "Failed to update product", "error");
+        }
       } else {
-        showToast(response.message || "Failed to create product", "error");
+        // Create new product
+        console.log('➕ EnhancedProductModal: Creating new product');
+        response = await productAPI.createProduct(productData);
+
+        if (response.success) {
+          showToast("Product created successfully!", "success");
+          onSave(response.product || productData);
+          onClose();
+        } else {
+          showToast(response.message || "Failed to create product", "error");
+        }
       }
     } catch (error) {
       console.error("Product creation error:", error);
@@ -415,9 +508,40 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
     }
   };
 
+  console.log('🎨 EnhancedProductModal: Rendering modal...');
+  console.log('🎨 EnhancedProductModal: Current product:', product);
+  console.log('🎨 EnhancedProductModal: Form state:', form);
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
+      style={{
+        zIndex: 9999,
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+      }}
+      onClick={(e) => {
+        // Prevent closing when clicking inside the modal
+        if (e.target === e.currentTarget) {
+          // Optional: close on backdrop click - onClose();
+        }
+      }}
+    >
+      <div
+        className="modal-content bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl">
           <div className="flex items-center justify-between">
@@ -435,6 +559,31 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
 
         {/* Content */}
         <div className="p-6">
+          {/* Error Summary */}
+          {Object.keys(errors).length > 0 && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">
+                    Please fix the following errors:
+                  </h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <ul className="list-disc list-inside space-y-1">
+                      {Object.entries(errors).map(([field, error]) => (
+                        <li key={field}>{error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Product Name */}
             <div>
@@ -927,6 +1076,12 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Product Status
               </label>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                <p className="text-xs text-blue-800">
+                  ℹ️ <strong>Active</strong> products are visible to customers.
+                  Inactive products can only be viewed by admins.
+                </p>
+              </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="flex items-center">
                   <input
@@ -937,8 +1092,8 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
                     onChange={handleChange}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
-                  <label htmlFor="isActive" className="ml-2 text-sm text-gray-700">
-                    Active
+                  <label htmlFor="isActive" className="ml-2 text-sm text-gray-700 font-medium">
+                    Active (Visible to customers)
                   </label>
                 </div>
                 
@@ -1000,7 +1155,10 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
                 disabled={isLoading}
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {isLoading ? "Creating..." : "Create Product"}
+                {isLoading
+                  ? (product ? "Updating..." : "Creating...")
+                  : (product ? "Update Product" : "Create Product")
+                }
               </button>
             </div>
           </form>
@@ -1009,7 +1167,7 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
 
       {/* Sub-Category Popup */}
       {showSubCategoryPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4" style={{ zIndex: 10000 }}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">

@@ -95,16 +95,30 @@ const AdminProducts = () => {
       const response = await productAPI.getAllProducts();
 
       if (response.success) {
-        // PHP API returns data in response.data.data
+        // API response structure after axios unwrapping:
+        // response = { success: true, message: "...", data: { data: [...], pagination: {...} } }
+        // So response.data = { data: [...], pagination: {...} }
+        // And response.data.data = [...products array...]
+
+        console.log('🔍 AdminProducts: Full API response:', response);
+        console.log('🔍 AdminProducts: response.data type:', typeof response.data);
+        console.log('🔍 AdminProducts: response.data keys:', response.data ? Object.keys(response.data) : 'null');
+        console.log('🔍 AdminProducts: response.data:', response.data);
+
+        // Correct path: response.data.data (pagination wrapper -> products array)
         const fetchedProducts = response.data?.data || response.products || [];
 
+        console.log('🔍 AdminProducts: Extracted products:', fetchedProducts);
+        console.log('🔍 AdminProducts: Products count:', Array.isArray(fetchedProducts) ? fetchedProducts.length : 'not an array');
+
         if (!Array.isArray(fetchedProducts)) {
-          console.error('fetchedProducts is not an array:', fetchedProducts);
+          console.error('❌ fetchedProducts is not an array:', fetchedProducts);
+          console.error('❌ Type:', typeof fetchedProducts);
           throw new Error('Invalid products data format');
         }
 
         const cleanedProducts = fetchedProducts.map(product => ({
-          _id: product._id,
+          _id: product.id || product._id, // Backend uses 'id', frontend expects '_id'
           name: product.name,
           price: product.price,
           stock: product.stock || product.countInStock || 0,
@@ -115,14 +129,14 @@ const AdminProducts = () => {
           description: product.description || "",
           user: product.user,
           seller: product.seller || "",
-          ratings: product.ratings || 0,
-          numOfReviews: product.numOfReviews || 0,
+          ratings: product.ratings || product.average_rating || 0,
+          numOfReviews: product.numOfReviews || product.num_reviews || 0,
           featured: product.featured || false,
           specifications: product.specifications || {},
           tags: product.tags || [],
-          isNew: product.isNew || false,
-          createdAt: product.createdAt,
-          updatedAt: product.updatedAt
+          isNew: product.is_new || product.isNew || false, // Backend uses 'is_new'
+          createdAt: product.created_at || product.createdAt, // Backend uses 'created_at'
+          updatedAt: product.updated_at || product.updatedAt // Backend uses 'updated_at'
         }));
         
         // Remove duplicates based on _id
@@ -189,6 +203,12 @@ const AdminProducts = () => {
       }
     }
   }, [products]);
+
+  // Monitor modal state changes
+  useEffect(() => {
+    console.log('🔔 AdminProducts: modalOpen state changed to:', modalOpen);
+    console.log('🔔 AdminProducts: editingProduct state:', editingProduct);
+  }, [modalOpen, editingProduct]);
 
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this product? This action cannot be undone.")) {
@@ -275,14 +295,18 @@ const AdminProducts = () => {
 
   const handleCreate = () => {
     console.log('🚀 AdminProducts: handleCreate called - opening modal for new product');
+    console.log('🚀 AdminProducts: Current modalOpen state:', modalOpen);
+    console.log('🚀 AdminProducts: Current editingProduct state:', editingProduct);
+    console.log('🚀 AdminProducts: Explicitly setting editingProduct to null');
     setEditingProduct(null);
     setModalOpen(true);
-    console.log('🚀 AdminProducts: Modal state set to open');
+    console.log('🚀 AdminProducts: Modal state set to true');
   };
 
   const handleModalClose = () => {
-    setModalOpen(false);
+    console.log('🚀 AdminProducts: Closing modal and resetting editingProduct');
     setEditingProduct(null);
+    setModalOpen(false);
   };
 
   // Duplicate detection and removal
@@ -415,35 +439,46 @@ const AdminProducts = () => {
     try {
       setIsSubmitting(true);
       console.log('🚀 AdminProducts: handleProductSave called with:', productData);
-      console.log('🚀 AdminProducts: editingProduct:', editingProduct);
-      
-      if (editingProduct) {
+      console.log('🚀 AdminProducts: editingProduct state:', editingProduct);
+      console.log('🚀 AdminProducts: editingProduct type:', typeof editingProduct);
+      console.log('🚀 AdminProducts: editingProduct is null?', editingProduct === null);
+      console.log('🚀 AdminProducts: editingProduct is undefined?', editingProduct === undefined);
+      console.log('🚀 AdminProducts: editingProduct has _id?', editingProduct?._id);
+
+      // CRITICAL: Check if we are in edit mode based on editingProduct state
+      const isEditMode = editingProduct && editingProduct._id;
+      console.log('🚀 AdminProducts: Mode determined:', isEditMode ? 'EDIT' : 'CREATE');
+
+      if (isEditMode) {
         // Update existing product
-        console.log('🚀 AdminProducts: Updating existing product with ID:', editingProduct._id);
+        console.log('🔄 AdminProducts: UPDATING existing product with ID:', editingProduct._id);
         const response = await productAPI.updateProduct(editingProduct._id, productData);
         console.log('🚀 AdminProducts: Update response:', response);
-        
+
         if (response.success) {
           showToast("Product updated successfully", "success");
         } else {
           throw new Error(response.message || 'Update failed');
         }
       } else {
-        // Create new product - check for duplicates first
-        const existingProduct = products.find(p => 
+        // Create new product - check for duplicates first (with safe property access)
+        console.log('➕ AdminProducts: CREATING NEW product');
+
+        const existingProduct = products.find(p =>
+          p?.name && productData?.name &&
           p.name.toLowerCase().trim() === productData.name.toLowerCase().trim() &&
           p.category === productData.category &&
-          p.brand === productData.brand
+          (p.brand || '') === (productData.brand || '')
         );
-        
+
         if (existingProduct) {
           throw new Error(`A product with the same name "${productData.name}" already exists in the same category. Please use a different name or edit the existing product.`);
         }
 
-        console.log('🚀 AdminProducts: Creating new product');
+        console.log('🚀 AdminProducts: No duplicate found, proceeding with creation');
         const response = await productAPI.createProduct(productData);
         console.log('🚀 AdminProducts: Create response:', response);
-        
+
         if (response.success) {
           showToast("Product created successfully", "success");
         } else {
@@ -1195,13 +1230,17 @@ const AdminProducts = () => {
       )}
 
       {/* Enhanced Product Modal */}
-      {modalOpen && (
+      {modalOpen ? (
         <EnhancedProductModal
           product={editingProduct}
           onSave={handleProductSave}
           onClose={handleModalClose}
           categories={categories}
         />
+      ) : (
+        <div style={{ display: 'none' }}>
+          {/* Modal is closed - modalOpen: {String(modalOpen)} */}
+        </div>
       )}
     </div>
   );

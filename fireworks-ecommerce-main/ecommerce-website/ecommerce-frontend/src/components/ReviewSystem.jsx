@@ -6,9 +6,13 @@ import { useToast } from '../context/ToastContext';
 const ReviewSystem = ({ productId, onReviewAdded }) => {
   const { user } = useAuth();
   const { showToast } = useToast();
-  
+
   const [reviews, setReviews] = useState([]);
-  const [statistics, setStatistics] = useState({});
+  const [statistics, setStatistics] = useState({
+    totalReviews: 0,
+    averageRating: 0,
+    ratingDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
+  });
   const [loading, setLoading] = useState(true);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [sortBy, setSortBy] = useState('newest');
@@ -30,14 +34,33 @@ const ReviewSystem = ({ productId, onReviewAdded }) => {
     try {
       setLoading(true);
       const response = await axios.get(`/api/reviews/product/${productId}?sort=${sortBy}&page=${currentPage}&limit=5`);
-      
-      if (response.data.success) {
-        setReviews(response.data.reviews);
-        setStatistics(response.data.statistics);
-        setTotalPages(response.data.pagination.totalPages);
+
+      if (response.data && response.data.success) {
+        setReviews(response.data.reviews || []);
+        setStatistics(response.data.statistics || {
+          totalReviews: 0,
+          averageRating: 0,
+          ratingDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
+        });
+        setTotalPages(response.data.pagination?.totalPages || 1);
+      } else {
+        // If no success flag or response data, set defaults
+        setReviews([]);
+        setStatistics({
+          totalReviews: 0,
+          averageRating: 0,
+          ratingDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
+        });
       }
     } catch (error) {
       console.error('Error fetching reviews:', error);
+      // Set defaults on error
+      setReviews([]);
+      setStatistics({
+        totalReviews: 0,
+        averageRating: 0,
+        ratingDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
+      });
       showToast('Failed to load reviews', 'error');
     } finally {
       setLoading(false);
@@ -336,7 +359,7 @@ const ReviewSystem = ({ productId, onReviewAdded }) => {
           </select>
         </div>
         <div className="text-lg font-semibold text-gray-600">
-          Showing {reviews.length} of {statistics?.totalReviews || 0} reviews
+          Showing {reviews?.length || 0} of {statistics?.totalReviews || 0} reviews
         </div>
       </div>
 

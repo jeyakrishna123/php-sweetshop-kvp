@@ -111,7 +111,16 @@ try {
             }
     }
 } catch (Exception $e) {
-    sendError('Server error', ['error' => $e->getMessage()], 500);
+    error_log("❌❌❌ FATAL ERROR in products.php:");
+    error_log("Message: " . $e->getMessage());
+    error_log("File: " . $e->getFile());
+    error_log("Line: " . $e->getLine());
+    error_log("Trace: " . $e->getTraceAsString());
+    sendError('Server error', [
+        'error' => $e->getMessage(),
+        'file' => basename($e->getFile()),
+        'line' => $e->getLine()
+    ], 500);
 }
 
 /**
@@ -181,6 +190,10 @@ function getAllProducts($db) {
         $orderBy = 'created_at';
     }
 
+    error_log("🔍 GET ALL PRODUCTS - WHERE: $whereClause");
+    error_log("🔍 GET ALL PRODUCTS - LIMIT: $limit, OFFSET: $offset");
+    error_log("🔍 GET ALL PRODUCTS - Is Admin: " . ($isAdmin ? 'YES' : 'NO'));
+
     $stmt = $db->prepare("
         SELECT id, name, slug, description, price, original_price, discount_percentage,
                category, sub_category, menu_option, cake_flavor, product_types, is_new, brand, stock, images, thumbnail,
@@ -196,6 +209,9 @@ function getAllProducts($db) {
     $params[] = $offset;
     $stmt->execute($params);
     $products = $stmt->fetchAll();
+
+    error_log("🔍 GET ALL PRODUCTS - Found " . count($products) . " products");
+    error_log("🔍 GET ALL PRODUCTS - Total count: $total");
 
     // Decode JSON fields
     foreach ($products as &$product) {
@@ -214,22 +230,36 @@ function getAllProducts($db) {
  * Get single product by ID
  */
 function getProductById($db, $id) {
-    $stmt = $db->prepare("
-        SELECT * FROM products WHERE id = ? AND is_active = 1
-    ");
-    $stmt->execute([$id]);
+    // Check if user is admin - admins can view inactive products too
+    $isAdmin = false;
+    $authUser = AuthMiddleware::optionalAuth();
+    if ($authUser && $authUser->role === 'admin') {
+        $isAdmin = true;
+    }
+
+    // Build query based on user role
+    if ($isAdmin) {
+        // Admin can view any product (active or inactive)
+        $stmt = $db->prepare("SELECT * FROM products WHERE id = ?");
+        $stmt->execute([$id]);
+    } else {
+        // Public users only see active products
+        $stmt = $db->prepare("SELECT * FROM products WHERE id = ? AND is_active = 1");
+        $stmt->execute([$id]);
+    }
+
     $product = $stmt->fetch();
 
     if (!$product) {
         sendError('Product not found', [], 404);
     }
 
-    // Decode JSON fields
-    $product['images'] = json_decode($product['images'], true);
-    $product['product_types'] = json_decode($product['product_types'], true);
-    $product['specifications'] = json_decode($product['specifications'], true);
-    $product['tags'] = json_decode($product['tags'], true);
-    $product['weight_options'] = json_decode($product['weight_options'], true);
+    // Decode JSON fields - handle null values properly
+    $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
+    $product['product_types'] = $product['product_types'] ? json_decode($product['product_types'], true) : null;
+    $product['specifications'] = $product['specifications'] ? json_decode($product['specifications'], true) : [];
+    $product['tags'] = $product['tags'] ? json_decode($product['tags'], true) : [];
+    $product['weight_options'] = $product['weight_options'] ? json_decode($product['weight_options'], true) : [];
 
     // Get reviews
     $stmt = $db->prepare("
@@ -281,10 +311,10 @@ function getBestsellers($db) {
 
     $stmt = $db->prepare("
         SELECT id, name, slug, description, price, original_price, discount_percentage,
-               category, images, thumbnail, average_rating, num_reviews, sold_count
+               category, images, thumbnail, average_rating, num_reviews, sold_count, featured
         FROM products
-        WHERE is_active = 1
-        ORDER BY sold_count DESC, average_rating DESC
+        WHERE is_active = 1 AND (featured = 1 OR sold_count > 0)
+        ORDER BY featured DESC, sold_count DESC, average_rating DESC
         LIMIT ?
     ");
     $stmt->execute([$limit]);
@@ -423,18 +453,43 @@ function createProduct($db) {
         return;
     }
 
+    // Get raw input for debugging
+    $rawInput = file_get_contents('php://input');
+    error_log("🔍 CREATE PRODUCT - Raw input length: " . strlen($rawInput));
+    error_log("🔍 CREATE PRODUCT - Raw input (first 500 chars): " . substr($rawInput, 0, 500));
+
     $data = getRequestBody();
-    
+
+    // DEBUG: Log incoming data
+    error_log("🔍 CREATE PRODUCT - Decoded data keys: " . json_encode(array_keys($data)));
+    error_log("🔍 CREATE PRODUCT - Name: " . ($data['name'] ?? 'NOT SET'));
+    error_log("🔍 CREATE PRODUCT - Category: " . ($data['category'] ?? 'NOT SET'));
+    error_log("🔍 CREATE PRODUCT - Price: " . ($data['price'] ?? 'NOT SET'));
+    error_log("🔍 CREATE PRODUCT - Stock: " . ($data['stock'] ?? 'NOT SET'));
+    error_log("🔍 CREATE PRODUCT - Images: " . (isset($data['images']) ? count($data['images']) . ' images' : 'NOT SET'));
+
     // Management Logic: Validate admin permissions
     if (!isset($data['name']) || empty($data['name'])) {
+        error_log("❌ CREATE PRODUCT - Name validation failed");
         sendError('Product name is required for management', [], 400);
         return;
     }
 
-    // Validate required fields
-    $errors = validateRequired($data, ['name', 'description', 'price', 'category', 'stock', 'thumbnail']);
+    // Validate required fields - thumbnail is optional, will use first image
+    $errors = validateRequired($data, ['name', 'price', 'category', 'stock']);
     if (!empty($errors)) {
+        error_log("❌ CREATE PRODUCT - Validation errors: " . json_encode($errors));
+        error_log("❌ CREATE PRODUCT - Missing fields: " . implode(', ', array_keys($errors)));
         sendError('Validation failed', $errors, 400);
+        return;
+    }
+
+    error_log("✅ CREATE PRODUCT - Validation passed");
+
+    // Validate images
+    if (!isset($data['images']) || empty($data['images'])) {
+        sendError('At least one product image is required', [], 400);
+        return;
     }
 
     $slug = generateSlug($data['name']);
@@ -444,18 +499,28 @@ function createProduct($db) {
     $tags = isset($data['tags']) ? json_encode($data['tags']) : null;
     $weightOptions = isset($data['weightOptions']) ? json_encode($data['weightOptions']) : null;
 
+    // Use first image as thumbnail if thumbnail not provided
+    $thumbnail = isset($data['thumbnail']) ? $data['thumbnail'] : (isset($data['images'][0]) ? $data['images'][0] : null);
+
     $stmt = $db->prepare("
         INSERT INTO products (
             name, slug, description, price, original_price, discount_percentage,
             category, sub_category, menu_option, cake_flavor, product_types, is_new, brand, stock, images, thumbnail,
-            specifications, tags, featured, sku, weight, has_weight_options, weight_options
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            specifications, tags, featured, is_active, sku, weight, has_weight_options, weight_options
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
+
+    // Map frontend camelCase to database snake_case
+    // Both isFeatured and isBestseller should mark product as featured
+    $featured = ($data['isFeatured'] ?? 0) || ($data['isBestseller'] ?? 0) ? 1 : ($data['featured'] ?? 0);
+    $isNew = $data['isNew'] ?? 0;
+    $hasWeightOptions = $data['hasWeightOptions'] ?? 0;
+    $isActive = $data['isActive'] ?? 1; // Default to active (1) if not specified
 
     $result = $stmt->execute([
         sanitizeInput($data['name']),
         $slug,
-        sanitizeInput($data['description']),
+        sanitizeInput($data['description'] ?? ''),
         $data['price'],
         $data['originalPrice'] ?? null,
         $data['discountPercentage'] ?? 0,
@@ -464,17 +529,18 @@ function createProduct($db) {
         sanitizeInput($data['menuOption'] ?? ''),
         $data['cakeFlavor'] ?? null,
         $productTypes,
-        $data['isNew'] ?? 0,
+        $isNew,
         $data['brand'] ?? null,
         $data['stock'],
         $images,
-        $data['thumbnail'],
+        $thumbnail,
         $specifications,
         $tags,
-        $data['featured'] ?? 0,
+        $featured,
+        $isActive, // Add is_active field
         $data['sku'] ?? null,
         $data['weight'] ?? null,
-        $data['hasWeightOptions'] ?? 0,
+        $hasWeightOptions,
         $weightOptions
     ]);
 
@@ -517,7 +583,7 @@ function updateProduct($db, $id) {
     $allowedFields = [
         'name', 'description', 'price', 'original_price', 'discount_percentage',
         'category', 'sub_category', 'menu_option', 'cake_flavor', 'is_new', 'brand', 'stock', 'thumbnail',
-        'featured', 'sku', 'weight', 'has_weight_options', 'is_active'
+        'sku', 'weight', 'has_weight_options', 'is_active'
     ];
 
     foreach ($allowedFields as $field) {
@@ -525,6 +591,13 @@ function updateProduct($db, $id) {
             $fields[] = "$field = ?";
             $params[] = sanitizeInput($data[$field]);
         }
+    }
+
+    // Handle featured field - both isFeatured and isBestseller should set featured = 1
+    if (isset($data['isFeatured']) || isset($data['isBestseller']) || isset($data['featured'])) {
+        $featured = ($data['isFeatured'] ?? 0) || ($data['isBestseller'] ?? 0) ? 1 : ($data['featured'] ?? 0);
+        $fields[] = "featured = ?";
+        $params[] = $featured;
     }
 
     // Handle JSON fields

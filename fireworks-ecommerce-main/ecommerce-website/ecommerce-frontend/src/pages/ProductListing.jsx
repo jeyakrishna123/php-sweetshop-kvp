@@ -175,13 +175,48 @@ const ProductListing = () => {
       console.log('🔍 ProductListing: Response headers:', response.headers);
       
       if (response.data.success) {
-        console.log('✅ Products received:', response.data.products.length);
-        console.log('✅ Product names:', response.data.products.map(p => p.name));
-        setProducts(response.data.products);
-        console.log('✅ Products state updated with:', response.data.products.length, 'products');
+        // Backend returns: { success: true, data: { data: [...products], pagination: {...} } }
+        const productsData = response.data.data?.data || response.data.products || [];
+        const paginationData = response.data.data?.pagination || response.data.pagination || {};
+
+        console.log('✅ Products received:', productsData.length);
+        console.log('✅ Product names:', productsData.map(p => p.name));
+
+        // Map backend fields (snake_case) to frontend fields (camelCase)
+        const mappedProducts = productsData.map(product => ({
+          _id: product.id || product._id,
+          name: product.name,
+          price: product.price,
+          originalPrice: product.original_price || product.originalPrice,
+          discountPercentage: product.discount_percentage || product.discountPercentage,
+          stock: product.stock,
+          images: product.images || [],
+          thumbnail: product.thumbnail,
+          brand: product.brand || "",
+          category: product.category || "",
+          subCategory: product.sub_category || product.subCategory || "",
+          menuOption: product.menu_option || product.menuOption || "",
+          cakeFlavor: product.cake_flavor || product.cakeFlavor,
+          description: product.description || "",
+          featured: product.featured || false,
+          isNew: product.is_new || product.isNew || false,
+          averageRating: product.average_rating || product.averageRating || 0,
+          numReviews: product.num_reviews || product.numReviews || 0,
+          soldCount: product.sold_count || product.soldCount || 0,
+          createdAt: product.created_at || product.createdAt,
+          updatedAt: product.updated_at || product.updatedAt
+        }));
+
+        setProducts(mappedProducts);
+        console.log('✅ Products state updated with:', mappedProducts.length, 'products');
+
         setPagination(prev => ({
           ...prev,
-          ...response.data.pagination
+          currentPage: paginationData.currentPage || prev.currentPage,
+          totalPages: paginationData.totalPages || 1,
+          totalProducts: paginationData.totalItems || mappedProducts.length,
+          hasNextPage: paginationData.hasNextPage || false,
+          hasPrevPage: paginationData.hasPrevPage || false
         }));
       } else {
         console.log('❌ API returned success: false');
@@ -420,7 +455,7 @@ const ProductListing = () => {
                 {/* Products Grid/List */}
                 <div className={`${
                   viewMode === "grid"
-                    ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4 lg:gap-6"
+                    ? "grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-5 lg:gap-6"
                     : "grid grid-cols-1 gap-4"
                 }`}>
                   {products.map((product) => (

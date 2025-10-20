@@ -47,7 +47,12 @@ try {
 
         case 'remove':
             if ($method === 'DELETE') {
+                // Handle /api/wishlist/remove/{id}
                 $productId = isset($pathParts[3]) ? $pathParts[3] : null;
+                if (!$productId) {
+                    sendError('Product ID is required', [], 400);
+                    return;
+                }
                 removeFromWishlist($db, $productId);
             }
             break;
@@ -66,7 +71,17 @@ try {
             break;
 
         default:
-            sendError('Endpoint not found', [], 404);
+            // Handle DELETE /api/wishlist/{productId} (direct product ID)
+            if ($method === 'DELETE' && is_numeric($endpoint)) {
+                removeFromWishlist($db, $endpoint);
+            }
+            // Handle GET /api/wishlist/check/{productId}
+            else if ($method === 'GET' && is_numeric($endpoint)) {
+                checkWishlist($db, $endpoint);
+            }
+            else {
+                sendError('Endpoint not found', [], 404);
+            }
     }
 } catch (Exception $e) {
     sendError('Server error', ['error' => $e->getMessage()], 500);
@@ -112,19 +127,31 @@ function addToWishlist($db) {
     $authUser = AuthMiddleware::authenticate();
     $data = getRequestBody();
 
+    // Debug logging
+    error_log('🔍 addToWishlist - Request data: ' . json_encode($data));
+    error_log('🔍 addToWishlist - Auth user ID: ' . $authUser->id);
+
     $errors = validateRequired($data, ['productId']);
     if (!empty($errors)) {
+        error_log('❌ addToWishlist - Validation errors: ' . json_encode($errors));
         sendError('Validation failed', $errors, 400);
     }
 
     $productId = (int)$data['productId'];
+    error_log('🔍 addToWishlist - Product ID (converted to int): ' . $productId);
 
     // Check if product exists and is active
     $stmt = $db->prepare("SELECT id, name FROM products WHERE id = ? AND is_active = 1");
     $stmt->execute([$productId]);
     $product = $stmt->fetch();
 
+    error_log('🔍 addToWishlist - Product found: ' . ($product ? 'YES' : 'NO'));
+    if ($product) {
+        error_log('🔍 addToWishlist - Product name: ' . $product['name']);
+    }
+
     if (!$product) {
+        error_log('❌ addToWishlist - Product not found or inactive for ID: ' . $productId);
         sendError('Product not found or inactive', [], 404);
     }
 
@@ -132,12 +159,15 @@ function addToWishlist($db) {
     $stmt = $db->prepare("SELECT id FROM wishlist WHERE user_id = ? AND product_id = ?");
     $stmt->execute([$authUser->id, $productId]);
     if ($stmt->fetch()) {
+        error_log('⚠️ addToWishlist - Product already in wishlist');
         sendError('Product already in wishlist', [], 409);
     }
 
     // Add to wishlist
     $stmt = $db->prepare("INSERT INTO wishlist (user_id, product_id) VALUES (?, ?)");
     if ($stmt->execute([$authUser->id, $productId])) {
+        error_log('✅ addToWishlist - Successfully added to wishlist');
+
         // Update user's wishlist count
         $stmt = $db->prepare("UPDATE users SET wishlist_count = wishlist_count + 1 WHERE id = ?");
         $stmt->execute([$authUser->id]);
@@ -150,6 +180,7 @@ function addToWishlist($db) {
             ]
         ], 201);
     } else {
+        error_log('❌ addToWishlist - Failed to insert into wishlist table');
         sendError('Failed to add to wishlist', [], 500);
     }
 }

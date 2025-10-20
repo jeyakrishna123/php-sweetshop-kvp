@@ -404,13 +404,42 @@ function Home() {
     const fetchBestsellers = async () => {
       try {
         setBestsellersLoading(true);
+        console.log('🔍 Fetching bestsellers from API...');
         const response = await axios.get('/api/products/bestsellers?limit=6');
+        console.log('🔍 Full bestsellers response:', response.data);
+
         if (response.data.success) {
-          setBestsellers(response.data.products || []);
-          console.log('🏆 Bestsellers loaded:', response.data.products?.length || 0);
+          // Backend returns: { success: true, data: { products: [...] } }
+          // Axios wraps in response.data, so: response.data.data.products
+          const bestsellersData = response.data.data?.products || response.data.products || [];
+          console.log('🏆 Bestsellers loaded:', bestsellersData.length, 'products');
+          console.log('🏆 Product names:', bestsellersData.map(p => p.name));
+
+          // Map backend fields (snake_case) to frontend fields (camelCase)
+          const mappedBestsellers = bestsellersData.map(product => ({
+            _id: product.id || product._id,
+            name: product.name,
+            price: product.price,
+            originalPrice: product.original_price || product.originalPrice,
+            discountPercentage: product.discount_percentage || product.discountPercentage,
+            images: product.images || [],
+            thumbnail: product.thumbnail,
+            category: product.category,
+            description: product.description,
+            ratings: product.average_rating || product.ratings || 4.9,
+            numOfReviews: product.num_reviews || product.numOfReviews || 0,
+            soldCount: product.sold_count || product.soldCount || 0,
+            featured: product.featured
+          }));
+
+          setBestsellers(mappedBestsellers);
+          console.log('✅ Bestsellers state updated with:', mappedBestsellers.length, 'products');
+        } else {
+          console.warn('❌ Bestsellers API response not successful:', response.data);
+          setBestsellers([]);
         }
       } catch (error) {
-        console.error('Error fetching bestsellers:', error);
+        console.error('❌ Error fetching bestsellers:', error);
         setBestsellers([]);
       } finally {
         setBestsellersLoading(false);

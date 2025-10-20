@@ -345,35 +345,35 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
 
   // Grid view - Simplified Design with Essential Elements Only
   return (
-    <div className="group relative bg-white rounded-2xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 overflow-hidden w-full h-[280px] sm:h-[320px] flex flex-col">
+    <div className="group relative bg-white rounded-lg shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-200 overflow-hidden w-full flex flex-col">
       {/* Product Image Container */}
-      <div className="relative w-full h-40 sm:h-48 overflow-hidden cursor-pointer flex-shrink-0 bg-gray-50 flex items-center justify-center rounded-t-2xl" onClick={handleProductClick}>
+      <div className="relative w-full aspect-[4/3] overflow-hidden cursor-pointer flex-shrink-0 bg-gray-50 flex items-center justify-center" onClick={handleProductClick}>
         <img
           src={getImageUrl()}
           alt={product.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           onError={handleImageError}
         />
-        
+
         {/* Vegetarian Icon */}
-        <div className="absolute top-2 left-2 w-6 h-6 bg-green-500 rounded-sm flex items-center justify-center">
-          <span className="text-white text-xs font-bold">V</span>
+        <div className="absolute top-3 left-3 w-7 h-7 bg-green-600 rounded flex items-center justify-center shadow-md">
+          <span className="text-white text-xs font-bold">●</span>
         </div>
-        
+
         {/* Wishlist Button */}
-        <button 
+        <button
           onClick={(e) => {
             e.stopPropagation();
             handleWishlistToggle(e);
           }}
-          className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-all duration-200 hover:scale-110 z-10 ${
+          className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 z-10 ${
             isInWishlist
-              ? 'bg-red-500 text-white border-red-500 shadow-red-500/30'
-              : 'bg-white/90 text-gray-600 hover:text-red-500 border-white/50 hover:border-red-200'
+              ? 'bg-white text-red-500'
+              : 'bg-white text-gray-600 hover:text-red-500'
           }`}
           aria-label="Add to wishlist"
         >
-          <Icon name="heart" className={`w-4 h-4 sm:w-5 sm:h-5 transition-all duration-300 ${isInWishlist ? 'fill-current scale-110' : 'hover:scale-110'}`} />
+          <Icon name="heart" className={`w-5 h-5 transition-all duration-300 ${isInWishlist ? 'fill-current' : ''}`} />
         </button>
 
         {/* Stock Status Overlay */}
@@ -388,10 +388,19 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
       </div>
 
       {/* Product Content */}
-      <div className="flex-1 flex flex-col p-3">
+      <div className="flex-1 flex flex-col p-2.5 sm:p-4">
+        {/* Best Seller Badge */}
+        {(product.soldCount > 50 || product.isBestSeller) && (
+          <div className="mb-1.5 sm:mb-2">
+            <span className="inline-block bg-yellow-400 text-gray-900 text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded">
+              Best Seller
+            </span>
+          </div>
+        )}
+
         {/* Product Name */}
-        <h3 
-          className="text-sm font-semibold text-gray-900 mb-2 cursor-pointer hover:text-red-600 transition-colors duration-200 line-clamp-2"
+        <h3
+          className="text-sm sm:text-base font-bold text-gray-900 mb-1.5 sm:mb-2 cursor-pointer hover:text-red-600 transition-colors duration-200 line-clamp-2 min-h-[2.5rem] sm:min-h-[3rem]"
           onClick={handleProductClick}
           title={product.name}
         >
@@ -399,29 +408,25 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
         </h3>
 
         {/* Price */}
-        <div className="mb-2">
-          <span className="text-base font-bold text-gray-900">
+        <div className="mb-1.5 sm:mb-2">
+          <span className="text-base sm:text-lg font-bold text-gray-900">
             ₹{product.price?.toLocaleString()}
           </span>
         </div>
 
         {/* Rating */}
-        <div className="flex items-center">
-          <div className="flex items-center">
-            {[...Array(5)].map((_, i) => (
-              <Icon
-                key={i}
-                name="star"
-                className={`w-3 h-3 ${
-                  i < Math.floor(product.ratings || 4.9)
-                    ? 'text-yellow-400'
-                    : 'text-gray-300'
-                }`}
-              />
-            ))}
+        <div className="flex items-center mb-2 sm:mb-3">
+          <div className="flex items-center bg-green-600 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
+            <span className="text-white text-[10px] sm:text-xs font-bold mr-0.5">
+              {(product.ratings || 4.9).toFixed(1)}
+            </span>
+            <Icon name="star" className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white fill-current" />
           </div>
-          <span className="text-xs text-gray-500 ml-1">
-            ({product.numReviews || Math.floor(Math.random() * 100) + 10})
+          <span className="text-[10px] sm:text-xs text-gray-600 ml-1.5 sm:ml-2 hidden sm:inline">
+            ({(product.numReviews || Math.floor(Math.random() * 2000) + 100).toLocaleString()} Reviews)
+          </span>
+          <span className="text-[10px] text-gray-600 ml-1 sm:hidden">
+            ({((product.numReviews || Math.floor(Math.random() * 2000) + 100) / 1000).toFixed(1)}K)
           </span>
         </div>
       </div>
