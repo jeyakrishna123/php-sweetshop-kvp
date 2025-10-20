@@ -175,7 +175,7 @@ const MenuItemCard = ({ item, index, colorConfig, navigate }) => {
       <div className="relative bg-white rounded-xl xs:rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden h-full">
 
         {/* Image Container */}
-        <div className={`relative h-32 xs:h-40 sm:h-48 md:h-52 lg:h-56 bg-gradient-to-br ${colorConfig.bg} flex items-center justify-center overflow-hidden`}>
+        <div className={`relative h-24 xs:h-28 sm:h-40 md:h-48 lg:h-52 bg-gradient-to-br ${colorConfig.bg} flex items-center justify-center overflow-hidden`}>
           {/* Actual Image */}
           {showImage && (
             <img
@@ -192,25 +192,25 @@ const MenuItemCard = ({ item, index, colorConfig, navigate }) => {
           {!showImage && (
             <div className={`absolute inset-0 bg-gradient-to-br ${colorConfig.circle} flex items-center justify-center`}>
               <div className="text-center">
-                <div className={`w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-1 xs:mb-2`}>
-                  <span className="text-white text-lg xs:text-xl sm:text-2xl font-bold">
+                <div className={`w-10 h-10 xs:w-12 xs:h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-1`}>
+                  <span className="text-white text-base xs:text-lg sm:text-xl md:text-2xl font-bold">
                     {item.name.charAt(0).toUpperCase()}
                   </span>
                 </div>
-                <p className="text-white text-xs xs:text-sm font-medium">{item.name}</p>
+                <p className="text-white text-[10px] xs:text-xs sm:text-sm font-medium">{item.name}</p>
               </div>
             </div>
           )}
 
           {/* Sparkler effect for first item */}
           {index === 0 && (
-            <div className="absolute top-4 right-4 w-6 h-6 bg-yellow-400 rounded-full animate-ping"></div>
+            <div className="absolute top-2 right-2 sm:top-4 sm:right-4 w-4 h-4 sm:w-6 sm:h-6 bg-yellow-400 rounded-full animate-ping"></div>
           )}
         </div>
 
         {/* Category name */}
-        <div className="p-2 xs:p-3 sm:p-4 text-center">
-          <h3 className="text-sm xs:text-base sm:text-lg font-black text-gray-900 uppercase tracking-wide">{item.name}</h3>
+        <div className="p-1.5 xs:p-2 sm:p-3 md:p-4 text-center">
+          <h3 className="text-xs xs:text-sm sm:text-base md:text-lg font-black text-gray-900 uppercase tracking-wide leading-tight">{item.name}</h3>
         </div>
       </div>
     </div>
@@ -635,7 +635,7 @@ function Home() {
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6 lg:gap-8">
+              <div className="grid grid-cols-2 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 xs:gap-3 sm:gap-4 md:gap-6 lg:gap-8">
                 {menuItems.map((item, index) => {
                   // Get color configuration
                   const colorMap = {
@@ -779,34 +779,20 @@ function Home() {
               </div>
 
                       {/* Rating */}
-                      <div className="flex items-center space-x-1">
-                        <div className="flex items-center">
-                          <div className="flex items-center">
-                            {[...Array(5)].map((_, i) => (
-                              <div
-                                key={i}
-                                className={`w-3 h-3 rounded-full flex items-center justify-center ${
-                                  i < Math.floor(product.ratings || 4.9)
-                                    ? 'bg-yellow-400'
-                                    : 'bg-gray-300'
-                                }`}
-                              >
-                                <span className={`text-xs font-bold ${
-                                  i < Math.floor(product.ratings || 4.9)
-                                    ? 'text-white'
-                                    : 'text-gray-500'
-                                }`}>
-                                  i
-                                </span>
-            </div>
-                            ))}
-                          </div>
-                          <span className="text-xs font-medium text-gray-900 ml-1">
-                            {product.ratings || 4.9}
+                      <div className="flex items-center gap-1">
+                        {/* Star Rating Badge */}
+                        <div className="flex items-center bg-green-600 px-1.5 py-0.5 rounded gap-0.5">
+                          <span className="text-white text-[10px] xs:text-xs font-bold">
+                            {Number(product.ratings || 4.9).toFixed(1)}
                           </span>
+                          <svg className="w-2 h-2 xs:w-2.5 xs:h-2.5 text-white fill-current" viewBox="0 0 20 20">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
                         </div>
-                        <span className="text-xs text-gray-500">
-                          ({product.numOfReviews || Math.floor(Math.random() * 10000) + 1000})
+
+                        {/* Review Count */}
+                        <span className="text-[10px] xs:text-xs text-gray-600">
+                          ({(product.numOfReviews || Math.floor(Math.random() * 10000) + 1000).toLocaleString()})
                         </span>
                       </div>
                     </div>

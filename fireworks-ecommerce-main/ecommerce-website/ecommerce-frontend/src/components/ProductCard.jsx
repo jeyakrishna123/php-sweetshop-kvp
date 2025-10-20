@@ -418,7 +418,7 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
         <div className="flex items-center mb-2 sm:mb-3">
           <div className="flex items-center bg-green-600 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
             <span className="text-white text-[10px] sm:text-xs font-bold mr-0.5">
-              {(product.ratings || 4.9).toFixed(1)}
+              {Number(product.ratings || 4.9).toFixed(1)}
             </span>
             <Icon name="star" className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white fill-current" />
           </div>
