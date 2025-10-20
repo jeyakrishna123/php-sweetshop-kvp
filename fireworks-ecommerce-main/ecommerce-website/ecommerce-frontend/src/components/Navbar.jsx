@@ -600,7 +600,34 @@ const Navbar = () => {
           <div className="w-full max-w-none px-3 sm:px-6 lg:px-8">
             <div className="flex items-center space-x-8 py-3 overflow-x-auto overflow-y-visible scrollbar-hide">
 
-              <button 
+              {/* Home */}
+              <button
+                onClick={() => handleNavigation("/")}
+                className="text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-colors flex items-center gap-1"
+              >
+                <Icon name="home" className="w-4 h-4" />
+                Home
+              </button>
+
+              {/* About */}
+              <button
+                onClick={() => handleNavigation("/about")}
+                className="text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-colors flex items-center gap-1"
+              >
+                <Icon name="info" className="w-4 h-4" />
+                About
+              </button>
+
+              {/* Contact */}
+              <button
+                onClick={() => handleNavigation("/contact")}
+                className="text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-colors flex items-center gap-1"
+              >
+                <Icon name="mail" className="w-4 h-4" />
+                Contact
+              </button>
+
+              <button
                 onClick={() => handleNavigation("/products?category=Daughters%20Day%20Cakes")}
                 className="text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-colors"
               >
@@ -1357,15 +1384,51 @@ const Navbar = () => {
 
                 {/* Categories List - Scrollable */}
                 <div className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-                  {/* Daughters Day Cakes */}
-                  <button 
+                  {/* Home */}
+                  <button
                     onClick={() => {
-                      handleNavigation("/products");
+                      handleNavigation("/");
                       setIsMobileMenuOpen(false);
                     }}
                     className="flex items-center w-full text-left px-3 py-3 text-gray-700 hover:bg-amber-100 rounded-lg group"
                   >
-                    <Icon name="info" className="w-4 h-4 text-gray-500 mr-3" />
+                    <Icon name="home" className="w-5 h-5 text-gray-500 mr-3" />
+                    <span className="font-medium">Home</span>
+                  </button>
+
+                  {/* About */}
+                  <button
+                    onClick={() => {
+                      handleNavigation("/about");
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="flex items-center w-full text-left px-3 py-3 text-gray-700 hover:bg-amber-100 rounded-lg group"
+                  >
+                    <Icon name="info" className="w-5 h-5 text-gray-500 mr-3" />
+                    <span className="font-medium">About</span>
+                  </button>
+
+                  {/* Contact */}
+                  <button
+                    onClick={() => {
+                      handleNavigation("/contact");
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="flex items-center w-full text-left px-3 py-3 text-gray-700 hover:bg-amber-100 rounded-lg group"
+                  >
+                    <Icon name="mail" className="w-5 h-5 text-gray-500 mr-3" />
+                    <span className="font-medium">Contact</span>
+                  </button>
+
+                  {/* Daughters Day Cakes */}
+                  <button
+                    onClick={() => {
+                      handleNavigation("/products?category=Daughters%20Day%20Cakes");
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="flex items-center w-full text-left px-3 py-3 text-gray-700 hover:bg-amber-100 rounded-lg group"
+                  >
+                    <Icon name="cake" className="w-5 h-5 text-gray-500 mr-3" />
                     <span className="font-medium">Daughters Day Cakes</span>
               </button>
 
