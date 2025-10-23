@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Dashboard API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 16px;
+        }
+        button:hover { background: #45a049; }
+        button.logout { background: #f44336; }
+        button.logout:hover { background: #da190b; }
+        .result {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success { border-left: 4px solid #4CAF50; }
+        .error { border-left: 4px solid #f44336; }
+        .info { border-left: 4px solid #2196F3; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .stat-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .stat-card p {
+            margin: 0;
+            font-size: 32px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Admin Dashboard API Tester</h1>
+
+        <div>
+            <button onclick="testLogin()">1. Login as Admin</button>
+            <button onclick="testDashboard()">2. Get Dashboard Stats</button>
+            <button onclick="clearToken()" class="logout">Clear Token</button>
+        </div>
+
+        <div id="stats"></div>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+
+        function showResult(title, data, type = 'info') {
+            const resultDiv = document.getElementById('result');
+            const html = `
+                <div class="result ${type}">
+                    <strong>${title}</strong><br><br>
+                    ${JSON.stringify(data, null, 2)}
+                </div>
+            `;
+            resultDiv.innerHTML = html + resultDiv.innerHTML;
+        }
+
+        function showStats(stats) {
+            const statsDiv = document.getElementById('stats');
+            if (!stats) {
+                statsDiv.innerHTML = '';
+                return;
+            }
+
+            statsDiv.innerHTML = `
+                <h2>📊 Dashboard Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>📦 Total Products</h3>
+                        <p>${stats.totalProducts || 0}</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>📋 Total Orders</h3>
+                        <p>${stats.totalOrders || 0}</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>👥 Total Users</h3>
+                        <p>${stats.totalUsers || 0}</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>💰 Total Revenue</h3>
+                        <p>₹${stats.totalRevenue ? stats.totalRevenue.toLocaleString() : 0}</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>⏳ Pending Orders</h3>
+                        <p>${stats.pendingOrders || 0}</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>🔄 Processing Orders</h3>
+                        <p>${stats.processingOrders || 0}</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>📦 Shipped Orders</h3>
+                        <p>${stats.shippedOrders || 0}</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>✅ Delivered Orders</h3>
+                        <p>${stats.deliveredOrders || 0}</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>⚠️ Low Stock</h3>
+                        <p>${stats.lowStockProducts || 0}</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>❌ Out of Stock</h3>
+                        <p>${stats.outOfStockProducts || 0}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function testLogin() {
+            try {
+                showResult('🔐 Attempting Login...', { email: 'admin@skbakers.com' }, 'info');
+
+                const response = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@skbakers.com',
+                        password: 'admin123'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.token) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('userInfo', JSON.stringify(data.user));
+                    showResult('✅ Login Successful', data, 'success');
+                    alert('Login successful! Token saved. Now click "Get Dashboard Stats"');
+                } else {
+                    showResult('❌ Login Failed', data, 'error');
+                }
+            } catch (error) {
+                showResult('❌ Login Error', { error: error.message }, 'error');
+            }
+        }
+
+        async function testDashboard() {
+            try {
+                const token = localStorage.getItem('token');
+
+                if (!token) {
+                    alert('Please login first!');
+                    return;
+                }
+
+                showResult('📊 Fetching Dashboard Stats...', { token: token.substring(0, 20) + '...' }, 'info');
+
+                const response = await fetch(`${API_URL}/api/admin/dashboard`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showResult('✅ Dashboard Data Retrieved', data, 'success');
+                    showStats(data.stats);
+                } else {
+                    showResult('❌ Dashboard Request Failed', data, 'error');
+                    showStats(null);
+                }
+            } catch (error) {
+                showResult('❌ Dashboard Error', { error: error.message }, 'error');
+                showStats(null);
+            }
+        }
+
+        function clearToken() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userInfo');
+            showResult('🗑️ Token Cleared', { message: 'Logged out' }, 'info');
+            showStats(null);
+        }
+
+        // Check if already logged in
+        window.onload = function() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                showResult('ℹ️ Token Found in LocalStorage', {
+                    token: token.substring(0, 30) + '...',
+                    message: 'Click "Get Dashboard Stats" to fetch data'
+                }, 'info');
+            } else {
+                showResult('ℹ️ Welcome', {
+                    message: 'Click "Login as Admin" to start'
+                }, 'info');
+            }
+        };
+    </script>
+</body>
+</html>

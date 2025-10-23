@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
 import axios from "../axios";
 
-const SearchFilter = ({ products, onSearch, onFilter, filters, onFilterChange, onClearFilters }) => {
+const SearchFilter = ({ products, filters, onFilterChange, onClearFilters }) => {
   const [categories, setCategories] = useState([]);
-  const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [localFilters, setLocalFilters] = useState({
     search: filters?.search || '',
     category: filters?.category || 'all',
@@ -17,9 +15,14 @@ const SearchFilter = ({ products, onSearch, onFilter, filters, onFilterChange, o
     sortBy: filters?.sortBy || 'relevance'
   });
 
+  console.log('🔍 SearchFilter rendered - categories:', categories);
+
   useEffect(() => {
+    // Fetch categories on component mount
+    fetchCategories();
+
+    // Fetch brands only when products are available
     if (products && products.length > 0) {
-      fetchCategories();
       fetchBrands();
     }
   }, [products]);
@@ -37,19 +40,28 @@ const SearchFilter = ({ products, onSearch, onFilter, filters, onFilterChange, o
   const fetchCategories = async () => {
     try {
       const response = await axios.get("/api/categories");
+      console.log('📂 Categories API response:', response.data);
+
       if (response.data.success) {
-        // Only show categories that have products
-        const categoriesWithProducts = response.data.categories.filter(category => {
-          return products.some(product => 
-            product.category === category._id || 
-            product.category === category.name ||
-            product.categoryName === category.name
-          );
-        });
-        setCategories(categoriesWithProducts);
+        // Show all categories from API
+        const allCategories = response.data.categories || response.data.data || [];
+        console.log('📂 Categories loaded:', allCategories.length);
+        console.log('📂 Categories type:', typeof allCategories, Array.isArray(allCategories));
+
+        // Ensure it's an array
+        if (Array.isArray(allCategories)) {
+          setCategories(allCategories);
+        } else {
+          console.warn('⚠️ Categories is not an array:', allCategories);
+          setCategories([]);
+        }
+      } else {
+        setCategories([]);
       }
     } catch (error) {
-      console.error("Error fetching categories:", error);
+      console.error("❌ Error fetching categories:", error);
+      console.error("❌ Error details:", error.response?.data);
+      setCategories([]); // Set empty array on error
     }
   };
 
@@ -231,14 +243,14 @@ const SearchFilter = ({ products, onSearch, onFilter, filters, onFilterChange, o
       maxPrice: '',
       rating: '',
       availability: 'all',
-      sortBy: 'name'
+      sortBy: 'relevance' // Fixed to match initial state
     };
     setLocalFilters(clearedFilters);
-    
+
     if (onClearFilters) {
       onClearFilters();
     }
-    
+
     if (onFilter) {
       onFilter(products);
     }
@@ -292,8 +304,8 @@ const SearchFilter = ({ products, onSearch, onFilter, filters, onFilterChange, o
           className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
         >
           <option value="all">All Categories</option>
-          {categories.map((category) => (
-            <option key={category._id} value={category._id}>
+          {Array.isArray(categories) && categories.map((category, index) => (
+            <option key={category.id || category._id || index} value={category.name || category.slug}>
               {category.name}
             </option>
           ))}

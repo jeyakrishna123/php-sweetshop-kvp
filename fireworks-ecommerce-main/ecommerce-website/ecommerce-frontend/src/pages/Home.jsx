@@ -175,29 +175,30 @@ const MenuItemCard = ({ item, index, colorConfig, navigate }) => {
       <div className="relative bg-white rounded-xl xs:rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden h-full">
 
         {/* Image Container */}
-        <div className={`relative h-24 xs:h-28 sm:h-40 md:h-48 lg:h-52 bg-gradient-to-br ${colorConfig.bg} flex items-center justify-center overflow-hidden`}>
+        <div className={`relative h-32 xs:h-36 sm:h-40 md:h-48 lg:h-52 bg-gradient-to-br ${colorConfig.bg} flex items-center justify-center overflow-hidden`}>
           {/* Actual Image */}
           {showImage && (
             <img
               src={imageUrl}
               alt={item.name}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover object-center"
               crossOrigin="anonymous"
               onError={handleImageError}
               onLoad={handleImageLoad}
+              loading="eager"
             />
           )}
 
           {/* Fallback with colored circle and initials */}
           {!showImage && (
             <div className={`absolute inset-0 bg-gradient-to-br ${colorConfig.circle} flex items-center justify-center`}>
-              <div className="text-center">
-                <div className={`w-10 h-10 xs:w-12 xs:h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-1`}>
-                  <span className="text-white text-base xs:text-lg sm:text-xl md:text-2xl font-bold">
+              <div className="text-center px-2">
+                <div className={`w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 bg-white/30 rounded-full flex items-center justify-center mx-auto mb-1.5 sm:mb-2`}>
+                  <span className="text-white text-xl xs:text-2xl sm:text-3xl md:text-4xl font-bold">
                     {item.name.charAt(0).toUpperCase()}
                   </span>
                 </div>
-                <p className="text-white text-[10px] xs:text-xs sm:text-sm font-medium">{item.name}</p>
+                <p className="text-white text-xs xs:text-sm sm:text-base font-semibold">{item.name}</p>
               </div>
             </div>
           )}
@@ -486,12 +487,15 @@ function Home() {
       ]);
       
        if (productsResponse.data.success) {
-         const productsData = productsResponse.data.products || [];
+         // Handle both response formats: direct products array OR paginated data structure
+         const productsData = productsResponse.data.products || productsResponse.data.data?.data || [];
          console.log('📦 Products loaded:', productsData.length);
-         console.log('📋 Sample products:', productsData.slice(0, 3).map(p => ({ 
-           name: p.name, 
-           category: p.category, 
-           categoryName: p.categoryName 
+         console.log('📋 Sample products with is_new:', productsData.slice(0, 3).map(p => ({
+           name: p.name,
+           category: p.category,
+           categoryName: p.categoryName,
+           is_new: p.is_new,
+           isNew: p.isNew
          })));
          setProducts(productsData);
        } else {
@@ -728,8 +732,8 @@ function Home() {
                   <div className="relative bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden w-full h-52 xs:h-56 sm:h-60 md:h-64 lg:h-68">
                     {/* Vegetarian Icon */}
                     <div className="absolute top-1 xs:top-2 left-1 xs:left-2 z-10">
-                      <div className="w-3 h-3 xs:w-4 xs:h-4 sm:w-5 sm:h-5 bg-green-500 rounded-sm flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">V</span>
+                      <div className="w-4 h-4 xs:w-5 xs:h-5 sm:w-6 sm:h-6 bg-white rounded-full flex items-center justify-center shadow-md border border-gray-200">
+                        <div className="w-2 h-2 xs:w-2.5 xs:h-2.5 sm:w-3 sm:h-3 bg-green-600 rounded-full"></div>
               </div>
             </div>
             
@@ -839,7 +843,7 @@ function Home() {
             <div className="flex justify-center items-center py-12 xs:py-16">
               <div className="animate-spin rounded-full h-8 w-8 xs:h-10 xs:w-10 sm:h-12 sm:w-12 border-b-2 border-blue-600"></div>
             </div>
-          ) : products.filter(p => p.isNew === true).length === 0 ? (
+          ) : products.filter(p => p.is_new === 1 || p.is_new === true || p.isNew === true).length === 0 ? (
             <div className="text-center py-12 xs:py-16">
               <div className="text-gray-500 text-sm xs:text-base sm:text-lg">
                 No new products available at the moment.
@@ -849,7 +853,7 @@ function Home() {
             <div className="relative">
               {/* Scrollable container */}
               <div className="flex overflow-x-auto scrollbar-hide new-products-scroll gap-3 xs:gap-4 sm:gap-6 lg:gap-8 pb-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                {products.filter(p => p.isNew === true).slice(0, 6).map((product, index) => (
+                {products.filter(p => p.is_new === 1 || p.is_new === true || p.isNew === true).slice(0, 6).map((product, index) => (
                 <div
                   key={product._id}
                   className="group cursor-pointer transform transition-all duration-300 hover:scale-105 hover:-translate-y-2 flex-shrink-0 w-40 xs:w-44 sm:w-48 md:w-52 lg:w-56"
@@ -968,31 +972,31 @@ function Home() {
             Join thousands of satisfied customers who trust us for their special moments. 
             Order now and taste the magic!
           </p>
-          <div className="flex flex-col sm:flex-row gap-6 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-6 justify-center">
             <button
               onClick={() => navigate('/products')}
-              className="group bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-4 px-10 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-xl hover:shadow-2xl"
+              className="group bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-2.5 px-6 sm:py-4 sm:px-10 rounded-lg sm:rounded-xl text-sm sm:text-lg transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-xl hover:shadow-2xl"
             >
                              <span className="flex items-center justify-center">
-                 <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m6 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01" />
                  </svg>
                  Order Cakes Now
-                 <svg className="ml-3 w-6 h-6 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <svg className="ml-2 sm:ml-3 w-5 h-5 sm:w-6 sm:h-6 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                  </svg>
                </span>
             </button>
             <button
               onClick={() => navigate('/contact')}
-              className="group bg-transparent hover:bg-white/10 text-white font-bold py-4 px-10 rounded-xl text-lg transition-all duration-300 border-2 border-white hover:border-white/80 backdrop-blur-sm"
+              className="group bg-transparent hover:bg-white/10 text-white font-bold py-2.5 px-6 sm:py-4 sm:px-10 rounded-lg sm:rounded-xl text-sm sm:text-lg transition-all duration-300 border-2 border-white hover:border-white/80 backdrop-blur-sm"
             >
                              <span className="flex items-center justify-center">
-                 <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                  </svg>
                  Contact Us
-                 <svg className="ml-3 w-6 h-6 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <svg className="ml-2 sm:ml-3 w-5 h-5 sm:w-6 sm:h-6 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                  </svg>
                </span>

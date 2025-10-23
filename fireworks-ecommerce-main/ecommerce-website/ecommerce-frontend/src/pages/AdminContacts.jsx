@@ -38,18 +38,56 @@ const AdminContacts = () => {
   const fetchContacts = async () => {
     try {
       setLoading(true);
+      console.log('🔄 Fetching contacts from /api/contacts...');
       const response = await axios.get('/api/contacts');
+      console.log('📦 Contacts API Response:', response.data);
+
       if (response.data.success && Array.isArray(response.data.contacts)) {
         const sortedContacts = response.data.contacts.sort((a, b) =>
           new Date(b.createdAt) - new Date(a.createdAt)
         );
+        console.log(`✅ Loaded ${sortedContacts.length} contacts`);
         setContacts(sortedContacts);
+
+        // Calculate stats from loaded contacts
+        const calculatedStats = {
+          total: sortedContacts.length,
+          new: sortedContacts.filter(c => c.status === 'new').length,
+          responded: sortedContacts.filter(c => c.status === 'responded').length,
+          closed: sortedContacts.filter(c => c.status === 'closed').length,
+          unread: sortedContacts.filter(c => !c.isRead).length,
+          read: sortedContacts.filter(c => c.isRead).length
+        };
+        console.log('📊 Stats calculated from contacts:', calculatedStats);
+        setStats(calculatedStats);
+      } else if (response.data.success && response.data.data?.contacts) {
+        // Handle alternate response structure
+        const sortedContacts = response.data.data.contacts.sort((a, b) =>
+          new Date(b.createdAt) - new Date(a.createdAt)
+        );
+        console.log(`✅ Loaded ${sortedContacts.length} contacts (alternate structure)`);
+        setContacts(sortedContacts);
+
+        // Calculate stats from loaded contacts
+        const calculatedStats = {
+          total: sortedContacts.length,
+          new: sortedContacts.filter(c => c.status === 'new').length,
+          responded: sortedContacts.filter(c => c.status === 'responded').length,
+          closed: sortedContacts.filter(c => c.status === 'closed').length,
+          unread: sortedContacts.filter(c => !c.isRead).length,
+          read: sortedContacts.filter(c => c.isRead).length
+        };
+        console.log('📊 Stats calculated from contacts:', calculatedStats);
+        setStats(calculatedStats);
       } else {
         // Response was successful but contacts data is missing or invalid
+        console.warn('⚠️ Response successful but no contacts array found:', response.data);
         setContacts([]);
       }
     } catch (error) {
-      console.error('Error fetching contacts:', error);
+      console.error('❌ Error fetching contacts:', error);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error status:', error.response?.status);
 
       // Handle 404 gracefully - API endpoint doesn't exist yet
       if (error.response?.status === 404) {
@@ -69,21 +107,46 @@ const AdminContacts = () => {
 
   const fetchStats = async () => {
     try {
+      console.log('🔄 Fetching stats from /api/contacts/stats/overview...');
       const response = await axios.get('/api/contacts/stats/overview');
-      if (response.data.success) {
+      console.log('📊 Stats API Response:', response.data);
+
+      if (response.data.success && response.data.stats) {
+        console.log('✅ Stats loaded:', response.data.stats);
         setStats(response.data.stats);
+      } else if (response.data.success && response.data.data?.stats) {
+        console.log('✅ Stats loaded (alternate structure):', response.data.data.stats);
+        setStats(response.data.data.stats);
       }
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('❌ Error fetching stats:', error);
+      console.error('❌ Stats error response:', error.response?.data);
+      console.error('❌ Stats error status:', error.response?.status);
 
       // Handle errors gracefully and ensure stats remain initialized
       if (error.response?.status === 404) {
-        console.log('🔍 Stats API endpoint not found (404) - using default stats');
+        console.log('🔍 Stats API endpoint not found (404) - calculating from contacts');
       } else if (error.response?.status === 401) {
-        console.log('🔐 Authentication error for stats - using default stats');
+        console.log('🔐 Authentication error for stats - calculating from contacts');
       }
-      // Keep default stats state regardless of error
+
+      // Calculate stats from contacts array as fallback
+      calculateStatsFromContacts();
     }
+  };
+
+  const calculateStatsFromContacts = () => {
+    console.log('📊 Calculating stats from contacts array...');
+    const calculatedStats = {
+      total: contacts.length,
+      new: contacts.filter(c => c.status === 'new').length,
+      responded: contacts.filter(c => c.status === 'responded').length,
+      closed: contacts.filter(c => c.status === 'closed').length,
+      unread: contacts.filter(c => !c.isRead).length,
+      read: contacts.filter(c => c.isRead).length
+    };
+    console.log('✅ Calculated stats:', calculatedStats);
+    setStats(calculatedStats);
   };
 
   const handleViewContact = (contact) => {
@@ -100,10 +163,21 @@ const AdminContacts = () => {
     try {
       const response = await axios.put(`/api/contacts/${contactId}/read`);
       if (response.data.success) {
-        setContacts(prev => prev.map(contact =>
+        const updatedContacts = contacts.map(contact =>
           contact.id === contactId ? { ...contact, isRead: true } : contact
-        ));
-        fetchStats();
+        );
+        setContacts(updatedContacts);
+
+        // Recalculate stats
+        const calculatedStats = {
+          total: updatedContacts.length,
+          new: updatedContacts.filter(c => c.status === 'new').length,
+          responded: updatedContacts.filter(c => c.status === 'responded').length,
+          closed: updatedContacts.filter(c => c.status === 'closed').length,
+          unread: updatedContacts.filter(c => !c.isRead).length,
+          read: updatedContacts.filter(c => c.isRead).length
+        };
+        setStats(calculatedStats);
       }
     } catch (error) {
       console.error('Error marking contact as read:', error);
@@ -122,11 +196,22 @@ const AdminContacts = () => {
         adminNotes
       });
       if (response.data.success) {
-        setContacts(prev => prev.map(contact =>
+        const updatedContacts = contacts.map(contact =>
           contact.id === contactId ? { ...contact, status, adminNotes } : contact
-        ));
+        );
+        setContacts(updatedContacts);
         showToast('Contact status updated successfully', 'success');
-        fetchStats();
+
+        // Recalculate stats
+        const calculatedStats = {
+          total: updatedContacts.length,
+          new: updatedContacts.filter(c => c.status === 'new').length,
+          responded: updatedContacts.filter(c => c.status === 'responded').length,
+          closed: updatedContacts.filter(c => c.status === 'closed').length,
+          unread: updatedContacts.filter(c => !c.isRead).length,
+          read: updatedContacts.filter(c => c.isRead).length
+        };
+        setStats(calculatedStats);
       }
     } catch (error) {
       console.error('Error updating contact status:', error);

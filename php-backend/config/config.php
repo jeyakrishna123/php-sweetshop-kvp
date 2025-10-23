@@ -32,12 +32,13 @@ define('DEFAULT_PAGE_SIZE', 20);
 define('MAX_PAGE_SIZE', 100);
 
 // Email settings (for order notifications, etc.)
+// Hostinger Email Configuration
 define('SMTP_HOST', 'smtp.hostinger.com');
 define('SMTP_PORT', 587);
-define('SMTP_USERNAME', 'your-email@yourdomain.com');
-define('SMTP_PASSWORD', 'your-email-password');
-define('FROM_EMAIL', 'noreply@yourdomain.com');
-define('FROM_NAME', 'SK Bakers');
+define('SMTP_USERNAME', 'info@upgradenow.in'); // Your Hostinger email address
+define('SMTP_PASSWORD', '0056@Ravi'); // Hostinger email password
+define('FROM_EMAIL', 'info@upgradenow.in'); // Email address shown in "From" field
+define('FROM_NAME', 'SK Bakers'); // Name shown in "From" field
 
 // Payment gateway settings (Stripe, Razorpay, etc.)
 define('STRIPE_SECRET_KEY', '');

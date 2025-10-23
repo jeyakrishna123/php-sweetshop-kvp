@@ -48,6 +48,10 @@ try {
             case 'banner-image':
                 uploadBannerImage();
                 break;
+            case 'popup-image':
+                error_log("🔍 Calling uploadPopupImage");
+                uploadPopupImage();
+                break;
             default:
                 sendError('Invalid upload type', [], 400);
         }
@@ -156,6 +160,46 @@ function uploadBannerImage() {
         ], 201);
     } else {
         sendError('Failed to upload image', [], 500);
+    }
+}
+
+/**
+ * Upload popup image
+ */
+function uploadPopupImage() {
+    error_log("🔍 uploadPopupImage called");
+    error_log("🔍 FILES: " . json_encode($_FILES));
+    error_log("🔍 POST: " . json_encode($_POST));
+
+    if (!isset($_FILES['image'])) {
+        error_log("❌ No image file provided");
+        sendError('No image file provided', [], 400);
+        return;
+    }
+
+    $file = $_FILES['image'];
+
+    // Validate image
+    $errors = validateImageUpload($file);
+    if (!empty($errors)) {
+        sendError('Invalid image file', $errors, 400);
+        return;
+    }
+
+    // Upload image to popups directory
+    $imagePath = uploadImage($file, 'popups');
+
+    if ($imagePath) {
+        error_log("✅ Image uploaded successfully: $imagePath");
+        sendSuccess('Popup image uploaded successfully', [
+            'imageUrl' => $imagePath,
+            'fullUrl' => 'http://' . $_SERVER['HTTP_HOST'] . $imagePath
+        ], 201);
+    } else {
+        error_log("❌ uploadImage() returned false - file upload failed");
+        error_log("❌ Upload directory: " . (UPLOAD_DIR . 'popups/'));
+        error_log("❌ File details: " . json_encode($file));
+        sendError('Failed to upload popup image', ['error' => 'File move operation failed'], 500);
     }
 }
 ?>

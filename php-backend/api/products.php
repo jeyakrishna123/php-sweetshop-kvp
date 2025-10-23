@@ -152,25 +152,75 @@ function getAllProducts($db) {
         $where[] = 'is_active = 1';
     }
 
+    // Filter by search query
+    if (isset($_GET['search']) && !empty($_GET['search'])) {
+        $searchTerm = '%' . sanitizeInput($_GET['search']) . '%';
+        $where[] = '(name LIKE ? OR description LIKE ? OR tags LIKE ?)';
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+    }
+
     // Filter by category
-    if (isset($_GET['category'])) {
+    if (isset($_GET['category']) && !empty($_GET['category'])) {
         $where[] = 'category = ?';
         $params[] = sanitizeInput($_GET['category']);
     }
 
+    // Filter by sub_category - STRICT MATCHING ONLY
+    // Only show products that have the exact subcategory set
+    if (isset($_GET['subCategory']) && !empty($_GET['subCategory'])) {
+        $subCat = sanitizeInput($_GET['subCategory']);
+        $where[] = 'sub_category = ?';
+        $params[] = $subCat;
+    }
+
+    // Filter by menu_option - STRICT MATCHING ONLY
+    // Only show products that have the exact menu option set
+    if (isset($_GET['menuOption']) && !empty($_GET['menuOption'])) {
+        $menuOpt = sanitizeInput($_GET['menuOption']);
+        $where[] = 'menu_option = ?';
+        $params[] = $menuOpt;
+    }
+
+    // Filter by brand (seller)
+    if (isset($_GET['brand']) && !empty($_GET['brand'])) {
+        $where[] = 'brand = ?';
+        $params[] = sanitizeInput($_GET['brand']);
+    }
+
     // Filter by price range
-    if (isset($_GET['minPrice'])) {
+    if (isset($_GET['minPrice']) && !empty($_GET['minPrice'])) {
         $where[] = 'price >= ?';
         $params[] = floatval($_GET['minPrice']);
     }
-    if (isset($_GET['maxPrice'])) {
+    if (isset($_GET['maxPrice']) && !empty($_GET['maxPrice'])) {
         $where[] = 'price <= ?';
         $params[] = floatval($_GET['maxPrice']);
     }
 
-    // Filter by stock
+    // Filter by minimum rating
+    if (isset($_GET['rating']) && !empty($_GET['rating'])) {
+        $where[] = 'average_rating >= ?';
+        $params[] = floatval($_GET['rating']);
+    }
+
+    // Filter by stock availability
     if (isset($_GET['inStock']) && $_GET['inStock'] === 'true') {
         $where[] = 'stock > 0';
+    }
+    if (isset($_GET['availability']) && $_GET['availability'] === 'inStock') {
+        $where[] = 'stock > 0';
+    }
+
+    // Filter by discount (on sale)
+    if (isset($_GET['discount']) && $_GET['discount'] === 'true') {
+        $where[] = 'discount_percentage > 0';
+    }
+
+    // Filter by featured products
+    if (isset($_GET['featured']) && $_GET['featured'] === 'true') {
+        $where[] = 'featured = 1';
     }
 
     $whereClause = implode(' AND ', $where);
@@ -180,19 +230,34 @@ function getAllProducts($db) {
     $countStmt->execute($params);
     $total = $countStmt->fetch()['total'];
 
-    // Get products
-    $orderBy = isset($_GET['sortBy']) ? sanitizeInput($_GET['sortBy']) : 'created_at';
-    $order = isset($_GET['order']) && $_GET['order'] === 'asc' ? 'ASC' : 'DESC';
+    // Get products with enhanced sorting
+    $sortBy = isset($_GET['sortBy']) ? sanitizeInput($_GET['sortBy']) : 'relevance';
+    $sortOrder = isset($_GET['sortOrder']) ? sanitizeInput($_GET['sortOrder']) : 'desc';
+    $order = ($sortOrder === 'asc') ? 'ASC' : 'DESC';
 
-    // Validate sort column
-    $allowedSorts = ['created_at', 'price', 'average_rating', 'sold_count', 'name'];
-    if (!in_array($orderBy, $allowedSorts)) {
-        $orderBy = 'created_at';
+    // Map frontend sort options to database columns
+    $sortMapping = [
+        'relevance' => 'created_at',     // Most recent first
+        'price' => 'price',
+        'rating' => 'average_rating',
+        'name' => 'name',
+        'newest' => 'created_at',
+        'popularity' => 'sold_count'
+    ];
+
+    $orderBy = isset($sortMapping[$sortBy]) ? $sortMapping[$sortBy] : 'created_at';
+
+    // Special case: for relevance and newest, always DESC (newest first)
+    if ($sortBy === 'relevance' || $sortBy === 'newest') {
+        $order = 'DESC';
     }
 
     error_log("🔍 GET ALL PRODUCTS - WHERE: $whereClause");
+    error_log("🔍 GET ALL PRODUCTS - PARAMS: " . json_encode($params));
+    error_log("🔍 GET ALL PRODUCTS - SORT: $orderBy $order");
     error_log("🔍 GET ALL PRODUCTS - LIMIT: $limit, OFFSET: $offset");
     error_log("🔍 GET ALL PRODUCTS - Is Admin: " . ($isAdmin ? 'YES' : 'NO'));
+    error_log("🔍 GET ALL PRODUCTS - Filters: " . json_encode($_GET));
 
     $stmt = $db->prepare("
         SELECT id, name, slug, description, price, original_price, discount_percentage,
@@ -517,38 +582,50 @@ function createProduct($db) {
     $hasWeightOptions = $data['hasWeightOptions'] ?? 0;
     $isActive = $data['isActive'] ?? 1; // Default to active (1) if not specified
 
-    $result = $stmt->execute([
-        sanitizeInput($data['name']),
-        $slug,
-        sanitizeInput($data['description'] ?? ''),
-        $data['price'],
-        $data['originalPrice'] ?? null,
-        $data['discountPercentage'] ?? 0,
-        sanitizeInput($data['category']),
-        sanitizeInput($data['subCategory'] ?? ''),
-        sanitizeInput($data['menuOption'] ?? ''),
-        $data['cakeFlavor'] ?? null,
-        $productTypes,
-        $isNew,
-        $data['brand'] ?? null,
-        $data['stock'],
-        $images,
-        $thumbnail,
-        $specifications,
-        $tags,
-        $featured,
-        $isActive, // Add is_active field
-        $data['sku'] ?? null,
-        $data['weight'] ?? null,
-        $hasWeightOptions,
-        $weightOptions
-    ]);
+    try {
+        $result = $stmt->execute([
+            sanitizeInput($data['name']),
+            $slug,
+            sanitizeInput($data['description'] ?? ''),
+            $data['price'],
+            $data['originalPrice'] ?? $data['original_price'] ?? null,
+            $data['discountPercentage'] ?? $data['discount_percentage'] ?? 0,
+            sanitizeInput($data['category']),
+            sanitizeInput($data['subCategory'] ?? $data['sub_category'] ?? ''),
+            sanitizeInput($data['menuOption'] ?? $data['menu_option'] ?? ''),
+            $data['cakeFlavor'] ?? $data['cake_flavor'] ?? null,
+            $productTypes,
+            $isNew,
+            $data['brand'] ?? null,
+            $data['stock'],
+            $images,
+            $thumbnail,
+            $specifications,
+            $tags,
+            $featured,
+            $isActive, // Add is_active field
+            $data['sku'] ?? null,
+            $data['weight'] ?? null,
+            $hasWeightOptions,
+            $weightOptions
+        ]);
 
-    if ($result) {
-        $productId = $db->lastInsertId();
-        sendSuccess('Product created successfully', ['id' => $productId], 201);
-    } else {
-        sendError('Failed to create product', [], 500);
+        if ($result) {
+            $productId = $db->lastInsertId();
+            error_log("✅ CREATE PRODUCT - Product created successfully with ID: " . $productId);
+            sendSuccess('Product created successfully', ['id' => $productId], 201);
+        } else {
+            $errorInfo = $stmt->errorInfo();
+            error_log("❌ CREATE PRODUCT - Execute failed: " . json_encode($errorInfo));
+            sendError('Failed to create product: ' . ($errorInfo[2] ?? 'Unknown database error'), [], 500);
+        }
+    } catch (PDOException $e) {
+        error_log("❌ CREATE PRODUCT - PDO Exception: " . $e->getMessage());
+        error_log("❌ CREATE PRODUCT - Error Code: " . $e->getCode());
+        sendError('Database error: ' . $e->getMessage(), [
+            'code' => $e->getCode(),
+            'hint' => 'Check if all required fields match database schema'
+        ], 500);
     }
 }
 
@@ -649,33 +726,27 @@ function deleteProduct($db, $id) {
         return;
     }
 
-    // Management Logic: Check if product exists before soft delete
-    $checkStmt = $db->prepare("SELECT id, name, is_active FROM products WHERE id = ?");
+    // Management Logic: Check if product exists before deletion
+    $checkStmt = $db->prepare("SELECT id, name FROM products WHERE id = ?");
     $checkStmt->execute([$id]);
     $product = $checkStmt->fetch();
-    
+
     if (!$product) {
-        sendError('Product not found for management', [], 404);
-        return;
-    }
-    
-    // If-else logic for product management
-    if ($product['is_active'] == 0) {
-        sendError('Product is already deactivated', [], 400);
+        sendError('Product not found', [], 404);
         return;
     }
 
-    // Soft delete by setting is_active = 0 (Management approach - no hard delete)
-    $stmt = $db->prepare("UPDATE products SET is_active = 0, updated_at = NOW() WHERE id = ?");
+    // HARD DELETE - Permanently remove from database
+    $stmt = $db->prepare("DELETE FROM products WHERE id = ?");
 
     if ($stmt->execute([$id])) {
-        sendSuccess('Product deactivated successfully (soft delete)', [
+        sendSuccess('Product deleted successfully', [
             'id' => $id,
             'name' => $product['name'],
-            'status' => 'deactivated'
+            'status' => 'deleted'
         ]);
     } else {
-        sendError('Failed to deactivate product', [], 500);
+        sendError('Failed to delete product', [], 500);
     }
 }
 

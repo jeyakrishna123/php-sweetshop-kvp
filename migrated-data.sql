@@ -180,11 +180,19 @@ INSERT INTO users (
   );
 INSERT INTO users (
     id, name, email, password, phone, avatar, role, is_active,
-    is_email_verified, last_login, created_at, updated_at
+    is_email_ver
+    
+    
+    
+    ified, last_login, created_at, updated_at
   ) VALUES (
     11,
     'ramani ',
-    'ramanisaraladevi2002@gmail.com',
+    '
+    
+    
+    
+    ',
     '$2a$12$npZ6O1vQDRPWxawSTFL6fOLdUp5nbhk5edcpOcBS52M995/MYUo..',
     '1234567891',
     NULL,

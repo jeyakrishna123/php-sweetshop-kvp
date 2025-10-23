@@ -213,10 +213,10 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
 
   if (viewMode === "list") {
     return (
-      <div className="card overflow-hidden">
-        <div className="flex">
+      <div className="bg-white rounded-lg shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-200 overflow-hidden">
+        <div className="flex flex-col sm:flex-row">
           {/* Product Image */}
-          <div className="relative group cursor-pointer w-48 h-48 flex-shrink-0" onClick={handleProductClick}>
+          <div className="relative group cursor-pointer w-full sm:w-48 h-48 sm:h-48 flex-shrink-0" onClick={handleProductClick}>
             <img
               src={getImageUrl()}
               alt={product.name}
@@ -259,11 +259,11 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
           </div>
 
           {/* Product Info */}
-          <div className="flex-1 p-6">
-            <div className="flex justify-between items-start mb-4">
+          <div className="flex-1 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-3 sm:mb-4">
               <div className="flex-1">
-                <h3 
-                  className="font-display text-gray-900 text-xl mb-2 cursor-pointer hover:text-blue-600 transition-colors duration-200"
+                <h3
+                  className="font-display text-gray-900 text-lg sm:text-xl mb-2 cursor-pointer hover:text-blue-600 transition-colors duration-200"
                   onClick={handleProductClick}
                 >
                   {product.name}
@@ -301,18 +301,18 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
                   <span className="text-gray-600 text-sm">({product.numReviews || 0})</span>
                 </div>
 
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-2xl font-bold text-gray-900">
+                <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                  <span className="text-xl sm:text-2xl font-bold text-gray-900">
                     ₹{product.price?.toLocaleString()}
                   </span>
                   {product.originalPrice && product.originalPrice > product.price && (
-                    <span className="text-lg text-gray-500 line-through">
+                    <span className="text-base sm:text-lg text-gray-500 line-through">
                       ₹{product.originalPrice.toLocaleString()}
                     </span>
                   )}
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
                   <div className="flex items-center gap-2">
                     <label className="text-sm font-medium text-gray-700">Quantity:</label>
                     <QuantitySelector
@@ -330,7 +330,7 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
                   <button
                     onClick={handleAddToCart}
                     disabled={isOutOfStock}
-                    className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
                   </button>
@@ -345,9 +345,9 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
 
   // Grid view - Simplified Design with Essential Elements Only
   return (
-    <div className="group relative bg-white rounded-lg shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-200 overflow-hidden w-full flex flex-col">
+    <div className="group relative bg-white rounded-md sm:rounded-lg shadow-sm hover:shadow-lg transition-all duration-200 border border-gray-200 overflow-hidden w-full flex flex-col">
       {/* Product Image Container */}
-      <div className="relative w-full aspect-[4/3] overflow-hidden cursor-pointer flex-shrink-0 bg-gray-50 flex items-center justify-center" onClick={handleProductClick}>
+      <div className="relative w-full aspect-square overflow-hidden cursor-pointer flex-shrink-0 bg-gray-50 flex items-center justify-center" onClick={handleProductClick}>
         <img
           src={getImageUrl()}
           alt={product.name}
@@ -355,9 +355,9 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
           onError={handleImageError}
         />
 
-        {/* Vegetarian Icon */}
-        <div className="absolute top-3 left-3 w-7 h-7 bg-green-600 rounded flex items-center justify-center shadow-md">
-          <span className="text-white text-xs font-bold">●</span>
+        {/* Vegetarian Icon - Hidden on mobile for space */}
+        <div className="hidden sm:flex absolute top-2 left-2 w-6 h-6 sm:w-7 sm:h-7 bg-white rounded-full items-center justify-center shadow-sm border border-gray-200">
+          <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 bg-green-600 rounded-full"></div>
         </div>
 
         {/* Wishlist Button */}
@@ -366,14 +366,14 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
             e.stopPropagation();
             handleWishlistToggle(e);
           }}
-          className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 z-10 ${
+          className={`absolute top-1 sm:top-2 right-1 sm:right-2 w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shadow-sm transition-all duration-200 z-10 ${
             isInWishlist
               ? 'bg-white text-red-500'
-              : 'bg-white text-gray-600 hover:text-red-500'
+              : 'bg-white/90 text-gray-600 hover:text-red-500'
           }`}
           aria-label="Add to wishlist"
         >
-          <Icon name="heart" className={`w-5 h-5 transition-all duration-300 ${isInWishlist ? 'fill-current' : ''}`} />
+          <Icon name="heart" className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-all duration-200 ${isInWishlist ? 'fill-current' : ''}`} />
         </button>
 
         {/* Stock Status Overlay */}
@@ -388,46 +388,71 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
       </div>
 
       {/* Product Content */}
-      <div className="flex-1 flex flex-col p-2.5 sm:p-4">
-        {/* Best Seller Badge */}
-        {(product.soldCount > 50 || product.isBestSeller) && (
-          <div className="mb-1.5 sm:mb-2">
-            <span className="inline-block bg-yellow-400 text-gray-900 text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded">
-              Best Seller
-            </span>
-          </div>
-        )}
-
+      <div className="flex flex-col p-1.5 sm:p-3 min-h-0">
         {/* Product Name */}
         <h3
-          className="text-sm sm:text-base font-bold text-gray-900 mb-1.5 sm:mb-2 cursor-pointer hover:text-red-600 transition-colors duration-200 line-clamp-2 min-h-[2.5rem] sm:min-h-[3rem]"
+          className="text-[10px] sm:text-sm font-semibold text-gray-900 mb-1 cursor-pointer hover:text-red-600 transition-colors duration-200 line-clamp-1 sm:line-clamp-2 leading-tight"
           onClick={handleProductClick}
           title={product.name}
         >
           {product.name}
         </h3>
 
-        {/* Price */}
-        <div className="mb-1.5 sm:mb-2">
-          <span className="text-base sm:text-lg font-bold text-gray-900">
+        {/* Price & Rating Row */}
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-sm sm:text-lg font-bold text-red-600">
             ₹{product.price?.toLocaleString()}
           </span>
-        </div>
-
-        {/* Rating */}
-        <div className="flex items-center mb-2 sm:mb-3">
-          <div className="flex items-center bg-green-600 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
-            <span className="text-white text-[10px] sm:text-xs font-bold mr-0.5">
+          <div className="flex items-center bg-green-600 px-1 py-0.5 rounded text-[8px] sm:text-xs">
+            <span className="text-white font-bold mr-0.5">
               {Number(product.ratings || 4.9).toFixed(1)}
             </span>
-            <Icon name="star" className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white fill-current" />
+            <Icon name="star" className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-white fill-current" />
           </div>
-          <span className="text-[10px] sm:text-xs text-gray-600 ml-1.5 sm:ml-2 hidden sm:inline">
-            ({(product.numReviews || Math.floor(Math.random() * 2000) + 100).toLocaleString()} Reviews)
-          </span>
-          <span className="text-[10px] text-gray-600 ml-1 sm:hidden">
-            ({((product.numReviews || Math.floor(Math.random() * 2000) + 100) / 1000).toFixed(1)}K)
-          </span>
+        </div>
+
+        {/* Quantity & Add Button Row */}
+        <div className="flex items-center gap-1 sm:gap-2">
+          {/* Quantity Selector - Extra Compact */}
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleQuantityDecrease();
+              }}
+              disabled={isOutOfStock || quantity <= 1}
+              className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded text-gray-600 disabled:opacity-50 text-xs sm:text-sm font-bold"
+            >
+              −
+            </button>
+            <span className="w-5 sm:w-7 text-center text-[10px] sm:text-xs font-semibold">{quantity}</span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleQuantityIncrease();
+              }}
+              disabled={isOutOfStock || quantity >= stock}
+              className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded text-gray-600 disabled:opacity-50 text-xs sm:text-sm font-bold"
+            >
+              +
+            </button>
+          </div>
+
+          {/* Add to Cart Button - Compact */}
+          <button
+            onClick={handleAddToCart}
+            disabled={isOutOfStock || cartLoading}
+            className="flex-1 bg-red-600 hover:bg-red-700 text-white text-[9px] sm:text-sm font-bold py-1 sm:py-2 rounded transition-all duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-0.5 sm:gap-1"
+          >
+            {cartLoading ? (
+              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+            ) : (
+              <>
+                <Icon name="shopping-cart" className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                <span>{isOutOfStock ? 'Out' : 'Add'}</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

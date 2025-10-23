@@ -16,7 +16,8 @@ php-backend/
 ├── api/                      # All API endpoints in PHP
 │   ├── auth.php              # Login, register, password reset
 │   ├── products.php          # Product CRUD, search, filters
-│   ├── orders.php            # Order management, tracking
+│   ├── orders.php    
+        # Order management, tracking
 │   ├── users.php             # User profiles, addresses
 │   ├── categories.php        # Category management
 │   ├── wishlist.php          # Wishlist operations

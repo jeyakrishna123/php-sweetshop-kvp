@@ -234,45 +234,45 @@ const AdvancedSearch = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4" style={{ zIndex: 9999 }}>
-      <div ref={searchRef} className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col" style={{ position: 'relative', zIndex: 10000 }}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6" style={{ zIndex: 9999999 }}>
+      <div ref={searchRef} className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col" style={{ position: 'relative', zIndex: 10000000 }}>
         {/* Modern Header */}
-        <div className="bg-gradient-to-r from-red-600 to-pink-600 px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-gradient-to-r from-red-600 to-pink-600 px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <svg className="w-4 h-4 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-white">Advanced Search</h2>
-                <p className="text-red-100 text-sm">Find your perfect bakery products</p>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white truncate">Advanced Search</h2>
+                <p className="text-red-100 text-xs sm:text-sm truncate">Find your perfect bakery products</p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-colors"
+              className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-colors flex-shrink-0"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
         </div>
 
-        <div className="p-6 sm:p-8 flex-1 overflow-y-auto min-h-0">
-          {/* Main Search Input - Always Visible */}
-          <div className="bg-gradient-to-r from-red-100 to-pink-100 rounded-2xl p-8 mb-8 border-4 border-red-300 shadow-2xl">
-            <label className="block text-2xl font-bold text-red-900 mb-6 flex items-center">
-              <svg className="w-8 h-8 mr-3 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="p-3 sm:p-4 md:p-6 flex-1 overflow-y-auto" style={{ maxHeight: 'calc(95vh - 140px)' }}>
+          {/* Main Search Input - Compact */}
+          <div className="bg-gradient-to-r from-red-100 to-pink-100 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-5 mb-3 sm:mb-4 md:mb-5 border-2 border-red-300 shadow-md">
+            <label className="block text-sm sm:text-base md:text-lg font-bold text-red-900 mb-2 sm:mb-3 flex items-center">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 mr-1.5 sm:mr-2 text-red-700 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-              Search Products
+              <span className="truncate">Search Products</span>
             </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
-                <svg className="h-8 w-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="absolute inset-y-0 left-0 pl-2 sm:pl-3 flex items-center pointer-events-none">
+                <svg className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
@@ -281,8 +281,7 @@ const AdvancedSearch = ({ isOpen, onClose }) => {
                 value={searchQuery}
                 onChange={handleSearchChange}
                 placeholder="Search for cakes, sweets, desserts..."
-                className="w-full pl-16 pr-6 py-6 border-4 border-red-400 rounded-2xl focus:outline-none focus:ring-6 focus:ring-red-500 focus:border-red-600 text-xl placeholder-red-500 bg-white shadow-xl font-semibold"
-                style={{ minHeight: '80px', fontSize: '20px' }}
+                className="w-full pl-8 sm:pl-10 md:pl-12 pr-3 sm:pr-4 py-2 sm:py-2.5 md:py-3 border-2 border-red-400 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-600 text-sm sm:text-base placeholder-red-400 bg-white shadow-sm font-medium"
               />
               
               {/* Suggestions Dropdown */}
@@ -318,12 +317,12 @@ const AdvancedSearch = ({ isOpen, onClose }) => {
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex space-x-1 mb-4 sm:mb-6 bg-gray-100 rounded-lg p-1">
+          <div className="flex space-x-1 mb-3 sm:mb-4 bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => setActiveTab('search')}
-              className={`flex-1 py-3 px-4 rounded-md font-medium transition-all ${
-                activeTab === 'search' 
-                  ? 'bg-white text-red-600 shadow-sm' 
+              className={`flex-1 py-2 sm:py-2.5 px-3 sm:px-4 rounded-md text-sm sm:text-base font-medium transition-all ${
+                activeTab === 'search'
+                  ? 'bg-white text-red-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-800'
               }`}
             >
@@ -331,9 +330,9 @@ const AdvancedSearch = ({ isOpen, onClose }) => {
             </button>
             <button
               onClick={() => setActiveTab('filters')}
-              className={`flex-1 py-3 px-4 rounded-md font-medium transition-all ${
-                activeTab === 'filters' 
-                  ? 'bg-white text-red-600 shadow-sm' 
+              className={`flex-1 py-2 sm:py-2.5 px-3 sm:px-4 rounded-md text-sm sm:text-base font-medium transition-all ${
+                activeTab === 'filters'
+                  ? 'bg-white text-red-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-800'
               }`}
             >
@@ -343,15 +342,15 @@ const AdvancedSearch = ({ isOpen, onClose }) => {
 
           {/* Search Tab */}
           {activeTab === 'search' && (
-            <div className="space-y-4 sm:space-y-6">
+            <div className="space-y-3 sm:space-y-4">
               {/* Popular Searches */}
               {!searchQuery && popularSearches.length > 0 && (
-                <div className="bg-white rounded-xl p-6 border-2 border-gray-200 shadow-md">
-                  <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                    <svg className="w-5 h-5 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-5 border-2 border-gray-200 shadow-sm">
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-3 flex items-center">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                     </svg>
-                    Popular Searches
+                    <span className="truncate">Popular Searches</span>
                   </h3>
                   <div className="flex flex-wrap gap-3">
                     {popularSearches.map((search, index) => (
@@ -369,14 +368,14 @@ const AdvancedSearch = ({ isOpen, onClose }) => {
 
               {/* Search Results Preview */}
               {searchQuery && (
-                <div className="bg-white rounded-xl p-6 border-2 border-green-200 shadow-md">
-                  <h3 className="text-xl font-bold text-green-800 mb-4 flex items-center">
-                    <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-5 border-2 border-green-200 shadow-sm">
+                  <h3 className="text-base sm:text-lg font-bold text-green-800 mb-2 sm:mb-3 flex items-center">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Search Results for: "{searchQuery}"
+                    <span className="truncate">Search Results for: "{searchQuery}"</span>
                   </h3>
-                  <p className="text-green-700 font-medium">Click "Search Products" to see results with your current filters.</p>
+                  <p className="text-sm sm:text-base text-green-700 font-medium">Click "Search Products" to see results with your current filters.</p>
                 </div>
               )}
             </div>
@@ -384,16 +383,16 @@ const AdvancedSearch = ({ isOpen, onClose }) => {
 
           {/* Filters Tab */}
           {activeTab === 'filters' && (
-            <div className="space-y-6 min-h-[400px]">
+            <div className="space-y-3 sm:space-y-4">
               {/* Filter Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3 md:gap-4">
                 {/* Category Filter */}
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-gray-800">📂 Category</label>
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-xs sm:text-sm font-bold text-gray-800">📂 Category</label>
                   <select
                     value={filters.category}
                     onChange={(e) => handleFilterChange('category', e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-700"
+                    className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-700 text-sm"
                   >
                     <option value="">All Categories</option>
                     {filterOptions.categories && filterOptions.categories.length > 0 ? (
@@ -413,12 +412,12 @@ const AdvancedSearch = ({ isOpen, onClose }) => {
                 </div>
 
                 {/* Brand Filter */}
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-gray-800">🏷️ Brand</label>
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-xs sm:text-sm font-bold text-gray-800">🏷️ Brand</label>
                   <select
                     value={filters.brand}
                     onChange={(e) => handleFilterChange('brand', e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-700"
+                    className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 border-2 border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-700"
                   >
                     <option value="">All Brands</option>
                     {filterOptions.brands && filterOptions.brands.length > 0 ? (
@@ -436,12 +435,12 @@ const AdvancedSearch = ({ isOpen, onClose }) => {
                 </div>
 
                 {/* Rating Filter */}
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-gray-800">⭐ Minimum Rating</label>
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-xs sm:text-sm font-bold text-gray-800">⭐ Minimum Rating</label>
                   <select
                     value={filters.rating}
                     onChange={(e) => handleFilterChange('rating', e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-700"
+                    className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 border-2 border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-700"
                   >
                     <option value="">Any Rating</option>
                     <option value="4">⭐ 4+ Stars</option>
@@ -452,35 +451,35 @@ const AdvancedSearch = ({ isOpen, onClose }) => {
                 </div>
 
                 {/* Price Range */}
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-gray-800">💰 Min Price (₹)</label>
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-xs sm:text-sm font-bold text-gray-800">💰 Min Price (₹)</label>
                   <input
                     type="number"
                     value={filters.minPrice}
                     onChange={(e) => handleFilterChange('minPrice', e.target.value)}
                     placeholder="Min price"
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-700"
+                    className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 border-2 border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-700"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-gray-800">💰 Max Price (₹)</label>
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-xs sm:text-sm font-bold text-gray-800">💰 Max Price (₹)</label>
                   <input
                     type="number"
                     value={filters.maxPrice}
                     onChange={(e) => handleFilterChange('maxPrice', e.target.value)}
                     placeholder="Max price"
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-700"
+                    className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 border-2 border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-700"
                   />
                 </div>
 
                 {/* Sort By */}
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-gray-800">🔄 Sort By</label>
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-xs sm:text-sm font-bold text-gray-800">🔄 Sort By</label>
                   <select
                     value={filters.sortBy}
                     onChange={(e) => handleFilterChange('sortBy', e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-700"
+                    className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 border-2 border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white text-gray-700"
                   >
                     <option value="relevance">Relevance</option>
                     <option value="price">Price</option>
@@ -493,40 +492,40 @@ const AdvancedSearch = ({ isOpen, onClose }) => {
               </div>
 
               {/* Checkbox Filters */}
-              <div className="bg-red-50 rounded-xl p-6 border-2 border-red-200">
-                <h4 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-                  <span className="mr-2">⚙️</span>
-                  Additional Filters
+              <div className="bg-red-50 rounded-lg p-3 sm:p-4 border-2 border-red-200">
+                <h4 className="text-sm sm:text-base font-bold text-gray-900 mb-2 sm:mb-3 flex items-center">
+                  <span className="mr-1.5 sm:mr-2 text-base sm:text-lg">⚙️</span>
+                  <span className="truncate">Additional Filters</span>
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                  <label className="flex items-center space-x-3 p-4 bg-white rounded-lg hover:bg-red-50 cursor-pointer border-2 border-transparent hover:border-red-200 transition-all">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-2.5 md:gap-3">
+                  <label className="flex items-center space-x-2 p-2 sm:p-2.5 bg-white rounded-md hover:bg-red-50 cursor-pointer border border-gray-200 hover:border-red-300 transition-all">
                     <input
                       type="checkbox"
                       checked={filters.inStock}
                       onChange={(e) => handleFilterChange('inStock', e.target.checked)}
-                      className="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                      className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 flex-shrink-0"
                     />
-                    <span className="text-sm font-bold text-gray-800">📦 In Stock Only</span>
+                    <span className="text-xs sm:text-sm font-semibold text-gray-800 truncate">📦 In Stock Only</span>
                   </label>
 
-                  <label className="flex items-center space-x-3 p-4 bg-white rounded-lg hover:bg-red-50 cursor-pointer border-2 border-transparent hover:border-red-200 transition-all">
+                  <label className="flex items-center space-x-2 p-2 sm:p-2.5 bg-white rounded-md hover:bg-red-50 cursor-pointer border border-gray-200 hover:border-red-300 transition-all">
                     <input
                       type="checkbox"
                       checked={filters.discount}
                       onChange={(e) => handleFilterChange('discount', e.target.checked)}
-                      className="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                      className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 flex-shrink-0"
                     />
-                    <span className="text-sm font-bold text-gray-800">🏷️ On Sale</span>
+                    <span className="text-xs sm:text-sm font-semibold text-gray-800 truncate">🏷️ On Sale</span>
                   </label>
 
-                  <label className="flex items-center space-x-3 p-4 bg-white rounded-lg hover:bg-red-50 cursor-pointer border-2 border-transparent hover:border-red-200 transition-all">
+                  <label className="flex items-center space-x-2 p-2 sm:p-2.5 bg-white rounded-md hover:bg-red-50 cursor-pointer border border-gray-200 hover:border-red-300 transition-all sm:col-span-2 lg:col-span-1">
                     <input
                       type="checkbox"
                       checked={filters.featured}
                       onChange={(e) => handleFilterChange('featured', e.target.checked)}
-                      className="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                      className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 flex-shrink-0"
                     />
-                    <span className="text-sm font-bold text-gray-800">⭐ Featured</span>
+                    <span className="text-xs sm:text-sm font-semibold text-gray-800 truncate">⭐ Featured</span>
                   </label>
                 </div>
               </div>
@@ -557,24 +556,24 @@ const AdvancedSearch = ({ isOpen, onClose }) => {
           )}
 
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-between pt-4 sm:pt-6 border-t border-gray-200 bg-white gap-4 sm:gap-0 mt-6">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between pt-4 sm:pt-5 md:pt-6 border-t-2 border-gray-200 bg-white gap-3 sm:gap-4 mt-4 sm:mt-5 md:mt-6">
             <button
               onClick={clearFilters}
-              className="px-4 sm:px-6 py-2 sm:py-3 text-gray-600 hover:text-gray-800 border-2 border-gray-300 rounded-xl hover:bg-gray-50 font-medium transition-all text-sm sm:text-base w-full sm:w-auto"
+              className="order-3 sm:order-1 px-4 sm:px-5 md:px-6 py-2.5 sm:py-3 text-gray-600 hover:text-gray-800 border-2 border-gray-300 rounded-xl hover:bg-gray-50 font-medium transition-all text-sm sm:text-base w-full sm:w-auto"
             >
               Clear All Filters
             </button>
-            
-            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+
+            <div className="order-1 sm:order-2 flex flex-row gap-2 sm:gap-3 md:gap-4 w-full sm:w-auto">
               <button
                 onClick={onClose}
-                className="px-6 sm:px-8 py-2 sm:py-3 text-gray-600 hover:text-gray-800 border-2 border-gray-300 rounded-xl hover:bg-gray-50 font-medium transition-all text-sm sm:text-base"
+                className="flex-1 sm:flex-none px-4 sm:px-6 md:px-8 py-2.5 sm:py-3 text-gray-600 hover:text-gray-800 border-2 border-gray-300 rounded-xl hover:bg-gray-50 font-medium transition-all text-sm sm:text-base"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSearch}
-                className="px-6 sm:px-8 py-2 sm:py-3 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl text-sm sm:text-base"
+                className="flex-1 sm:flex-none px-4 sm:px-6 md:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl text-sm sm:text-base"
               >
                 Search Products
               </button>

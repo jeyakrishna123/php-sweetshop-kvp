@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import axios from "axios";
 import PaymentMethods from "../components/PaymentMethods";
+import CheckoutSkeleton from "../components/CheckoutSkeleton";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_your_stripe_key');
 
@@ -30,6 +31,7 @@ const Checkout = () => {
   const [paymentMethod, setPaymentMethod] = useState("cod"); // Default to Cash on Delivery
   const [upiId, setUpiId] = useState(""); // For UPI payment
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const [errors, setErrors] = useState({});
   const [showPaymentMethods, setShowPaymentMethods] = useState(false);
 
@@ -63,38 +65,50 @@ const Checkout = () => {
   };
 
   useEffect(() => {
-    if (!user) {
-      showToast("Please login to checkout", "warning");
-      navigate("/login");
-      return;
-    }
+    // Simulate initial page load
+    const initCheckout = async () => {
+      setPageLoading(true);
 
-    if (cart.length === 0) {
-      showToast("Your cart is empty", "warning");
-      navigate("/cart");
-      return;
-    }
+      // Minimum loading time for smooth UX
+      await new Promise(resolve => setTimeout(resolve, 800));
 
-    // Load saved address
-    const savedAddress = localStorage.getItem("shippingAddress");
-    if (savedAddress) {
-      try {
-        const parsed = JSON.parse(savedAddress);
-        setFormData(prev => ({ ...prev, ...parsed }));
-      } catch (error) {
-        console.error("Error parsing saved address:", error);
+      if (!user) {
+        showToast("Please login to checkout", "warning");
+        navigate("/login");
+        return;
       }
-    }
 
-    // Pre-fill with user data
-    if (user) {
-      setFormData(prev => ({
-        ...prev,
-        email: user.email || "",
-        firstName: user.name?.split(" ")[0] || "",
-        lastName: user.name?.split(" ").slice(1).join(" ") || ""
-      }));
-    }
+      if (cart.length === 0) {
+        showToast("Your cart is empty", "warning");
+        navigate("/cart");
+        return;
+      }
+
+      // Load saved address
+      const savedAddress = localStorage.getItem("shippingAddress");
+      if (savedAddress) {
+        try {
+          const parsed = JSON.parse(savedAddress);
+          setFormData(prev => ({ ...prev, ...parsed }));
+        } catch (error) {
+          console.error("Error parsing saved address:", error);
+        }
+      }
+
+      // Pre-fill with user data
+      if (user) {
+        setFormData(prev => ({
+          ...prev,
+          email: user.email || "",
+          firstName: user.name?.split(" ")[0] || "",
+          lastName: user.name?.split(" ").slice(1).join(" ") || ""
+        }));
+      }
+
+      setPageLoading(false);
+    };
+
+    initCheckout();
   }, [user, cart, navigate, showToast]);
 
   const validateForm = () => {
@@ -231,14 +245,33 @@ const Checkout = () => {
       }
 
       const orderData = {
-        orderItems: cart.map((item) => ({
-          product: item._id,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          image: item.image,
-          selectedWeight: item.selectedWeight
-        })),
+        orderItems: cart.map((item) => {
+          // Get the correct image - check multiple possible fields
+          let itemImage = item.image;
+
+          if (!itemImage && item.thumbnail) {
+            itemImage = item.thumbnail;
+          }
+
+          if (!itemImage && item.images && Array.isArray(item.images) && item.images.length > 0) {
+            itemImage = typeof item.images[0] === 'string' ? item.images[0] : item.images[0]?.url;
+          }
+
+          // Fallback to a placeholder if still no image
+          if (!itemImage) {
+            itemImage = '/images/placeholder-product.jpg';
+            console.warn('⚠️ No image found for product:', item.name);
+          }
+
+          return {
+            product: item._id,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            image: itemImage,
+            selectedWeight: item.selectedWeight
+          };
+        }),
         shippingAddress: {
           address: formData.address,
           city: formData.city,
@@ -246,7 +279,7 @@ const Checkout = () => {
           postalCode: formData.postalCode,
           country: formData.country
         },
-        paymentMethod: "Cash On Delivery",
+        paymentMethod: "cod",
         itemsPrice: subtotal,
         taxPrice: tax,
         shippingPrice: deliveryCharge,
@@ -271,26 +304,37 @@ const Checkout = () => {
       
       console.log('🔍 Checkout: API response received:', response.data);
 
+      console.log('✅ Checkout: Order response:', JSON.stringify(response.data, null, 2));
+
       if (response.data && response.data.success) {
         // Clear cart after successful order
         dispatch({ type: 'CLEAR_CART' });
-        
+
         // Clear cart from localStorage as well
         localStorage.removeItem('cartItems');
-        
+
         showToast("Order placed successfully! Your bill has been sent to your email. Pay on delivery.", "success", 4000);
-        
+
+        // Handle different response structures
+        const orderData = response.data.data?.order || response.data.order || response.data.data || {};
+        const orderId = orderData.id || orderData._id || response.data.orderId || response.data.data?.orderId;
+        const totalPrice = orderData.total_price || orderData.totalPrice || total;
+        const trackingNumber = orderData.tracking_number || response.data.trackingNumber || response.data.data?.trackingNumber;
+
+        console.log('✅ Checkout: Extracted order data:', { orderId, totalPrice, trackingNumber });
+
         // Store order details in sessionStorage as backup
         const orderSuccessData = {
-          orderId: response.data.order._id,
-          total: response.data.order.totalPrice,
-          orderDetails: response.data.order,
+          orderId: orderId,
+          total: totalPrice,
+          trackingNumber: trackingNumber,
+          orderDetails: orderData,
           paymentStatus: 'pending'
         };
         sessionStorage.setItem('orderSuccessDetails', JSON.stringify(orderSuccessData));
-        
+
         // Navigate to success page with order details
-        navigate('/success', { 
+        navigate('/success', {
           replace: true,
           state: orderSuccessData
         });
@@ -345,14 +389,33 @@ const Checkout = () => {
     setLoading(true);
     try {
       const orderData = {
-        orderItems: cart.map((item) => ({
-          product: item._id,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          image: item.image,
-          selectedWeight: item.selectedWeight
-        })),
+        orderItems: cart.map((item) => {
+          // Get the correct image - check multiple possible fields
+          let itemImage = item.image;
+
+          if (!itemImage && item.thumbnail) {
+            itemImage = item.thumbnail;
+          }
+
+          if (!itemImage && item.images && Array.isArray(item.images) && item.images.length > 0) {
+            itemImage = typeof item.images[0] === 'string' ? item.images[0] : item.images[0]?.url;
+          }
+
+          // Fallback to a placeholder if still no image
+          if (!itemImage) {
+            itemImage = '/images/placeholder-product.jpg';
+            console.warn('⚠️ No image found for product:', item.name);
+          }
+
+          return {
+            product: item._id,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            image: itemImage,
+            selectedWeight: item.selectedWeight
+          };
+        }),
         shippingAddress: {
           address: formData.address,
           city: formData.city,
@@ -360,7 +423,7 @@ const Checkout = () => {
           postalCode: formData.postalCode,
           country: formData.country
         },
-        paymentMethod: "UPI",
+        paymentMethod: "upi",
         itemsPrice: subtotal,
         taxPrice: tax,
         shippingPrice: deliveryCharge,
@@ -380,26 +443,37 @@ const Checkout = () => {
         timeout: 10000
       });
 
+      console.log('✅ Checkout UPI: Order response:', JSON.stringify(response.data, null, 2));
+
       if (response.data && response.data.success) {
         // Clear cart after successful order
         dispatch({ type: 'CLEAR_CART' });
-        
+
         // Clear cart from localStorage as well
         localStorage.removeItem('cartItems');
-        
+
         showToast("Order placed successfully! Your bill has been sent to your email. Payment received via UPI.", "success", 4000);
-        
+
+        // Handle different response structures
+        const orderData = response.data.data?.order || response.data.order || response.data.data || {};
+        const orderId = orderData.id || orderData._id || response.data.orderId || response.data.data?.orderId;
+        const totalPrice = orderData.total_price || orderData.totalPrice || total;
+        const trackingNumber = orderData.tracking_number || response.data.trackingNumber || response.data.data?.trackingNumber;
+
+        console.log('✅ Checkout UPI: Extracted order data:', { orderId, totalPrice, trackingNumber });
+
         // Store order details in sessionStorage as backup
         const orderSuccessData = {
-          orderId: response.data.order._id,
-          total: response.data.order.totalPrice,
-          orderDetails: response.data.order,
+          orderId: orderId,
+          total: totalPrice,
+          trackingNumber: trackingNumber,
+          orderDetails: orderData,
           paymentStatus: 'paid'
         };
         sessionStorage.setItem('orderSuccessDetails', JSON.stringify(orderSuccessData));
-        
+
         // Navigate to success page with order details
-        navigate('/success', { 
+        navigate('/success', {
           replace: true,
           state: orderSuccessData
         });
@@ -437,6 +511,11 @@ const Checkout = () => {
       await handleCODPayment();
     }
   };
+
+  // Show loading skeleton on page load
+  if (pageLoading) {
+    return <CheckoutSkeleton />;
+  }
 
   if (!user || cart.length === 0) {
     return null;

@@ -23,17 +23,61 @@ const AdminUsers = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      
+
+      console.log('📡 AdminUsers: Fetching users...');
       const response = await userAPI.getAllUsers();
-      
+      console.log('✅ AdminUsers: Response received:', response);
+
       if (response.success) {
-        setUsers(response.users || []);
+        // Backend returns paginated data - extract the array
+        let usersData = [];
+
+        // Try multiple possible response structures
+        if (Array.isArray(response.data?.data)) {
+          usersData = response.data.data;
+        } else if (Array.isArray(response.users)) {
+          usersData = response.users;
+        } else if (Array.isArray(response.data)) {
+          usersData = response.data;
+        } else if (response.data && typeof response.data === 'object') {
+          // If response.data is an object with a data property that's an array
+          if (Array.isArray(response.data.data)) {
+            usersData = response.data.data;
+          }
+        }
+
+        console.log('✅ AdminUsers: Users data type:', typeof usersData, Array.isArray(usersData));
+        console.log('✅ AdminUsers: Users data:', usersData);
+
+        // Ensure usersData is an array
+        if (!Array.isArray(usersData)) {
+          console.warn('⚠️ AdminUsers: usersData is not an array, setting to empty array');
+          usersData = [];
+        }
+
+        // Map backend fields to frontend format
+        const mappedUsers = usersData.map(user => ({
+          ...user,
+          _id: user.id || user._id,
+          name: user.name || 'Unknown User',
+          email: user.email || 'No email',
+          role: user.role || 'user',
+          phone: user.phone || 'No phone',
+          createdAt: user.createdAt || user.created_at || new Date().toISOString(),
+          isActive: user.isActive !== undefined ? user.isActive : (user.is_active !== undefined ? Boolean(Number(user.is_active)) : true)
+        }));
+
+        console.log('✅ AdminUsers: Mapped users count:', mappedUsers.length);
+        console.log('✅ AdminUsers: Mapped users:', mappedUsers);
+        setUsers(mappedUsers);
       } else {
-        throw new Error("Failed to fetch users");
+        throw new Error(response.message || "Failed to fetch users");
       }
     } catch (error) {
-      console.error("Failed to fetch users", error);
-      showToast("Failed to load users", "error");
+      console.error("❌ AdminUsers: Failed to fetch users:", error);
+      console.error("❌ AdminUsers: Error details:", error.message);
+      showToast(error.message || "Failed to load users", "error");
+      setUsers([]); // Set empty array on error
     } finally {
       setLoading(false);
     }

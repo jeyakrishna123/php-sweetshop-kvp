@@ -133,6 +133,10 @@ switch ($resource) {
         require_once __DIR__ . '/api/upload.php';
         break;
 
+    case 'payment':
+        require_once __DIR__ . '/api/payment.php';
+        break;
+
     case 'health':
         // Health check endpoint
         sendSuccess('Server is healthy', [

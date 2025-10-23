@@ -15,6 +15,7 @@ const ProductListing = () => {
   const [filters, setFilters] = useState({
     search: searchParams.get("search") || "",
     category: searchParams.get("category") || searchParams.get("flavor") || "all", // Support both 'category' and 'flavor' parameters
+    subCategory: searchParams.get("subCategory") || "",
     brand: searchParams.get("brand") || "all",
     minPrice: searchParams.get("minPrice") || "",
     maxPrice: searchParams.get("maxPrice") || "",
@@ -41,6 +42,7 @@ const ProductListing = () => {
     const newFilters = {
       search: searchParams.get("search") || "",
       category: searchParams.get("category") || searchParams.get("flavor") || "all",
+      subCategory: searchParams.get("subCategory") || "",
       brand: searchParams.get("brand") || "all",
       minPrice: searchParams.get("minPrice") || "",
       maxPrice: searchParams.get("maxPrice") || "",
@@ -49,12 +51,13 @@ const ProductListing = () => {
       availability: searchParams.get("availability") || "all",
       menuOption: searchParams.get("menuOption") || ""
     };
-    
+
     console.log('🔍 URL parameters changed:', newFilters);
     setFilters(newFilters);
   }, [searchParams]);
 
   useEffect(() => {
+    console.log('🚀 FETCH TRIGGER - filters:', filters, 'page:', pagination.currentPage);
     fetchProducts();
   }, [filters, pagination.currentPage]);
 
@@ -96,9 +99,21 @@ const ProductListing = () => {
   const fetchProducts = async () => {
     setLoading(true);
     setError("");
-    
+
     console.log('🔍 ProductListing: fetchProducts called');
-    console.log('🔍 Current filters:', filters);
+    console.log('🔍 Current filters:', JSON.stringify(filters, null, 2));
+    console.log('🔍 Filter values breakdown:', {
+      search: `"${filters.search}"`,
+      category: `"${filters.category}"`,
+      subCategory: `"${filters.subCategory}"`,
+      brand: `"${filters.brand}"`,
+      minPrice: `"${filters.minPrice}"`,
+      maxPrice: `"${filters.maxPrice}"`,
+      rating: `"${filters.rating}"`,
+      sortBy: `"${filters.sortBy}"`,
+      availability: `"${filters.availability}"`,
+      menuOption: `"${filters.menuOption}"`
+    });
     
     try {
       const params = new URLSearchParams();
@@ -142,8 +157,9 @@ const ProductListing = () => {
       }
       
       // Add other filters to params (excluding category and menuOption which are handled separately)
+      // Also exclude "all" values as the backend treats "all" as a literal value
       Object.entries(filters).forEach(([key, value]) => {
-        if (value && value !== "" && key !== "category" && key !== "menuOption") {
+        if (value && value !== "" && value !== "all" && key !== "category" && key !== "menuOption") {
           params.append(key, value);
         }
       });
@@ -180,7 +196,12 @@ const ProductListing = () => {
         const paginationData = response.data.data?.pagination || response.data.pagination || {};
 
         console.log('✅ Products received:', productsData.length);
-        console.log('✅ Product names:', productsData.map(p => p.name));
+        console.log('✅ productsData is array?', Array.isArray(productsData));
+
+        if (productsData.length === 0) {
+          console.warn('⚠️ API returned 0 products. Filters:', filters);
+          console.warn('⚠️ API URL params:', params.toString());
+        }
 
         // Map backend fields (snake_case) to frontend fields (camelCase)
         const mappedProducts = productsData.map(product => ({
@@ -265,13 +286,17 @@ const ProductListing = () => {
   const clearFilters = () => {
     const clearedFilters = {
       search: "",
-      category: "",
-      brand: "",
+      category: "all",  // Changed from "" to "all" to match initial state
+      subCategory: "",  // Added missing field
+      brand: "all",     // Changed from "" to "all" to match initial state
       minPrice: "",
       maxPrice: "",
+      rating: "",       // Added missing field
       sortBy: "relevance",
-      availability: "all"
+      availability: "all",
+      menuOption: ""    // Added missing field
     };
+    console.log('🧹 Clearing filters to:', clearedFilters);
     setFilters(clearedFilters);
     setPagination(prev => ({ ...prev, currentPage: 1 }));
     setSearchParams({});
@@ -455,7 +480,7 @@ const ProductListing = () => {
                 {/* Products Grid/List */}
                 <div className={`${
                   viewMode === "grid"
-                    ? "grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-5 lg:gap-6"
+                    ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4"
                     : "grid grid-cols-1 gap-4"
                 }`}>
                   {products.map((product) => (

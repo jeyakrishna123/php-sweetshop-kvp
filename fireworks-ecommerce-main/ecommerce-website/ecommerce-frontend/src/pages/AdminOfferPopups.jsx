@@ -187,101 +187,117 @@ const AdminOfferPopups = () => {
       // No validation - proceed directly
       console.log('💾 Saving offer popup:', formData);
 
-      // Try to save via API first
-      try {
-      if (editingPopup) {
-        await axios.put(`${getApiConfig().BASE_URL}/api/offer-popups/${editingPopup._id}`, formData, {
-          headers: { Authorization: `Bearer ${user?.token}` }
-        });
-        showToast('Offer popup updated successfully', 'success');
-      } else {
-        const response = await axios.post(`${getApiConfig().BASE_URL}/api/offer-popups`, formData, {
-          headers: { Authorization: `Bearer ${user?.token}` }
-        });
-        showToast('Offer popup created successfully', 'success');
+      // Check if this is a mock popup (ID starts with 'mock-popup-')
+      const isMockPopup = editingPopup && editingPopup._id?.toString().startsWith('mock-popup-');
+      const isNewPopup = !editingPopup;
+
+      // Only call API for real popups (numeric IDs) or new popups
+      if (!isMockPopup) {
+        try {
+          if (editingPopup) {
+            await axios.put(`${getApiConfig().BASE_URL}/api/offer-popups/${editingPopup._id}`, formData, {
+              headers: { Authorization: `Bearer ${user?.token}` }
+            });
+            showToast('Offer popup updated successfully', 'success');
+          } else {
+            const response = await axios.post(`${getApiConfig().BASE_URL}/api/offer-popups`, formData, {
+              headers: { Authorization: `Bearer ${user?.token}` }
+            });
+            showToast('Offer popup created successfully', 'success');
+          }
+        } catch (apiError) {
+          console.log('⚠️ API call failed, using localStorage fallback:', apiError.message);
+          console.log('⚠️ API Error details:', {
+            status: apiError.response?.status,
+            data: apiError.response?.data,
+            message: apiError.message
+          });
+
+          // Show appropriate message based on error type
+          if (apiError.response?.status === 401) {
+            console.log('🔐 Authentication error - using localStorage instead');
+            showToast('Saved locally (authentication required for server)', 'warning');
+          } else if (apiError.response?.status === 404) {
+            console.log('🔍 API endpoint not found - using localStorage');
+            showToast('Saved locally (API not available)', 'info');
+          } else {
+            showToast('Saved locally', 'info');
+          }
+
+          // Continue with localStorage save for API errors
+        }
       }
-      } catch (apiError) {
-        console.log('⚠️ API not available, using mock save:', apiError.message);
-        console.log('⚠️ API Error details:', {
-          status: apiError.response?.status,
-          data: apiError.response?.data,
-          message: apiError.message
-        });
 
-        // Check if it's an authentication error or 404 (not found) - handle gracefully without redirect
-        if (apiError.response?.status === 401) {
-          console.log('🔐 Authentication error - using mock save instead of redirecting');
-          showToast('Using offline mode - changes saved locally', 'warning');
-        } else if (apiError.response?.status === 404) {
-          console.log('🔍 API endpoint not found (404) - using mock save');
-          showToast('Using local storage - API not available', 'info');
-        }
+      // Always save to localStorage for persistence (whether API call succeeded or not)
+      const allPopups = loadPopupsFromStorage();
 
-        // Continue with mock save for all errors
-        
-        // Mock save - update localStorage and local state
-        const allPopups = loadPopupsFromStorage();
-        
-        if (editingPopup) {
-                  // Update existing popup
-                  const updatedPopups = allPopups.map(popup => 
-                    popup._id === editingPopup._id 
-                      ? { 
-                          ...popup, 
-                          couponCode: formData.couponCode,
-                          popupImage: formData.popupImage,
-                          showOnInitialPage: formData.showOnInitialPage,
-                          updatedAt: new Date().toISOString()
-                        }
-                      : popup
-                  );
-          
-          // Save to localStorage
-          savePopupsToStorage(updatedPopups);
-          
-          // Update UI state
-          setPopups(prevPopups => 
-            prevPopups.map(popup => 
-              popup._id === editingPopup._id 
-                ? { 
-                    ...popup, 
-                    couponCode: formData.couponCode,
-                    popupImage: formData.popupImage,
-                    showOnInitialPage: formData.showOnInitialPage,
-                    showOnPages: formData.showOnPages,
-                    triggerType: formData.triggerType,
-                    updatedAt: new Date().toISOString()
-                  }
-                : popup
-            )
-          );
+      if (editingPopup) {
+        // Update existing popup
+        const updatedPopups = allPopups.map(popup =>
+          popup._id === editingPopup._id
+            ? {
+                ...popup,
+                couponCode: formData.couponCode,
+                popupImage: formData.popupImage,
+                popupImagePreview: formData.popupImagePreview,
+                showOnInitialPage: formData.showOnInitialPage,
+                showOnPages: formData.showOnPages,
+                triggerType: formData.triggerType,
+                updatedAt: new Date().toISOString()
+              }
+            : popup
+        );
+
+        // Save to localStorage
+        savePopupsToStorage(updatedPopups);
+
+        // Update UI state
+        setPopups(prevPopups =>
+          prevPopups.map(popup =>
+            popup._id === editingPopup._id
+              ? {
+                  ...popup,
+                  couponCode: formData.couponCode,
+                  popupImage: formData.popupImage,
+                  popupImagePreview: formData.popupImagePreview,
+                  showOnInitialPage: formData.showOnInitialPage,
+                  showOnPages: formData.showOnPages,
+                  triggerType: formData.triggerType,
+                  updatedAt: new Date().toISOString()
+                }
+              : popup
+          )
+        );
+
+        // Only show toast for mock popups (API calls already showed their own toast)
+        if (isMockPopup) {
           showToast('Offer popup updated successfully', 'success');
-        } else {
-          // Create new popup
-          const newPopup = {
-            _id: `mock-popup-${Date.now()}`,
-            couponCode: formData.couponCode,
-            popupImage: formData.popupImage,
-            showOnInitialPage: formData.showOnInitialPage,
-            showOnPages: formData.showOnPages,
-            triggerType: formData.triggerType,
-            isActive: true,
-            title: "New Offer",
-            subtitle: "Special promotion",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-          };
-          
-          const updatedPopups = [newPopup, ...allPopups];
-          
-          // Save to localStorage
-          savePopupsToStorage(updatedPopups);
-          
-          // Update UI state
-          setPopups(prevPopups => [newPopup, ...prevPopups]);
-          showToast('Offer popup created successfully', 'success');
         }
+      } else {
+        // Create new popup
+        const newPopup = {
+          _id: `mock-popup-${Date.now()}`,
+          couponCode: formData.couponCode,
+          popupImage: formData.popupImage,
+          popupImagePreview: formData.popupImagePreview,
+          showOnInitialPage: formData.showOnInitialPage,
+          showOnPages: formData.showOnPages,
+          triggerType: formData.triggerType,
+          isActive: true,
+          title: formData.couponCode || "New Offer",
+          subtitle: "Special promotion",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        };
+
+        const updatedPopups = [newPopup, ...allPopups];
+
+        // Save to localStorage
+        savePopupsToStorage(updatedPopups);
+
+        // Update UI state
+        setPopups(prevPopups => [newPopup, ...prevPopups]);
       }
       
       setShowModal(false);
@@ -312,30 +328,38 @@ const AdminOfferPopups = () => {
     if (window.confirm('Are you sure you want to delete this offer popup?')) {
       try {
         console.log('🗑️ Deleting popup with ID:', id);
-        
+
+        // Check if this is a mock popup
+        const isMockPopup = id?.toString().startsWith('mock-popup-');
+
         // Get current popups from localStorage
         const allPopups = loadPopupsFromStorage();
         const updatedPopups = allPopups.filter(popup => popup._id !== id);
-        
+
         // Save updated popups to localStorage
         savePopupsToStorage(updatedPopups);
-        
+
         // Update UI state
         setPopups(prevPopups => prevPopups.filter(popup => popup._id !== id));
-        
-        console.log('✅ Popup deleted and saved to localStorage');
-        showToast('Offer popup deleted successfully', 'success');
-        
-        // Optional: Try real API as fallback
-        try {
-        const response = await axios.delete(`${getApiConfig().BASE_URL}/api/offer-popups/${id}`, {
-          headers: { Authorization: `Bearer ${user?.token}` }
-        });
-          console.log('✅ Real API delete response:', response.data);
-        } catch (apiError) {
-          console.log('⚠️ Real API delete failed, but localStorage deletion succeeded:', apiError.message);
+
+        console.log('✅ Popup deleted from localStorage');
+
+        // Only call API for real (numeric) popups
+        if (!isMockPopup) {
+          try {
+            const response = await axios.delete(`${getApiConfig().BASE_URL}/api/offer-popups/${id}`, {
+              headers: { Authorization: `Bearer ${user?.token}` }
+            });
+            console.log('✅ Popup deleted from server:', response.data);
+          } catch (apiError) {
+            console.log('⚠️ Server delete failed, but localStorage deletion succeeded:', apiError.message);
+          }
+        } else {
+          console.log('💾 Mock popup - localStorage only (no server call)');
         }
-        
+
+        showToast('Offer popup deleted successfully', 'success');
+
       } catch (error) {
         console.error('❌ Error deleting popup:', error);
         showToast('Failed to delete offer popup', 'error');
@@ -346,40 +370,42 @@ const AdminOfferPopups = () => {
   const handleToggleStatus = async (id) => {
     try {
       console.log('🔄 Toggling status for popup ID:', id);
-      
+
+      // Check if this is a mock popup
+      const isMockPopup = id?.toString().startsWith('mock-popup-');
+
       // Get current popups from localStorage
       const allPopups = loadPopupsFromStorage();
-      const updatedPopups = allPopups.map(popup => 
-        popup._id === id 
+      const updatedPopups = allPopups.map(popup =>
+        popup._id === id
           ? { ...popup, isActive: !popup.isActive, updatedAt: new Date().toISOString() }
           : popup
       );
-      
+
       // Save to localStorage
       savePopupsToStorage(updatedPopups);
-      
+
       // Update UI state
-      setPopups(prevPopups => 
-        prevPopups.map(popup => 
-          popup._id === id 
+      setPopups(prevPopups =>
+        prevPopups.map(popup =>
+          popup._id === id
             ? { ...popup, isActive: !popup.isActive, updatedAt: new Date().toISOString() }
             : popup
         )
       );
-      
-      console.log('✅ Status toggled and saved to localStorage');
-      showToast('Offer popup status updated', 'success');
-      
+
+      console.log('✅ Status toggled in localStorage');
+
       // Trigger frontend popup refresh
       window.dispatchEvent(new Event('offerPopupsUpdated'));
       console.log('🔄 Triggered frontend popup refresh');
-      
+
       // Clear session storage for this popup so it can show again when activating
-      const popupToUpdate = allPopups.find(p => p._id === id);
+      const popupToUpdate = updatedPopups.find(p => p._id === id);
       if (popupToUpdate && popupToUpdate.isActive) {
-        // If activating, clear session storage so popup can show again
-        const sessionKeys = Object.keys(sessionStorage).filter(key => 
-          key.includes(`welcomeOfferShown_${id}`) || 
+        // If just activated, clear session storage so popup can show again
+        const sessionKeys = Object.keys(sessionStorage).filter(key =>
+          key.includes(`welcomeOfferShown_${id}`) ||
           key.includes(`popup_shown_${id}`)
         );
         sessionKeys.forEach(key => {
@@ -387,17 +413,23 @@ const AdminOfferPopups = () => {
           console.log('🧹 Cleared session key:', key);
         });
       }
-      
-      // Optional: Try real API as fallback
-      try {
-      const response = await axios.patch(`${getApiConfig().BASE_URL}/api/offer-popups/${id}/toggle`, {}, {
-        headers: { Authorization: `Bearer ${user?.token}` }
-      });
-        console.log('✅ Real API toggle response:', response.data);
-      } catch (apiError) {
-        console.log('⚠️ Real API toggle failed, but localStorage toggle succeeded:', apiError.message);
+
+      // Only call API for real (numeric) popups
+      if (!isMockPopup) {
+        try {
+          const response = await axios.patch(`${getApiConfig().BASE_URL}/api/offer-popups/${id}/toggle`, {}, {
+            headers: { Authorization: `Bearer ${user?.token}` }
+          });
+          console.log('✅ Status toggled on server:', response.data);
+        } catch (apiError) {
+          console.log('⚠️ Server toggle failed, but localStorage toggle succeeded:', apiError.message);
+        }
+      } else {
+        console.log('💾 Mock popup - localStorage only (no server call)');
       }
-      
+
+      showToast('Offer popup status updated', 'success');
+
     } catch (error) {
       console.error('❌ Error toggling status:', error);
       showToast('Failed to update status', 'error');
@@ -487,16 +519,29 @@ const AdminOfferPopups = () => {
         });
 
         if (response.data.success) {
-          console.log('✅ Image uploaded successfully:', response.data.imageUrl);
-          console.log('🔍 Full response data:', response.data);
-          
-          // Construct the full image URL
-          const fullImageUrl = response.data.imageUrl.startsWith('http') 
-            ? response.data.imageUrl 
-            : `${getApiConfig().BASE_URL}${response.data.imageUrl}`;
-          
+          console.log('✅ Image upload response received');
+          console.log('🔍 Full response data:', JSON.stringify(response.data, null, 2));
+
+          // Backend sends: { success: true, data: { imageUrl: '...' } }
+          const imageUrl = response.data.data?.imageUrl || response.data.imageUrl;
+
+          // Check if imageUrl exists
+          if (!imageUrl) {
+            console.log('⚠️ No imageUrl in response, keeping data URL preview');
+            console.log('⚠️ Response structure:', Object.keys(response.data));
+            showToast('Image preview created (upload will be processed on save)', 'warning');
+            return;
+          }
+
+          console.log('✅ Image URL from server:', imageUrl);
+
+          // Construct the full image URL with null safety
+          const fullImageUrl = imageUrl.startsWith('http')
+            ? imageUrl
+            : `${getApiConfig().BASE_URL}${imageUrl}`;
+
           console.log('🔗 Constructed full image URL:', fullImageUrl);
-          
+
           // Test the image URL before setting it
           const testImg = new Image();
           testImg.onload = () => {

@@ -34,28 +34,59 @@ const Cart = () => {
 
   const updateQuantity = async (productId, newQuantity) => {
     if (newQuantity < 1) return;
-    
+
     setUpdating(prev => ({ ...prev, [productId]: true }));
-    
+
     try {
-      // Check stock availability
-      const response = await axios.get(`/api/products/${productId}`);
-      if (response.data && response.data.success) {
-        const product = response.data.product;
-        if (newQuantity > product.stock) {
-          showToast(`Only ${product.stock} items available in stock`, "warning");
-          return;
+      console.log('🔄 Cart: Updating quantity for product:', productId, 'to:', newQuantity);
+
+      // Find the product in cart to get current stock info
+      const cartItem = cart.find(item => item._id === productId);
+      if (!cartItem) {
+        console.error('❌ Cart: Product not found in cart:', productId);
+        showToast("Product not found in cart", "error");
+        return;
+      }
+
+      // Check stock availability from cart item first
+      if (cartItem.stock && newQuantity > cartItem.stock) {
+        console.warn('⚠️ Cart: Requested quantity exceeds stock:', newQuantity, '>', cartItem.stock);
+        showToast(`Only ${cartItem.stock} items available in stock`, "warning");
+        setUpdating(prev => ({ ...prev, [productId]: false }));
+        return;
+      }
+
+      // Try to verify stock from API if product ID is numeric
+      if (/^\d+$/.test(String(productId))) {
+        try {
+          const response = await axios.get(`/api/products/${productId}`);
+          console.log('✅ Cart: Stock check response:', response.data);
+
+          if (response.data && response.data.success && response.data.product) {
+            const product = response.data.product;
+            if (newQuantity > product.stock) {
+              showToast(`Only ${product.stock} items available in stock`, "warning");
+              setUpdating(prev => ({ ...prev, [productId]: false }));
+              return;
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Cart: Could not verify stock from API:', error.message);
+          // Continue anyway - we already checked cart item stock
         }
       }
-      
+
+      // Update quantity in cart
       dispatch({
         type: 'UPDATE_QUANTITY',
         payload: { productId, quantity: newQuantity }
       });
-      
+
+      console.log('✅ Cart: Quantity updated successfully');
       showToast("Cart updated successfully", "success");
-    } catch {
-      showToast("Failed to update cart", "error");
+    } catch (error) {
+      console.error('❌ Cart: Failed to update cart:', error);
+      showToast("Failed to update cart: " + (error.message || 'Unknown error'), "error");
     } finally {
       setUpdating(prev => ({ ...prev, [productId]: false }));
     }

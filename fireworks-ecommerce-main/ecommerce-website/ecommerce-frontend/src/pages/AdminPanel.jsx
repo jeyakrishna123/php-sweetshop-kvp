@@ -18,12 +18,15 @@ const AdminPanel = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [dateFilter, setDateFilter] = useState({
-    type: "today", // all, today, week, month, custom - start with today to match UI
+    type: "all", // all, today, week, month, custom - start with all to show all data
     startDate: "",
     endDate: ""
   });
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [newOrderNotifications, setNewOrderNotifications] = useState([]);
+  const [showNotificationPanel, setShowNotificationPanel] = useState(false);
+  const [lastOrderCount, setLastOrderCount] = useState(0);
 
   // Date filtering helper functions
   const getDateRange = (type) => {
@@ -57,22 +60,63 @@ const AdminPanel = () => {
     }
   };
 
-  const fetchOrders = useCallback(async () => {
+  const fetchOrders = useCallback(async (checkForNewOrders = false) => {
     try {
       setOrdersLoading(true);
       const response = await orderAPI.getAllOrders();
-      
+
       if (response.success) {
-        const orders = response.orders || [];
-        
+        // Handle nested data structure: response.data.data
+        let orders = response.data?.data || response.orders || [];
+
+        // Map PHP-style 'id' to MongoDB-style '_id' for compatibility
+        orders = orders.map(order => ({
+          ...order,
+          _id: order._id || order.id?.toString() || 'unknown',
+          createdAt: order.createdAt || order.created_at || new Date().toISOString()
+        }));
+
+        console.log('📦 Orders received:', orders.length);
+        console.log('📋 Sample orders:', orders.slice(0, 3));
+
+        // Check for new orders using functional setState to get current lastOrderCount
+        if (checkForNewOrders) {
+          setLastOrderCount(prevCount => {
+            if (prevCount > 0 && orders.length > prevCount) {
+              const newOrdersCount = orders.length - prevCount;
+              const newOrders = orders.slice(0, newOrdersCount);
+
+              console.log('🔔 New orders detected:', newOrdersCount);
+              console.log('🔔 Previous count:', prevCount, 'New count:', orders.length);
+
+              // Add new order notifications
+              const notifications = newOrders.map(order => ({
+                id: order._id,
+                orderId: order._id,
+                message: `New order #${order._id?.slice(-8)} received`,
+                customerName: order.user_name || order.shipping_name || 'Guest',
+                amount: order.total_price || order.totalPrice || 0,
+                timestamp: new Date().toISOString(),
+                read: false
+              }));
+
+              setNewOrderNotifications(prev => [...notifications, ...prev].slice(0, 10)); // Keep last 10
+              showToast(`🔔 ${newOrdersCount} new order(s) received!`, 'success');
+            }
+            return orders.length;
+          });
+        } else {
+          setLastOrderCount(orders.length);
+        }
+
         // Apply date filtering
         const dateRange = getDateRange(dateFilter.type);
         const filtered = orders.filter(order => {
           if (!dateRange.start || !dateRange.end) return true;
-          const orderDate = new Date(order.createdAt || order.orderDate);
+          const orderDate = new Date(order.created_at || order.createdAt || order.orderDate);
           return orderDate >= dateRange.start && orderDate <= dateRange.end;
         });
-        
+
         setFilteredOrders(filtered);
       } else {
         throw new Error("Failed to fetch orders");
@@ -89,24 +133,76 @@ const AdminPanel = () => {
     try {
       setLoading(true);
       setError("");
-      
+
       console.log('🔄 Fetching dashboard data with filter:', dateFilter);
+      console.log('🔑 Token available:', !!localStorage.getItem('token'));
+      console.log('👤 User info:', user);
+
       const response = await analyticsAPI.getDashboardStats(dateFilter);
-      
-      if (response.success) {
-        console.log('✅ Dashboard data received:', response.stats);
-        setDashboardData(response);
+
+      console.log('📊 Full API Response:', response);
+
+      if (response && response.success) {
+        console.log('✅ Dashboard data received:', response.data?.stats || response.stats);
+        // Handle both response formats: response.data.stats or response.stats
+        const dashboardData = response.data ? {
+          ...response,
+          stats: response.data.stats,
+          recentOrders: response.data.recentOrders
+        } : response;
+        setDashboardData(dashboardData);
       } else {
-        throw new Error("Failed to fetch dashboard data");
+        console.error('❌ API returned success=false:', response);
+        // Don't throw error, just show empty data
+        setDashboardData({
+          success: true,
+          stats: {
+            totalUsers: 0,
+            totalProducts: 0,
+            totalOrders: 0,
+            totalRevenue: 0,
+            pendingOrders: 0,
+            processingOrders: 0,
+            shippedOrders: 0,
+            deliveredOrders: 0,
+            lowStockProducts: 0,
+            outOfStockProducts: 0
+          },
+          recentOrders: []
+        });
       }
     } catch (error) {
-      console.error("Failed to fetch dashboard data:", error);
-      setError("Failed to load dashboard data. Please try again.");
-      showToast("Failed to load dashboard data", "error");
+      console.error("❌ Failed to fetch dashboard data:", error);
+      console.error("❌ Error details:", error.message);
+      console.error("❌ Error response:", error.response);
+      
+      // Don't show error toast for authentication issues
+      if (error.response?.status !== 401) {
+        setError("Failed to load dashboard data. Please try again.");
+        showToast("Failed to load dashboard data: " + error.message, "error");
+      }
+
+      // Set empty data to prevent showing stale data
+      setDashboardData({
+        success: true,
+        stats: {
+          totalUsers: 0,
+          totalProducts: 0,
+          totalOrders: 0,
+          totalRevenue: 0,
+          pendingOrders: 0,
+          processingOrders: 0,
+          shippedOrders: 0,
+          deliveredOrders: 0,
+          lowStockProducts: 0,
+          outOfStockProducts: 0
+        },
+        recentOrders: []
+      });
     } finally {
       setLoading(false);
     }
-  }, [dateFilter, showToast]);
+  }, [dateFilter, showToast, user]);
 
   useEffect(() => {
     if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) {
@@ -114,9 +210,9 @@ const AdminPanel = () => {
       navigate('/admin/login');
       return;
     }
-    
+
     fetchDashboardData();
-    fetchOrders();
+    fetchOrders(false); // Initial load - don't check for new orders yet
   }, [user, navigate, showToast, fetchDashboardData, fetchOrders]);
 
   // Separate useEffect to handle date filter changes
@@ -124,9 +220,29 @@ const AdminPanel = () => {
     if (user && (user.role === 'admin' || user.role === 'superadmin')) {
       console.log('🔄 Date filter changed, refetching data:', dateFilter);
       fetchDashboardData();
-      fetchOrders();
+      fetchOrders(false); // Don't check for new orders on filter change
     }
   }, [dateFilter, fetchDashboardData, fetchOrders, user]);
+
+  // Polling for new orders every 30 seconds
+  useEffect(() => {
+    if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) {
+      return;
+    }
+
+    console.log('🔔 Setting up order polling...');
+
+    // Poll for new orders every 30 seconds
+    const pollInterval = setInterval(() => {
+      console.log('🔄 Polling for new orders...');
+      fetchOrders(true); // Pass true to check for new orders
+    }, 30000); // 30 seconds
+
+    return () => {
+      console.log('🔕 Cleaning up order polling');
+      clearInterval(pollInterval);
+    };
+  }, [user, fetchOrders]);
 
   if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) {
     return null;
@@ -201,24 +317,157 @@ const AdminPanel = () => {
                 </div>
               </div>
             </div>
-            <button
-              onClick={async () => {
-                try {
-                  await logout();
-                  showToast('Logged out successfully', 'success');
-                  navigate('/admin/login');
-                } catch (error) {
-                  console.error('Logout error:', error);
-                  showToast('Error during logout', 'error');
-                }
-              }}
-              className="flex items-center px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white rounded-lg sm:rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 text-xs sm:text-sm font-medium w-full sm:w-auto justify-center"
-            >
-              <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              Logout
-            </button>
+            <div className="flex items-center space-x-3 sm:space-x-4">
+              {/* Notification Bell Icon */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowNotificationPanel(!showNotificationPanel)}
+                  className="relative p-2 sm:p-3 bg-white hover:bg-gray-50 rounded-lg sm:rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5"
+                  aria-label="Notifications"
+                >
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  {/* Notification Badge */}
+                  {newOrderNotifications.filter(n => !n.read).length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center shadow-lg animate-pulse">
+                      {newOrderNotifications.filter(n => !n.read).length > 9 ? '9+' : newOrderNotifications.filter(n => !n.read).length}
+                    </span>
+                  )}
+                </button>
+
+                {/* Notification Dropdown Panel */}
+                {showNotificationPanel && (
+                  <>
+                    {/* Backdrop */}
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setShowNotificationPanel(false)}
+                    />
+
+                    {/* Notification Panel */}
+                    <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-hidden">
+                      {/* Header */}
+                      <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-3 flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                          </svg>
+                          <h3 className="font-bold text-sm">New Order Notifications</h3>
+                        </div>
+                        {newOrderNotifications.filter(n => !n.read).length > 0 && (
+                          <button
+                            onClick={() => {
+                              setNewOrderNotifications(prev => prev.map(n => ({ ...n, read: true })));
+                              showToast('All notifications marked as read', 'success');
+                            }}
+                            className="text-xs bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full transition-colors"
+                          >
+                            Mark all read
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Notifications List */}
+                      <div className="max-h-80 overflow-y-auto">
+                        {newOrderNotifications.length === 0 ? (
+                          <div className="p-8 text-center text-gray-500">
+                            <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                            </svg>
+                            <p className="text-sm font-medium">No new notifications</p>
+                            <p className="text-xs mt-1">New orders will appear here</p>
+                          </div>
+                        ) : (
+                          newOrderNotifications.map((notification) => (
+                            <div
+                              key={notification.id}
+                              className={`p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${
+                                !notification.read ? 'bg-blue-50' : ''
+                              }`}
+                              onClick={() => {
+                                // Mark as read
+                                setNewOrderNotifications(prev =>
+                                  prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
+                                );
+                                // Navigate to orders page
+                                navigate('/admin/orders');
+                                setShowNotificationPanel(false);
+                              }}
+                            >
+                              <div className="flex items-start space-x-3">
+                                <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
+                                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                  </svg>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    {notification.message}
+                                  </p>
+                                  <p className="text-xs text-gray-600 mt-1">
+                                    Customer: {notification.customerName}
+                                  </p>
+                                  <div className="flex items-center justify-between mt-2">
+                                    <span className="text-sm font-bold text-green-600">
+                                      ₹{notification.amount.toLocaleString()}
+                                    </span>
+                                    <span className="text-xs text-gray-500">
+                                      {new Date(notification.timestamp).toLocaleTimeString('en-IN', {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </span>
+                                  </div>
+                                </div>
+                                {!notification.read && (
+                                  <div className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {/* Footer */}
+                      {newOrderNotifications.length > 0 && (
+                        <div className="bg-gray-50 px-4 py-3 text-center border-t border-gray-200">
+                          <button
+                            onClick={() => {
+                              navigate('/admin/orders');
+                              setShowNotificationPanel(false);
+                            }}
+                            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                          >
+                            View All Orders →
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Logout Button */}
+              <button
+                onClick={async () => {
+                  try {
+                    await logout();
+                    showToast('Logged out successfully', 'success');
+                    navigate('/admin/login');
+                  } catch (error) {
+                    console.error('Logout error:', error);
+                    showToast('Error during logout', 'error');
+                  }
+                }}
+                className="flex items-center px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white rounded-lg sm:rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 text-xs sm:text-sm font-medium w-full sm:w-auto justify-center"
+              >
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Logout
+              </button>
+            </div>
           </div>
         </div>
 
@@ -627,20 +876,20 @@ const AdminPanel = () => {
               <div className="space-y-3">
                 <h4 className="text-md font-medium text-gray-900 mb-3">Recent Orders</h4>
                 {filteredOrders.slice(0, 5).map((order) => (
-                  <div key={order._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div key={order._id || order.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                     <div className="flex items-center space-x-4">
                       <div className="text-2xl">📋</div>
                       <div>
-                        <h5 className="font-medium text-gray-900">Order #{order._id.slice(-8)}</h5>
+                        <h5 className="font-medium text-gray-900">Order #{order._id?.slice(-8) || order.id || 'N/A'}</h5>
                         <p className="text-sm text-gray-600">
-                          {order.userDetails?.name || order.user?.name || "N/A"} • 
-                          {new Date(order.createdAt).toLocaleDateString()}
+                          {order.userDetails?.name || order.user?.name || "N/A"} •
+                          {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-4">
                       <div className="text-right">
-                        <p className="font-semibold text-gray-900">₹{order.totalPrice?.toLocaleString()}</p>
+                        <p className="font-semibold text-gray-900">₹{order.totalPrice?.toLocaleString() || 0}</p>
                         <p className="text-sm text-gray-600">
                           {order.orderItems?.length || 0} items
                         </p>
@@ -652,7 +901,7 @@ const AdminPanel = () => {
                         order.status === 'delivered' ? 'bg-green-100 text-green-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
-                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                        {order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : 'N/A'}
                       </span>
                     </div>
                   </div>

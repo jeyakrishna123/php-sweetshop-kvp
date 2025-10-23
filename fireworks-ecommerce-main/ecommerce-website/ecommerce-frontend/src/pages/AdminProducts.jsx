@@ -135,6 +135,7 @@ const AdminProducts = () => {
           specifications: product.specifications || {},
           tags: product.tags || [],
           isNew: product.is_new || product.isNew || false, // Backend uses 'is_new'
+          isActive: product.is_active !== undefined ? Boolean(Number(product.is_active)) : true, // Backend uses 'is_active'
           createdAt: product.created_at || product.createdAt, // Backend uses 'created_at'
           updatedAt: product.updated_at || product.updatedAt // Backend uses 'updated_at'
         }));
@@ -214,16 +215,17 @@ const AdminProducts = () => {
     if (!window.confirm("Are you sure you want to delete this product? This action cannot be undone.")) {
       return;
     }
-    
+
     try {
       setDeletingProduct(id);
       await productAPI.deleteProduct(id);
-      
+
+      // Remove from list immediately
       setProducts(products.filter(p => p._id !== id));
       showToast("Product deleted successfully", "success");
     } catch (error) {
       console.error("Failed to delete product:", error);
-      showToast("Failed to delete product", "error");
+      showToast(error.message || "Failed to delete product", "error");
     } finally {
       setDeletingProduct(null);
     }
@@ -247,39 +249,59 @@ const AdminProducts = () => {
 
   const handleEdit = async (product) => {
     try {
-      const response = await productAPI.getProduct(product._id);
+      // Handle both 'id' (from backend) and '_id' (frontend format)
+      const productId = product._id || product.id;
+
+      if (!productId) {
+        throw new Error("Product ID is missing");
+      }
+
+      const response = await productAPI.getProduct(productId);
+
+      console.log('🔍 getProduct response:', response);
+      console.log('🔍 response.product:', response.product);
+      console.log('🔍 response.data:', response.data);
 
       if (response.success) {
-        const productData = response.product;
+        // Backend might return product in different locations
+        const productData = response.product || response.data?.product || response.data;
+
+        if (!productData) {
+          console.error('❌ Product data not found in response:', response);
+          throw new Error("Product data not found in response");
+        }
+
+        console.log('🔍 productData:', productData);
+
         const cleanedProductData = {
-          _id: productData._id,
+          _id: productData._id || productData.id,
           name: productData.name,
           price: productData.price,
-          originalPrice: productData.originalPrice || productData.price,
-          offerPrice: productData.offerPrice || productData.price,
-          discountPercentage: productData.discountPercentage || 0,
+          originalPrice: productData.originalPrice || productData.original_price || productData.price,
+          offerPrice: productData.offerPrice || productData.offer_price || productData.price,
+          discountPercentage: productData.discountPercentage || productData.discount_percentage || 0,
           stock: productData.stock || productData.countInStock || 0,
           images: productData.images || [],
           brand: productData.brand || "",
           category: productData.category || "",
-          subCategory: productData.subCategory || "", // ADDED!
-          menuOption: productData.menuOption || "", // ADDED!
+          subCategory: productData.subCategory || productData.sub_category || "", // Handle both camelCase and snake_case
+          menuOption: productData.menuOption || productData.menu_option || "", // Handle both camelCase and snake_case
           description: productData.description || "",
           features: productData.features || "",
           specifications: productData.specifications || {},
           tags: productData.tags || [],
           user: productData.user,
           seller: productData.seller || "",
-          ratings: productData.ratings || 0,
-          numOfReviews: productData.numOfReviews || 0,
+          ratings: productData.ratings || productData.average_rating || 0,
+          numOfReviews: productData.numOfReviews || productData.num_reviews || 0,
           featured: productData.featured || false,
-          isActive: productData.isActive !== undefined ? productData.isActive : true,
-          isFeatured: productData.isFeatured || false,
-          isNew: productData.isNew || false,
-          isSpecial: productData.isSpecial || false,
-          isBestseller: productData.isBestseller || false,
-          createdAt: productData.createdAt,
-          updatedAt: productData.updatedAt
+          isActive: productData.isActive !== undefined ? productData.isActive : (productData.is_active !== undefined ? productData.is_active : true),
+          isFeatured: productData.isFeatured || productData.is_featured || false,
+          isNew: productData.isNew || productData.is_new || false,
+          isSpecial: productData.isSpecial || productData.is_special || false,
+          isBestseller: productData.isBestseller || productData.is_bestseller || false,
+          createdAt: productData.createdAt || productData.created_at,
+          updatedAt: productData.updatedAt || productData.updated_at
         };
         
         setEditingProduct(cleanedProductData);

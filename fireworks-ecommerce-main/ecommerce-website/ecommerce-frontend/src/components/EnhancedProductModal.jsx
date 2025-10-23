@@ -119,7 +119,7 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
     tags: "",
     isActive: true,
     isFeatured: false,
-    isNew: false,
+    isNew: true, // Default to true for new products
     isSpecial: false,
     isBestseller: false,
     // Weight configuration
@@ -200,7 +200,7 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
         tags: "",
         isActive: true,
         isFeatured: false,
-        isNew: false,
+        isNew: true, // Default to true for new products
         isSpecial: false,
         isBestseller: false,
         hasWeightOptions: false,
@@ -458,19 +458,32 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
         });
       }
       
+      // Convert camelCase to snake_case for backend
       const productData = {
-        ...form,
+        name: form.name,
+        description: form.description || '',
+        category: form.category,
         price: parseFloat(form.price),
-        originalPrice: parseFloat(form.originalPrice),
-        offerPrice: parseFloat(form.offerPrice) || parseFloat(form.originalPrice),
+        original_price: parseFloat(form.originalPrice), // Backend uses snake_case
+        discount_percentage: parseFloat(form.discountPercentage) || 0, // Backend uses snake_case
         stock: parseInt(form.stock),
-        discountPercentage: parseFloat(form.discountPercentage),
         images: processedImages,
-        weightOptions: form.weightOptions
+        thumbnail: processedImages[0] || null,
+        sub_category: form.subCategory || '', // Backend uses snake_case
+        menu_option: form.menuOption || '', // Backend uses snake_case
+        cake_flavor: form.cakeFlavor || '', // Backend uses snake_case
+        is_new: form.isNew || false, // Backend uses snake_case
+        is_active: form.isActive !== undefined ? form.isActive : true,
+        weight_options: form.weightOptions || null, // Backend uses snake_case
+        brand: form.brand || null,
+        sku: form.sku || null,
+        weight: form.weight || null,
+        tags: form.tags || [],
+        specifications: form.specifications || []
       };
-      
+
       console.log('🚀 EnhancedProductModal: Submitting product data:', productData);
-      console.log('🔍 EnhancedProductModal: Menu option being saved:', productData.menuOption);
+      console.log('🔍 EnhancedProductModal: Menu option being saved:', productData.menu_option);
       console.log('🔍 EnhancedProductModal: Editing mode:', !!product);
 
       let response;

@@ -208,14 +208,15 @@ const Navbar = () => {
     setIsMobileMenuOpen(false);
   };
 
-
-  // Debug mobile menu state
-  console.log('🔍 Mobile menu state:', { isMobileMenuOpen, isUserMenuOpen });
+  // Debug mobile menu state changes
+  useEffect(() => {
+    console.log('🔍 Mobile menu state changed:', { isMobileMenuOpen, isUserMenuOpen });
+  }, [isMobileMenuOpen, isUserMenuOpen]);
 
   return (
     <>
       {/* Top Bar - Promotional Banner */}
-      <div className="bg-gradient-to-r from-red-800 via-red-700 to-red-600 text-white text-center py-3 px-4 shadow-lg" style={{
+      <div className="bg-gradient-to-r from-red-800 via-red-700 to-red-600 text-white text-center py-3 px-4 shadow-lg sticky top-0 z-40" style={{
         background: 'linear-gradient(to right, #C1174A, #B91C3C, #DC2626)'
       }}>
         <div className="w-full max-w-none flex items-center justify-center space-x-4">
@@ -235,7 +236,7 @@ const Navbar = () => {
       </div>
 
       {/* Main Header */}
-      <nav className="bg-white/95 backdrop-blur-md shadow-lg sticky top-0 z-50 border-b border-gray-100 -mb-2">
+      <nav className="bg-white/95 backdrop-blur-md shadow-lg sticky z-50 border-b border-gray-100 -mb-2" style={{ top: '52px' }}>
         <div className="w-full max-w-none px-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-20 lg:h-24">
              {/* Logo Section - Mobile Optimized with SK BAKERS Logo */}
@@ -341,8 +342,8 @@ const Navbar = () => {
               >
                 <Icon name="heart" className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform duration-200" />
                 {wishlistCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center text-[10px] sm:text-xs font-medium">
-                    {wishlistCount > 9 ? '9+' : wishlistCount}
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center text-[10px] sm:text-xs font-bold shadow-lg border-2 border-white ring-2 ring-red-600 animate-pulse">
+                    {wishlistCount > 99 ? '99+' : wishlistCount}
                   </span>
                 )}
               </button>
@@ -424,23 +425,25 @@ const Navbar = () => {
                   {isUserMenuOpen && (
                     <>
                       {/* Mobile backdrop overlay */}
-                      <div 
-                        className="fixed inset-0 bg-black bg-opacity-25 z-40 lg:hidden"
+                      <div
+                        className="fixed inset-0 bg-black bg-opacity-25 lg:hidden"
+                        style={{ zIndex: 99998 }}
                         onClick={() => setIsUserMenuOpen(false)}
                       />
                       
-                      <div 
+                      <div
                         className="bg-white rounded-2xl shadow-2xl border border-gray-200 py-3 backdrop-blur-sm sm:py-4"
-                        style={{ 
+                        style={{
                           position: 'fixed',
                           top: userMenuPosition.top,
                           right: userMenuPosition.right,
                           left: userMenuPosition.left,
                           width: userMenuPosition.width || '288px',
-                          zIndex: 10000,
+                          zIndex: 99999,
                           maxWidth: 'calc(100vw - 32px)',
                           maxHeight: 'calc(100vh - 100px)',
-                          overflowY: 'auto'
+                          overflowY: 'auto',
+                          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
                         }}
                       >
                       {/* User Info Header */}
@@ -487,17 +490,27 @@ const Navbar = () => {
                           <span className="font-medium text-sm sm:text-base">My Orders</span>
                         </button>
                         
-                        <button 
+                        <button
                           onClick={() => {
                             handleNavigation("/wishlist");
                             setIsUserMenuOpen(false);
                           }}
                           className="flex items-center space-x-3 sm:space-x-4 w-full text-left px-4 py-3 sm:px-5 sm:py-3.5 text-gray-700 hover:text-pink-600 hover:bg-pink-50 transition-all duration-200 group"
                         >
-                          <div className="w-7 h-7 sm:w-8 sm:h-8 bg-pink-100 rounded-lg flex items-center justify-center group-hover:bg-pink-200 transition-colors flex-shrink-0">
+                          <div className="relative w-7 h-7 sm:w-8 sm:h-8 bg-pink-100 rounded-lg flex items-center justify-center group-hover:bg-pink-200 transition-colors flex-shrink-0">
                             <Icon name="heart" className="w-4 h-4 text-pink-600" />
+                            {wishlistCount > 0 && (
+                              <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[8px] rounded-full h-4 w-4 flex items-center justify-center font-bold">
+                                {wishlistCount > 9 ? '9+' : wishlistCount}
+                              </span>
+                            )}
                           </div>
-                          <span className="font-medium text-sm sm:text-base">My Wishlist</span>
+                          <span className="font-medium text-sm sm:text-base">
+                            My Wishlist
+                            {wishlistCount > 0 && (
+                              <span className="ml-2 text-xs text-pink-600">({wishlistCount})</span>
+                            )}
+                          </span>
                         </button>
                         
                         {user.role === 'admin' || user.role === 'superadmin' ? (
@@ -869,7 +882,7 @@ const Navbar = () => {
                               <button
                                 key={item}
                                 onClick={() => {
-                                  handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                                  handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                                   setIsThemeCakesDropdownOpen(false);
                                 }}
                                 className="block w-full text-left text-xs text-gray-700 hover:text-red-600 py-1.5 px-2 rounded-md hover:bg-red-50 transition-all duration-200"
@@ -895,7 +908,7 @@ const Navbar = () => {
                               <button
                                 key={item}
                                 onClick={() => {
-                                  handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                                  handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                                   setIsThemeCakesDropdownOpen(false);
                                 }}
                                 className="block w-full text-left text-xs text-gray-700 hover:text-red-600 py-1.5 px-2 rounded-md hover:bg-red-50 transition-all duration-200"
@@ -921,7 +934,7 @@ const Navbar = () => {
                               <button
                                 key={item}
                                 onClick={() => {
-                                  handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                                  handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                                   setIsThemeCakesDropdownOpen(false);
                                 }}
                                 className="block w-full text-left text-xs text-gray-700 hover:text-red-600 py-1.5 px-2 rounded-md hover:bg-red-50 transition-all duration-200"
@@ -947,7 +960,7 @@ const Navbar = () => {
                               <button
                                 key={item}
                                 onClick={() => {
-                                  handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                                  handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                                   setIsThemeCakesDropdownOpen(false);
                                 }}
                                 className="block w-full text-left text-xs text-gray-700 hover:text-red-600 py-1.5 px-2 rounded-md hover:bg-red-50 transition-all duration-200"
@@ -1034,7 +1047,7 @@ const Navbar = () => {
                               <button
                                 key={item}
                                 onClick={() => {
-                                  handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                                  handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                                   setIsByRelationshipDropdownOpen(false);
                                 }}
                                 className="block w-full text-left text-xs text-gray-700 hover:text-red-600 py-1.5 px-2 rounded-md hover:bg-red-50 transition-all duration-200"
@@ -1058,7 +1071,7 @@ const Navbar = () => {
                               <button
                                 key={item}
                                 onClick={() => {
-                                  handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                                  handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                                   setIsByRelationshipDropdownOpen(false);
                                 }}
                                 className="block w-full text-left text-xs text-gray-700 hover:text-red-600 py-1.5 px-2 rounded-md hover:bg-red-50 transition-all duration-200"
@@ -1136,7 +1149,7 @@ const Navbar = () => {
                           <button
                             key={item}
                             onClick={() => {
-                              handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                              handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                               setIsDessertsDropdownOpen(false);
                             }}
                             className="block w-full text-left text-sm text-gray-700 hover:text-red-600 py-2 px-3 rounded-md hover:bg-red-50 transition-all duration-200"
@@ -1212,7 +1225,7 @@ const Navbar = () => {
                           <button
                             key={item}
                             onClick={() => {
-                              handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                              handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                               setIsBirthdayDropdownOpen(false);
                             }}
                             className="block w-full text-left text-sm text-gray-700 hover:text-red-600 py-2 px-3 rounded-md hover:bg-red-50 transition-all duration-200"
@@ -1288,7 +1301,7 @@ const Navbar = () => {
                           <button
                             key={item}
                             onClick={() => {
-                              handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                              handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                               setIsAnniversaryDropdownOpen(false);
                             }}
                             className="block w-full text-left text-sm text-gray-700 hover:text-red-600 py-2 px-3 rounded-md hover:bg-red-50 transition-all duration-200"
@@ -1580,7 +1593,7 @@ const Navbar = () => {
                       <button
                         key={item}
                         onClick={() => {
-                          handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                          handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                           setIsMobileMenuOpen(false);
                         }}
                         className="flex items-center w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors"
@@ -1600,7 +1613,7 @@ const Navbar = () => {
                       <button
                         key={item}
                         onClick={() => {
-                          handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                          handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                           setIsMobileMenuOpen(false);
                         }}
                         className="flex items-center w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors"
@@ -1620,7 +1633,7 @@ const Navbar = () => {
                       <button
                         key={item}
                         onClick={() => {
-                          handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                          handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                           setIsMobileMenuOpen(false);
                         }}
                         className="flex items-center w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors"
@@ -1640,7 +1653,7 @@ const Navbar = () => {
                       <button
                         key={item}
                         onClick={() => {
-                          handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                          handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                           setIsMobileMenuOpen(false);
                         }}
                         className="flex items-center w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors"
@@ -1689,7 +1702,7 @@ const Navbar = () => {
                       <button
                         key={item}
                         onClick={() => {
-                          handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                          handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                           setIsMobileMenuOpen(false);
                         }}
                         className="flex items-center w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors"
@@ -1709,7 +1722,7 @@ const Navbar = () => {
                       <button
                         key={item}
                         onClick={() => {
-                          handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                          handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                           setIsMobileMenuOpen(false);
                         }}
                         className="flex items-center w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors"
@@ -1754,7 +1767,7 @@ const Navbar = () => {
                       <button
                         key={item}
                         onClick={() => {
-                          handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                          handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                           setIsMobileMenuOpen(false);
                         }}
                         className="flex items-center w-full px-4 py-3 pl-8 text-left hover:bg-amber-50 transition-colors"
@@ -1799,7 +1812,7 @@ const Navbar = () => {
                       <button
                         key={item}
                         onClick={() => {
-                          handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                          handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                           setIsMobileMenuOpen(false);
                         }}
                         className="flex items-center w-full px-4 py-3 pl-8 text-left hover:bg-amber-50 transition-colors"
@@ -1844,7 +1857,7 @@ const Navbar = () => {
                       <button
                         key={item}
                         onClick={() => {
-                          handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                          handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                           setIsMobileMenuOpen(false);
                         }}
                         className="flex items-center w-full px-4 py-3 pl-8 text-left hover:bg-amber-50 transition-colors"

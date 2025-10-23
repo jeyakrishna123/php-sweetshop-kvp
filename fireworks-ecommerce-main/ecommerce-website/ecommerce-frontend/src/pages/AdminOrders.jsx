@@ -19,7 +19,7 @@ const AdminOrders = () => {
   const [updatingOrder, setUpdatingOrder] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [dateFilter, setDateFilter] = useState({
-    type: "all", // all, today, week, month, custom
+    type: "today", // Default to today's orders - Changed from "all" to "today"
     startDate: "",
     endDate: ""
   });
@@ -32,36 +32,126 @@ const AdminOrders = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       console.log("🔄 Fetching orders...");
+
+      // Validate user authentication first
+      if (!user || !localStorage.getItem('token')) {
+        throw new Error("Authentication required. Please log in again.");
+      }
+
       const response = await orderAPI.getAllOrders();
       console.log("📦 Orders response:", response);
-      
-      if (response.success) {
-        const newOrders = response.orders || [];
-        console.log("✅ Orders loaded successfully:", newOrders.length, "orders");
-        
-        // Check for new orders for notifications
-        if (showNotification && lastOrderCount > 0 && newOrders.length > lastOrderCount) {
-          const newOrdersCount = newOrders.length - lastOrderCount;
-          showToast(`🔔 ${newOrdersCount} new order(s) received!`, 'success');
-          
-          // Add to notifications
+
+      // Validate response structure
+      if (!response) {
+        throw new Error("No response received from server");
+      }
+
+      if (!response.success) {
+        const errorMessage = response.message || response.error || "Failed to fetch orders";
+        console.error("❌ API response not successful:", response);
+        throw new Error(errorMessage);
+      }
+
+      // Validate data exists
+      if (!response.data && !response.orders) {
+        throw new Error("Invalid response format: missing data");
+      }
+
+      // Handle nested data structure: response.data.data
+      let newOrders = response.data?.data || response.orders || [];
+
+      // Validate orders is an array
+      if (!Array.isArray(newOrders)) {
+        console.error("❌ Orders data is not an array:", newOrders);
+        throw new Error("Invalid orders data format");
+      }
+
+      // Map PHP-style fields to frontend format for compatibility
+      newOrders = newOrders.map((order, index) => {
+        try {
+          // Validate required fields
+          if (!order.id && !order._id) {
+            console.warn(`⚠️ Order at index ${index} missing ID:`, order);
+          }
+
+          return {
+            ...order,
+            _id: order._id || order.id?.toString() || `temp-${index}`,
+            // Map snake_case to camelCase for order summary with validation
+            itemsPrice: !isNaN(parseFloat(order.items_price)) ? parseFloat(order.items_price) : 0,
+            taxPrice: !isNaN(parseFloat(order.tax_price)) ? parseFloat(order.tax_price) : 0,
+            shippingPrice: !isNaN(parseFloat(order.shipping_price)) ? parseFloat(order.shipping_price) : 0,
+            totalPrice: !isNaN(parseFloat(order.total_price)) ? parseFloat(order.total_price) : 0,
+            discountAmount: !isNaN(parseFloat(order.discount_amount)) ? parseFloat(order.discount_amount) : 0,
+            // Map date fields - CRITICAL FIX for date display
+            createdAt: order.createdAt || order.created_at || order.orderDate || new Date().toISOString(),
+            updatedAt: order.updatedAt || order.updated_at || order.createdAt || order.created_at || new Date().toISOString(),
+            // Map customer information with fallbacks
+            userDetails: {
+              name: order.user_name || order.shipping_name || 'Guest User',
+              email: order.user_email || 'N/A',
+              phone: order.phone || 'N/A'
+            },
+            user: {
+              name: order.user_name || 'Guest User',
+              email: order.user_email || 'N/A'
+            },
+            shippingAddress: {
+              name: order.shipping_name || 'N/A',
+              phone: order.phone || 'N/A',
+              city: order.city || 'N/A',
+              state: order.state || 'N/A'
+            },
+            // Map payment method
+            paymentMethod: order.payment_method || 'COD',
+            paymentStatus: order.payment_status || 'pending',
+            // Ensure orderItems is available and is an array
+            orderItems: Array.isArray(order.orderItems) ? order.orderItems :
+                       Array.isArray(order.items) ? order.items : []
+          };
+        } catch (mapError) {
+          console.error(`❌ Error mapping order at index ${index}:`, mapError, order);
+          // Return a minimal valid order object
+          return {
+            ...order,
+            _id: `error-${index}`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            itemsPrice: 0,
+            taxPrice: 0,
+            shippingPrice: 0,
+            totalPrice: 0,
+            userDetails: { name: 'Error Loading', email: 'N/A', phone: 'N/A' },
+            orderItems: []
+          };
+        }
+      });
+
+      console.log("✅ Orders loaded successfully:", newOrders.length, "orders");
+
+      // Check for new orders for notifications
+      if (showNotification && lastOrderCount > 0 && newOrders.length > lastOrderCount) {
+        const newOrdersCount = newOrders.length - lastOrderCount;
+        showToast(`🔔 ${newOrdersCount} new order(s) received!`, 'success');
+
+        // Add to notifications
+        try {
           const newNotification = {
             id: Date.now(),
             message: `${newOrdersCount} new order(s) received`,
             timestamp: new Date().toISOString(),
             type: 'new_order'
           };
-          setNotifications(prev => [newNotification, ...prev.slice(0, 4)]); // Keep last 5
+          setNotifications(prev => [newNotification, ...(prev || []).slice(0, 4)]); // Keep last 5
+        } catch (notifError) {
+          console.error("❌ Error adding notification:", notifError);
         }
-        
-        setOrders(newOrders);
-        setLastOrderCount(newOrders.length);
-      } else {
-        console.error("❌ API response not successful:", response);
-        throw new Error("Failed to fetch orders");
       }
+
+      setOrders(newOrders);
+      setLastOrderCount(newOrders.length);
     } catch (error) {
       console.error("❌ Failed to fetch orders:", error);
       console.error("❌ Error details:", {
@@ -70,8 +160,30 @@ const AdminOrders = () => {
         status: error.response?.status,
         config: error.config
       });
-      setError("Failed to load orders");
-      showToast("Failed to load orders", "error");
+
+      // Detailed error messages based on error type
+      let errorMessage = "Failed to load orders";
+
+      if (error.response?.status === 401) {
+        errorMessage = "Session expired. Please log in again.";
+        // Redirect to login after 2 seconds
+        setTimeout(() => {
+          window.location.href = '/admin/login';
+        }, 2000);
+      } else if (error.response?.status === 403) {
+        errorMessage = "Access denied. You don't have permission to view orders.";
+      } else if (error.response?.status === 404) {
+        errorMessage = "Orders API endpoint not found. Please contact support.";
+      } else if (error.response?.status >= 500) {
+        errorMessage = "Server error. Please try again later.";
+      } else if (error.message.includes("Network Error") || error.code === 'ECONNREFUSED') {
+        errorMessage = "Cannot connect to server. Please check your internet connection.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      setError(errorMessage);
+      showToast(errorMessage, "error");
     } finally {
       setLoading(false);
     }
@@ -93,28 +205,57 @@ const AdminOrders = () => {
   const getDateRange = (type) => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
+
     switch (type) {
       case "today":
+        // Start of today (00:00:00)
+        const startOfToday = new Date(today);
+        startOfToday.setHours(0, 0, 0, 0);
+        // End of today (23:59:59)
+        const endOfToday = new Date(today);
+        endOfToday.setHours(23, 59, 59, 999);
         return {
-          start: today,
-          end: new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1)
+          start: startOfToday,
+          end: endOfToday
         };
       case "week":
+        // Start of week (Sunday 00:00:00)
         const weekStart = new Date(today);
         weekStart.setDate(today.getDate() - today.getDay());
+        weekStart.setHours(0, 0, 0, 0);
+        // End of week (Saturday 23:59:59)
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
         return {
           start: weekStart,
-          end: new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000 - 1)
+          end: weekEnd
         };
       case "month":
+        // Start of month (1st day 00:00:00)
         const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+        monthStart.setHours(0, 0, 0, 0);
+        // End of month (last day 23:59:59)
+        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        monthEnd.setHours(23, 59, 59, 999);
         return { start: monthStart, end: monthEnd };
       case "custom":
+        let customStart = null;
+        let customEnd = null;
+
+        if (dateFilter.startDate) {
+          customStart = new Date(dateFilter.startDate);
+          customStart.setHours(0, 0, 0, 0);
+        }
+
+        if (dateFilter.endDate) {
+          customEnd = new Date(dateFilter.endDate);
+          customEnd.setHours(23, 59, 59, 999);
+        }
+
         return {
-          start: dateFilter.startDate ? new Date(dateFilter.startDate) : null,
-          end: dateFilter.endDate ? new Date(dateFilter.endDate + "T23:59:59") : null
+          start: customStart,
+          end: customEnd
         };
       default:
         return { start: null, end: null };
@@ -147,21 +288,96 @@ const AdminOrders = () => {
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
+    // Validate inputs
+    if (!orderId) {
+      showToast("Invalid order ID", "error");
+      return;
+    }
+
+    if (!newStatus) {
+      showToast("Please select a status", "error");
+      return;
+    }
+
+    // Validate status value
+    const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+    if (!validStatuses.includes(newStatus)) {
+      showToast("Invalid status value", "error");
+      return;
+    }
+
+    // Check if user is authenticated
+    if (!user || !localStorage.getItem('token')) {
+      showToast("Authentication required. Please log in again.", "error");
+      setTimeout(() => {
+        window.location.href = '/admin/login';
+      }, 2000);
+      return;
+    }
+
     setUpdatingOrder(orderId);
     try {
+      console.log("🔄 Updating order status:", { orderId, newStatus });
+
       const response = await orderAPI.updateOrderStatus(orderId, newStatus);
-      
+      console.log("📦 Update response:", response);
+
+      // Validate response
+      if (!response) {
+        throw new Error("No response received from server");
+      }
+
       if (response.success) {
-        setOrders(prev => prev.map(order => 
+        // Update local state optimistically
+        setOrders(prev => prev.map(order =>
           order._id === orderId ? { ...order, status: newStatus } : order
         ));
-        showToast(`Order status updated to ${newStatus}`, "success");
+
+        // Show success message with status emoji
+        const statusEmojis = {
+          pending: '⏳',
+          processing: '⚙️',
+          shipped: '📦',
+          delivered: '✅',
+          cancelled: '❌'
+        };
+        const emoji = statusEmojis[newStatus] || '✅';
+
+        showToast(`${emoji} Order status updated to ${newStatus}`, "success");
+        console.log("✅ Order status updated successfully");
       } else {
-        throw new Error(response.message || "Failed to update order status");
+        const errorMessage = response.message || response.error || "Failed to update order status";
+        console.error("❌ Update failed:", response);
+        throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error("Failed to update order status:", error);
-      showToast(error.message || "Failed to update order status", "error");
+      console.error("❌ Failed to update order status:", error);
+      console.error("❌ Error details:", error.response?.data);
+
+      // Detailed error messages
+      let errorMessage = "Failed to update order status";
+
+      if (error.response?.status === 401) {
+        errorMessage = "Session expired. Please log in again.";
+        setTimeout(() => {
+          window.location.href = '/admin/login';
+        }, 2000);
+      } else if (error.response?.status === 403) {
+        errorMessage = "You don't have permission to update orders.";
+      } else if (error.response?.status === 404) {
+        errorMessage = "Order not found. It may have been deleted.";
+        // Refresh orders list
+        fetchOrders();
+      } else if (error.response?.status >= 500) {
+        errorMessage = "Server error. Please try again later.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      showToast(errorMessage, "error");
+
+      // Revert to previous status on error
+      fetchOrders();
     } finally {
       setUpdatingOrder(null);
     }
@@ -179,28 +395,46 @@ const AdminOrders = () => {
   };
 
   // Helper function to get proper image URL
-  const getImageUrl = (imagePath) => {
-    console.log('🔍 getImageUrl called with:', imagePath);
-    
-    // Check if imagePath exists and is a string
-    if (!imagePath || typeof imagePath !== 'string') {
-      console.log('❌ No valid image path provided, using placeholder');
-      return "https://via.placeholder.com/64x64?text=No+Image";
+  const getImageUrl = (item) => {
+    console.log('🔍 getImageUrl called with item:', item);
+
+    // Try multiple image sources in order of preference
+    let imagePath = null;
+
+    // 1. Check item.image
+    if (item?.image && typeof item.image === 'string' && !item.image.includes('placeholder')) {
+      imagePath = item.image;
     }
-    
+
+    // 2. Check item.product_image (from JOIN with products table)
+    if (!imagePath && item?.product_image && typeof item.product_image === 'string') {
+      imagePath = item.product_image;
+    }
+
+    // 3. Check item.thumbnail
+    if (!imagePath && item?.thumbnail && typeof item.thumbnail === 'string') {
+      imagePath = item.thumbnail;
+    }
+
+    // 4. If still no image, use placeholder URL
+    if (!imagePath) {
+      console.log('❌ No valid image found, using Unsplash placeholder');
+      return "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=200&h=200&fit=crop";
+    }
+
     // If it's already a full URL, return as is
     if (imagePath.startsWith('http')) {
       console.log('✅ Full URL detected:', imagePath);
       return imagePath;
     }
-    
+
     // If it starts with /uploads, use backend server URL
     if (imagePath.startsWith('/uploads')) {
       const fullUrl = `http://localhost:8000${imagePath}`;
       console.log('🔗 Local upload path converted to:', fullUrl);
       return fullUrl;
     }
-    
+
     // If it's just a filename, construct the full path
     if (imagePath.includes('.')) {
       const fullUrl = `http://localhost:8000/uploads/products/${imagePath}`;
@@ -237,18 +471,41 @@ const AdminOrders = () => {
 
   const filteredAndSortedOrders = orders
     .filter(order => {
+      // Skip invalid orders
+      if (!order || !order._id) return false;
+
+      // Status filtering
       const matchesStatus = filterStatus === "all" || order.status === filterStatus;
-      const matchesSearch = searchTerm === "" || 
+
+      // Search filtering
+      const matchesSearch = searchTerm === "" ||
         order._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.orderItems?.some(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
-      
-      // Date filtering
-      const orderDate = new Date(order.createdAt || order.orderDate);
-      const dateRange = getDateRange(dateFilter.type);
-      const matchesDate = !dateRange.start || !dateRange.end || 
-        (orderDate >= dateRange.start && orderDate <= dateRange.end);
-      
+        order.userDetails?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.orderItems?.some(item => item.name?.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      // Date filtering - Fixed logic
+      let matchesDate = true;
+      if (dateFilter.type !== "all") {
+        const orderDate = new Date(order.createdAt || order.created_at || order.orderDate);
+        const dateRange = getDateRange(dateFilter.type);
+
+        // For "today", "week", "month" - both start and end will be defined
+        if (dateRange.start && dateRange.end) {
+          matchesDate = orderDate >= dateRange.start && orderDate <= dateRange.end;
+        }
+        // For "custom" - check if dates are provided
+        else if (dateFilter.type === "custom") {
+          if (dateRange.start && dateRange.end) {
+            matchesDate = orderDate >= dateRange.start && orderDate <= dateRange.end;
+          } else if (dateRange.start) {
+            matchesDate = orderDate >= dateRange.start;
+          } else if (dateRange.end) {
+            matchesDate = orderDate <= dateRange.end;
+          }
+        }
+      }
+
       return matchesStatus && matchesSearch && matchesDate;
     })
     .sort((a, b) => {
@@ -550,13 +807,34 @@ const AdminOrders = () => {
                       #
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-gray-900">Order #{order._id.slice(-8)}</h3>
-                      <p className="text-sm text-gray-600 flex items-center">
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        {new Date(order.createdAt).toLocaleDateString()} at {new Date(order.createdAt).toLocaleTimeString()}
-                      </p>
+                      <h3 className="text-xl font-bold text-gray-900">Order #{order._id?.slice(-8) || 'N/A'}</h3>
+                      <div className="flex items-center space-x-3 mt-1">
+                        <p className="text-sm text-gray-600 flex items-center">
+                          <svg className="w-4 h-4 mr-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span className="font-medium">
+                            {new Date(order.createdAt).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric'
+                            })}
+                          </span>
+                        </p>
+                        <span className="text-gray-400">•</span>
+                        <p className="text-sm text-gray-600 flex items-center">
+                          <svg className="w-4 h-4 mr-1 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="font-medium">
+                            {new Date(order.createdAt).toLocaleTimeString('en-IN', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true
+                            })}
+                          </span>
+                        </p>
+                      </div>
                     </div>
                   </div>
                   
@@ -571,7 +849,7 @@ const AdminOrders = () => {
                     </div>
                     
                     <span className={`px-4 py-2 rounded-xl text-sm font-bold border-2 ${getStatusColor(order.status)}`}>
-                      {getStatusIcon(order.status)} {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                      {getStatusIcon(order.status)} {order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : 'N/A'}
                     </span>
                   </div>
                 </div>
@@ -627,15 +905,15 @@ const AdminOrders = () => {
                     {order.orderItems?.map((item, index) => (
                       <div key={index} className="flex items-center space-x-4 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
                         <img
-                          src={getImageUrl(item.image)}
-                          alt={item.name}
+                          src={getImageUrl(item)}
+                          alt={item.name || 'Product'}
                           className="w-16 h-16 object-cover rounded-lg border border-gray-200"
                           onError={(e) => {
-                            console.log(`Image failed to load for ${item.name}:`, item.image);
-                            e.target.src = "https://via.placeholder.com/64x64?text=No+Image";
+                            console.log(`❌ Image failed to load for ${item.name}:`, item);
+                            e.target.src = "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=200&h=200&fit=crop";
                           }}
                           onLoad={() => {
-                            console.log(`Image loaded successfully for ${item.name}:`, item.image);
+                            console.log(`✅ Image loaded successfully for ${item.name}:`, getImageUrl(item));
                           }}
                         />
                         <div className="flex-1">
