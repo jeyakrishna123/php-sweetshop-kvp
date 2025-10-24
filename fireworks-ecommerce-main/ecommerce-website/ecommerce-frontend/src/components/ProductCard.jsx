@@ -290,7 +290,7 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
                               ? 'text-white'
                               : 'text-gray-500'
                           }`}>
-                            i
+                            ★
                           </span>
                         </div>
                       ))}
@@ -403,7 +403,7 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
           <span className="text-sm sm:text-lg font-bold text-red-600">
             ₹{product.price?.toLocaleString()}
           </span>
-          <div className="flex items-center bg-green-600 px-1 py-0.5 rounded text-[8px] sm:text-xs">
+          <div className="flex items-center bg-yellow-500 px-1 py-0.5 rounded text-[8px] sm:text-xs">
             <span className="text-white font-bold mr-0.5">
               {Number(product.ratings || 4.9).toFixed(1)}
             </span>

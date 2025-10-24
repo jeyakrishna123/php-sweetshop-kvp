@@ -785,7 +785,7 @@ function Home() {
                       {/* Rating */}
                       <div className="flex items-center gap-1">
                         {/* Star Rating Badge */}
-                        <div className="flex items-center bg-green-600 px-1.5 py-0.5 rounded gap-0.5">
+                        <div className="flex items-center bg-yellow-500 px-1.5 py-0.5 rounded gap-0.5">
                           <span className="text-white text-[10px] xs:text-xs font-bold">
                             {Number(product.ratings || 4.9).toFixed(1)}
                           </span>
