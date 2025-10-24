@@ -394,17 +394,47 @@ const ProductListing = () => {
                 </button>
               </div>
               
-              {/* Filter Toggle */}
+              {/* Enhanced Filter Button */}
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm sm:text-base"
+                title={showFilters ? 'Hide filter options' : 'Show filter options for products'}
+                className={`flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium ${
+                  showFilters 
+                    ? 'bg-pink-600 text-white shadow-lg transform scale-105' 
+                    : 'bg-white border-2 border-pink-200 text-pink-600 hover:bg-pink-50 hover:border-pink-300 hover:shadow-md'
+                }`}
               >
-                <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
-                </svg>
-                <span className="hidden sm:inline">Filters</span>
+                {/* Enhanced Filter Icon */}
+                <div className="relative">
+                  <svg className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-200 ${showFilters ? 'rotate-180' : ''}`} fill="currentColor" viewBox="0 0 24 24">
+                    {/* Funnel/Filter Icon */}
+                    <path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
+                    {/* Filter lines inside funnel */}
+                    <path d="M6 8h12M8 12h8M10 16h4" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                  </svg>
+                  
+                  {/* Active indicator dot */}
+                  {getActiveFiltersCount() > 0 && (
+                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                  )}
+                </div>
+                
+                <div className="flex flex-col items-start">
+                  <span className="font-medium">
+                    {showFilters ? 'Hide Filters' : 'Filter Products'}
+                  </span>
+                  <span className="text-xs opacity-75">
+                    {showFilters ? 'Close filter panel' : 'Sort & filter options'}
+                  </span>
+                </div>
+                
+                {/* Enhanced Badge */}
                 {getActiveFiltersCount() > 0 && (
-                  <span className="bg-pink-600 text-white text-xs rounded-full px-1.5 py-0.5 sm:px-2 sm:py-1 min-w-[16px] sm:min-w-[20px] text-center">
+                  <span className={`text-xs rounded-full px-2 py-1 min-w-[20px] text-center font-bold ${
+                    showFilters 
+                      ? 'bg-white text-pink-600' 
+                      : 'bg-pink-600 text-white'
+                  }`}>
                     {getActiveFiltersCount()}
                   </span>
                 )}
