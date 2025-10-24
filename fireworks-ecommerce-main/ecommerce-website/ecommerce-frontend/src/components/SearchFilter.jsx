@@ -48,106 +48,89 @@ const SearchFilter = ({ products, filters, onFilterChange, onClearFilters }) => 
       subcategories: [
         'For Husband',
         'For Wife',
-        'For Boyfriend',
-        'For Girlfriend',
-        'For Father',
         'For Mother',
+        'For Father',
+        'For Sister',
         'For Brother',
-        'For Sister'
+        'For Daughter',
+        'For Son'
       ]
     },
-    'Desserts': {
+    'Occasion Cakes': {
       subcategories: [
-        'Cookies',
-        'Pastries',
-        'Cupcakes',
-        'Muffins',
-        'Brownies',
-        'Tarts',
-        'Puddings',
-        'Ice Cream'
+        'Birthday Cakes',
+        'Anniversary Cakes',
+        'Wedding Cakes',
+        'Graduation Cakes',
+        'Retirement Cakes',
+        'Farewell Cakes',
+        'Welcome Cakes',
+        'Congratulations Cakes'
       ]
     },
-    'Birthday': {
+    'Special Cakes': {
       subcategories: [
-        'Kids Birthday',
-        'Adult Birthday',
-        'Surprise Cakes',
         'Photo Cakes',
         'Number Cakes',
-        'Character Cakes'
+        'Alphabet Cakes',
+        'Character Cakes',
+        'Cartoon Cakes',
+        'Sports Cakes',
+        'Music Cakes',
+        'Art Cakes'
       ]
     },
-    'Anniversary': {
+    'Cupcakes': {
       subcategories: [
-        'Wedding Anniversary',
-        'Relationship Anniversary',
-        'Romantic Cakes',
-        'Heart Shaped Cakes',
-        'Special Occasion Cakes'
+        'Chocolate Cupcakes',
+        'Vanilla Cupcakes',
+        'Red Velvet Cupcakes',
+        'Strawberry Cupcakes',
+        'Lemon Cupcakes',
+        'Coffee Cupcakes',
+        'Carrot Cupcakes',
+        'Banana Cupcakes'
+      ]
+    },
+    'Pastries': {
+      subcategories: [
+        'Chocolate Pastries',
+        'Vanilla Pastries',
+        'Strawberry Pastries',
+        'Mango Pastries',
+        'Pineapple Pastries',
+        'Black Forest Pastries',
+        'White Forest Pastries',
+        'Fruit Pastries'
+      ]
+    },
+    'Cookies': {
+      subcategories: [
+        'Chocolate Chip Cookies',
+        'Sugar Cookies',
+        'Oatmeal Cookies',
+        'Butter Cookies',
+        'Almond Cookies',
+        'Coconut Cookies',
+        'Ginger Cookies',
+        'Shortbread Cookies'
       ]
     }
   };
 
-  console.log('🔍 SearchFilter rendered - categories:', categories);
-
   useEffect(() => {
-    // Fetch categories on component mount
     fetchCategories();
-
-    // Fetch brands only when products are available
-    if (products && products.length > 0) {
-      fetchBrands();
-    }
-  }, [products]);
-
-  // Update local filters when props change
-  useEffect(() => {
-    if (filters) {
-      setLocalFilters(prev => ({
-        ...prev,
-        ...filters
-      }));
-    }
-  }, [filters]);
+  }, []);
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get("/api/categories");
-      console.log('📂 Categories API response:', response.data);
-
-      if (response.data.success) {
-        // Show all categories from API
-        const allCategories = response.data.categories || response.data.data || [];
-        console.log('📂 Categories loaded:', allCategories.length);
-        console.log('📂 Categories type:', typeof allCategories, Array.isArray(allCategories));
-
-        // Ensure it's an array
-        if (Array.isArray(allCategories)) {
-          setCategories(allCategories);
-        } else {
-          console.warn('⚠️ Categories is not an array:', allCategories);
-          setCategories([]);
-        }
-      } else {
-        setCategories([]);
-      }
+      setLoading(true);
+      const response = await axios.get('/categories');
+      setCategories(response.data);
     } catch (error) {
-      console.error("❌ Error fetching categories:", error);
-      console.error("❌ Error details:", error.response?.data);
-      setCategories([]); // Set empty array on error
-    }
-  };
-
-  const fetchBrands = async () => {
-    try {
-      // Extract unique brands from current products
-      const uniqueBrands = [...new Set(products
-        .map(product => product.brand || product.seller)
-        .filter(brand => brand && brand.trim() !== ''))];
-      setBrands(uniqueBrands);
-    } catch (error) {
-      console.error("Error fetching brands:", error);
+      console.error('Error fetching categories:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -158,153 +141,6 @@ const SearchFilter = ({ products, filters, onFilterChange, onClearFilters }) => 
     if (onFilterChange) {
       onFilterChange({ [field]: value });
     }
-    
-    if (onSearch && field === 'search') {
-      onSearch(value);
-    }
-    
-    if (onFilter) {
-      applyFilters(newFilters);
-    }
-  };
-
-  const handleFilterChange = (field, value) => {
-    const newFilters = { ...localFilters, [field]: value };
-    setLocalFilters(newFilters);
-    
-    if (onFilterChange) {
-      onFilterChange({ [field]: value });
-    }
-    
-    if (onFilter) {
-      applyFilters(newFilters);
-    }
-  };
-
-  const applyFilters = (filters) => {
-    if (!products || !onFilter) return;
-    
-    let filtered = [...products];
-    
-    // Search filter
-    if (filters.search) {
-      filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        product.description?.toLowerCase().includes(filters.search.toLowerCase()) ||
-        product.categoryName?.toLowerCase().includes(filters.search.toLowerCase())
-      );
-    }
-    
-    // Category filter
-    if (filters.category && filters.category !== 'all') {
-      filtered = filtered.filter(product => 
-        product.category === filters.category || 
-        product.categoryName === filters.category
-      );
-    }
-    
-    // Subcategory filter
-    if (filters.subCategory && filters.subCategory !== '') {
-      filtered = filtered.filter(product => 
-        product.subCategory === filters.subCategory ||
-        product.subcategory === filters.subCategory ||
-        product.categoryName === filters.subCategory
-      );
-    }
-    
-    // Brand filter
-    if (filters.brand && filters.brand !== 'all') {
-      filtered = filtered.filter(product => (product.brand === filters.brand || product.seller === filters.brand));
-    }
-    
-    // Price range filter
-    if (filters.minPrice) {
-      filtered = filtered.filter(product => product.price >= filters.minPrice);
-    }
-    if (filters.maxPrice) {
-      filtered = filtered.filter(product => product.price <= filters.maxPrice);
-    }
-    
-    // Rating filter
-    if (filters.rating) {
-      filtered = filtered.filter(product => product.ratings >= filters.rating);
-    }
-    
-    // Availability filter
-    if (filters.availability && filters.availability !== 'all') {
-      if (filters.availability === 'inStock') {
-        filtered = filtered.filter(product => product.stock > 0);
-      } else if (filters.availability === 'outOfStock') {
-        filtered = filtered.filter(product => product.stock === 0);
-      } else if (filters.availability === 'lowStock') {
-        filtered = filtered.filter(product => product.stock > 0 && product.stock <= 10);
-      }
-    }
-    
-    // Sort
-    if (filters.sortBy) {
-      filtered.sort((a, b) => {
-        switch (filters.sortBy) {
-          case 'relevance':
-            return 0; // Keep original order
-          case 'priceLowToHigh':
-            return a.price - b.price;
-          case 'priceHighToLow':
-            return b.price - a.price;
-          case 'rating':
-            return b.ratings - a.ratings;
-          case 'newest':
-            return new Date(b.createdAt) - new Date(a.createdAt);
-          case 'popularity':
-            return b.numOfReviews - a.numOfReviews;
-          default:
-            return 0;
-        }
-      });
-    }
-    
-    onFilter(filtered);
-  };
-
-  const handlePriceRangeChange = (field, value) => {
-    const numValue = value === '' ? '' : parseInt(value);
-    const newFilters = { ...localFilters, [field]: numValue };
-    setLocalFilters(newFilters);
-    
-    if (onFilterChange) {
-      onFilterChange({ [field]: numValue });
-    }
-    
-    if (onFilter) {
-      applyFilters(newFilters);
-    }
-  };
-
-  const handleRatingChange = (rating) => {
-    const newRating = rating === localFilters.rating ? '' : rating;
-    const newFilters = { ...localFilters, rating: newRating };
-    setLocalFilters(newFilters);
-    
-    if (onFilterChange) {
-      onFilterChange({ rating: newRating });
-    }
-    
-    if (onFilter) {
-      applyFilters(newFilters);
-    }
-  };
-
-  const handleAvailabilityChange = (availability) => {
-    const newFilters = { ...localFilters, availability };
-    setLocalFilters(newFilters);
-    
-    if (onFilterChange) {
-      onFilterChange({ availability });
-    }
-    
-    if (onFilter) {
-      applyFilters(newFilters);
-    }
   };
 
   const handleSortChange = (sortBy) => {
@@ -313,10 +149,6 @@ const SearchFilter = ({ products, filters, onFilterChange, onClearFilters }) => 
     
     if (onFilterChange) {
       onFilterChange({ sortBy });
-    }
-    
-    if (onFilter) {
-      applyFilters(newFilters);
     }
   };
 
@@ -330,54 +162,41 @@ const SearchFilter = ({ products, filters, onFilterChange, onClearFilters }) => 
       maxPrice: '',
       rating: '',
       availability: 'all',
-      sortBy: 'relevance' // Fixed to match initial state
+      sortBy: 'relevance'
     };
     setLocalFilters(clearedFilters);
     setSelectedCategory('all');
     setSelectedSubCategory('');
-
+    
     if (onClearFilters) {
       onClearFilters();
     }
-
-    if (onFilter) {
-      onFilter(products);
-    }
-  };
-
-  const clearFilters = () => {
-    clearAllFilters();
   };
 
   const getActiveFiltersCount = () => {
     let count = 0;
     if (localFilters.search) count++;
     if (localFilters.category && localFilters.category !== 'all') count++;
-    if (localFilters.subCategory && localFilters.subCategory !== '') count++;
+    if (localFilters.subCategory) count++;
     if (localFilters.brand && localFilters.brand !== 'all') count++;
-    if (localFilters.minPrice) count++;
-    if (localFilters.maxPrice) count++;
+    if (localFilters.minPrice || localFilters.maxPrice) count++;
     if (localFilters.rating) count++;
     if (localFilters.availability && localFilters.availability !== 'all') count++;
+    if (localFilters.sortBy && localFilters.sortBy !== 'relevance') count++;
     return count;
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-      {/* Header - Enhanced with Help */}
-      <div className="mb-4">
-        <h3 className="text-lg font-bold text-gray-900 flex items-center">
-          <svg className="w-5 h-5 mr-2 text-pink-500" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-          </svg>
-          Smart Filters
-        </h3>
-        <p className="text-xs text-gray-600 mt-1">
-          💡 Use filters below to find exactly what you're looking for
+    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+      {/* Search Filter Header */}
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">🔍 Filter Products</h3>
+        <p className="text-sm text-gray-600">
+          Use the filters below to find exactly what you're looking for
         </p>
       </div>
 
-      {/* Search - Enhanced with Clear Instructions */}
+      {/* Search Input - Enhanced with Clear Instructions */}
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-2">
           <span className="flex items-center">
@@ -391,7 +210,7 @@ const SearchFilter = ({ products, filters, onFilterChange, onClearFilters }) => 
           type="text"
           value={localFilters.search}
           onChange={(e) => handleInputChange('search', e.target.value)}
-          placeholder="Type product name, flavor, or ingredient..."
+          placeholder="Search for cakes, pastries, flavors..."
           className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
         />
         {localFilters.search && (
@@ -486,8 +305,8 @@ const SearchFilter = ({ products, filters, onFilterChange, onClearFilters }) => 
             <input
               type="number"
               value={localFilters.minPrice}
-              onChange={(e) => handlePriceRangeChange('minPrice', e.target.value)}
-              placeholder="Min ₹"
+              onChange={(e) => handleInputChange('minPrice', e.target.value)}
+              placeholder="Min price"
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
             />
             <p className="text-xs text-gray-500 mt-1">Minimum price</p>
@@ -496,8 +315,8 @@ const SearchFilter = ({ products, filters, onFilterChange, onClearFilters }) => 
             <input
               type="number"
               value={localFilters.maxPrice}
-              onChange={(e) => handlePriceRangeChange('maxPrice', e.target.value)}
-              placeholder="Max ₹"
+              onChange={(e) => handleInputChange('maxPrice', e.target.value)}
+              placeholder="Max price"
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
             />
             <p className="text-xs text-gray-500 mt-1">Maximum price</p>
@@ -548,21 +367,33 @@ const SearchFilter = ({ products, filters, onFilterChange, onClearFilters }) => 
             <p className="text-xs text-yellow-800 font-medium">
               🎯 {getActiveFiltersCount()} filter{getActiveFiltersCount() > 1 ? 's' : ''} active
             </p>
-            <p className="text-xs text-yellow-600 mt-1">
-              Click below to reset all filters and see all products
+            <p className="text-xs text-yellow-700 mt-1">
+              Clear all filters to see all products
             </p>
           </div>
           <button
             onClick={clearAllFilters}
-            className="w-full bg-red-50 hover:bg-red-100 text-red-700 font-medium py-2 px-4 rounded-md transition-colors text-sm border border-red-200 hover:border-red-300"
+            className="w-full px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors duration-200 flex items-center justify-center"
           >
-            <span className="flex items-center justify-center">
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              Clear All Filters ({getActiveFiltersCount()})
-            </span>
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Clear All Filters
           </button>
+        </div>
+      )}
+
+      {/* No Active Filters Message */}
+      {getActiveFiltersCount() === 0 && (
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <p className="text-xs text-green-800 font-medium">
+              ✅ No filters applied - Showing all products
+            </p>
+            <p className="text-xs text-green-700 mt-1">
+              Use the filters above to narrow down your search
+            </p>
+          </div>
         </div>
       )}
     </div>

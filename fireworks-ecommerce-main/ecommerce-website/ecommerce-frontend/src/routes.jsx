@@ -44,6 +44,7 @@ import OrderTracking from './components/OrderTracking';
 import Tracking from './pages/Tracking';
 import ProfessionalProducts from './pages/ProfessionalProducts';
 import RedesignedProducts from './pages/RedesignedProducts';
+import FAQ from './pages/FAQ';
 
 // Route Components
 import PrivateRoute from "./components/PrivateRoute";
@@ -102,6 +103,7 @@ const AppRoutes = () => {
               <Route path="/wishlist" element={<PrivateRoute><Wishlist /></PrivateRoute>} />
               <Route path="/about" element={<AboutUs />} />
               <Route path="/contact" element={<ContactUs />} />
+              <Route path="/faq" element={<FAQ />} />
               <Route path="/tracking" element={<Tracking />} />
               <Route path="/tracking/:trackingNumber" element={<Tracking />} />
               <Route path="/products" element={<ProductListing />} />

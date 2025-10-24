@@ -1420,6 +1420,22 @@ const Navbar = () => {
                 </button>
               </div>
 
+              {/* FAQ */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => {
+                    handleNavigation("/faq");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-medium">FAQ</span>
+                  </div>
+                </button>
+              </div>
+
               {/* Daughters Day Cakes */}
               <div className="border-b border-gray-200">
                 <button

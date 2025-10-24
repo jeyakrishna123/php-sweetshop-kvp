@@ -24,6 +24,7 @@
     "date-fns": "^4.1.0",
     "framer-motion": "^12.23.12",
     "jwt-decode": "^4.0.0",
+    "qrcode": "^1.5.4",
     "razorpay": "^2.9.2",
     "react": "^18.2.0",
     "react-beautiful-dnd": "^13.1.1",

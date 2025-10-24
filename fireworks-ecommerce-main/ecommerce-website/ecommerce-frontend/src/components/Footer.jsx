@@ -10,11 +10,23 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {/* Company Info */}
           <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-pink-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">🎂</span>
+            <div className="flex items-center space-x-4">
+              {/* Professional SK Bakers Logo */}
+              <div className="flex items-center space-x-3">
+                {/* SK Bakers Logo */}
+                <div className="w-14 h-14 bg-gradient-to-br from-pink-600 to-red-600 rounded-lg flex items-center justify-center shadow-lg">
+                  <div className="text-white font-bold text-center">
+                    <div className="text-sm font-black">SK</div>
+                    <div className="text-xs font-bold">BAKERS</div>
+                  </div>
+                </div>
+                
+                {/* Brand Text */}
+                <div className="flex flex-col">
+                  <div className="text-2xl font-bold text-white">SK BAKERS</div>
+                  <div className="text-sm text-gray-300">HOME-MADE CAKES AND CAFE</div>
+                </div>
               </div>
-              <span className="text-xl font-bold">SK Bakers</span>
             </div>
             <p className="text-gray-300 text-sm leading-relaxed">
               Your trusted bakery for fresh cakes, pastries, and sweet delights.
@@ -71,6 +83,11 @@ const Footer = () => {
               <li>
                 <Link to="/about" className="text-gray-300 hover:text-pink-500 transition duration-200">
                   About Us
+                </Link>
+              </li>
+              <li>
+                <Link to="/faq" className="text-gray-300 hover:text-pink-500 transition duration-200">
+                  FAQ
                 </Link>
               </li>
             </ul>
