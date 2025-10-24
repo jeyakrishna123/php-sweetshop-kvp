@@ -639,7 +639,7 @@ function Home() {
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 xs:gap-3 sm:gap-4 md:gap-6 lg:gap-8">
+              <div className="grid grid-cols-2 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1 xs:gap-2 sm:gap-3 md:gap-4 lg:gap-6">
                 {menuItems.map((item, index) => {
                   // Get color configuration
                   const colorMap = {
@@ -688,9 +688,9 @@ function Home() {
       </SectionWrapper>
 
       {/* Bestsellers Section */}
-      <div className="w-full py-8 xs:py-12 sm:py-16 lg:py-20 bg-white">
+      <div className="w-full py-6 xs:py-8 sm:py-12 lg:py-16 bg-white">
         <div className="w-full max-w-none px-3 xs:px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-6 xs:mb-8 sm:mb-12">
+          <div className="text-center mb-4 xs:mb-6 sm:mb-8">
             {/* Star Icon */}
             <div className="inline-flex items-center justify-center w-10 h-10 xs:w-12 xs:h-12 sm:w-16 sm:h-16 bg-yellow-100 rounded-full mb-3 xs:mb-4">
               <svg className="w-5 h-5 xs:w-6 xs:h-6 sm:w-8 sm:h-8 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
@@ -699,12 +699,12 @@ function Home() {
         </div>
         
             {/* Header */}
-            <div className="mb-3 xs:mb-4">
+            <div className="mb-2 xs:mb-3">
               <span className="text-xl xs:text-2xl sm:text-3xl lg:text-4xl font-bold text-red-600">India Loves</span>
         </div>
         
             {/* Subtitle */}
-            <h2 className="text-base xs:text-lg sm:text-xl lg:text-2xl xl:text-3xl font-semibold text-gray-600 mb-6 xs:mb-8">
+            <h2 className="text-base xs:text-lg sm:text-xl lg:text-2xl xl:text-3xl font-semibold text-gray-600 mb-4 xs:mb-6">
               Bestsellers from across the country
             </h2>
           </div>
@@ -722,7 +722,7 @@ function Home() {
           ) : (
             <div className="relative">
               {/* Scrollable container */}
-              <div className="flex overflow-x-auto scrollbar-hide bestsellers-scroll gap-3 xs:gap-4 sm:gap-6 lg:gap-8 pb-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              <div className="flex overflow-x-auto scrollbar-hide bestsellers-scroll gap-2 xs:gap-3 sm:gap-4 lg:gap-6 pb-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 {bestsellers.map((product, index) => (
                 <div
                   key={product._id}
@@ -818,7 +818,7 @@ function Home() {
       </div>
 
       {/* New Products Section */}
-      <div className="w-full py-8 xs:py-12 sm:py-16 lg:py-20 bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="w-full py-6 xs:py-8 sm:py-12 lg:py-16 bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="w-full max-w-none px-3 xs:px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-6 xs:mb-8 sm:mb-12">
             {/* Sparkle Icon */}
@@ -829,12 +829,12 @@ function Home() {
            </div>
            
             {/* Header */}
-            <div className="mb-3 xs:mb-4">
+            <div className="mb-2 xs:mb-3">
               <span className="text-xl xs:text-2xl sm:text-3xl lg:text-4xl font-bold text-blue-600">Fresh Arrivals</span>
            </div>
            
             {/* Subtitle */}
-            <h2 className="text-base xs:text-lg sm:text-xl lg:text-2xl xl:text-3xl font-semibold text-gray-600 mb-6 xs:mb-8">
+            <h2 className="text-base xs:text-lg sm:text-xl lg:text-2xl xl:text-3xl font-semibold text-gray-600 mb-4 xs:mb-6">
               Discover our latest bakery creations
             </h2>
                  </div>
@@ -852,7 +852,7 @@ function Home() {
           ) : (
             <div className="relative">
               {/* Scrollable container */}
-              <div className="flex overflow-x-auto scrollbar-hide new-products-scroll gap-3 xs:gap-4 sm:gap-6 lg:gap-8 pb-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              <div className="flex overflow-x-auto scrollbar-hide new-products-scroll gap-2 xs:gap-3 sm:gap-4 lg:gap-6 pb-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 {products.filter(p => p.is_new === 1 || p.is_new === true || p.isNew === true).slice(0, 6).map((product, index) => (
                 <div
                   key={product._id}

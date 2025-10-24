@@ -216,8 +216,9 @@ const Navbar = () => {
   return (
     <>
       {/* Top Bar - Promotional Banner */}
-      <div className="bg-gradient-to-r from-red-800 via-red-700 to-red-600 text-white text-center py-3 px-4 shadow-lg sticky top-0 z-40" style={{
-        background: 'linear-gradient(to right, #C1174A, #B91C3C, #DC2626)'
+      <div className="bg-gradient-to-r from-red-800 via-red-700 to-red-600 text-white text-center py-2 px-4 shadow-lg sticky top-0 z-40" style={{
+        background: 'linear-gradient(to right, #C1174A, #B91C3C, #DC2626)',
+        marginBottom: '0'
       }}>
         <div className="w-full max-w-none flex items-center justify-center space-x-4">
           <div className="flex items-center space-x-2">
@@ -236,9 +237,9 @@ const Navbar = () => {
       </div>
 
       {/* Main Header */}
-      <nav className="bg-white/95 backdrop-blur-md shadow-lg sticky z-50 border-b border-gray-100 -mb-2" style={{ top: '52px' }}>
-        <div className="w-full max-w-none px-3 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-20 lg:h-24">
+      <nav className="bg-white/95 backdrop-blur-md shadow-lg sticky z-50 border-b border-gray-100" style={{ top: '36px' }}>
+        <div className="w-full max-w-none px-2 sm:px-4 lg:px-6">
+          <div className="flex items-center justify-between h-14 sm:h-16 lg:h-20">
              {/* Logo Section - Mobile Optimized with SK BAKERS Logo */}
              <div className="flex items-center flex-shrink-0">
                <Link to="/" className="block">
@@ -1353,7 +1354,7 @@ const Navbar = () => {
             }}
           >
             {/* Header */}
-            <div className="flex-shrink-0 bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 flex items-center justify-between">
+            <div className="flex-shrink-0 bg-gradient-to-r from-red-600 to-red-700 px-6 py-3 flex items-center justify-between">
               <h2 className="text-xl font-bold text-white">Menu</h2>
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
