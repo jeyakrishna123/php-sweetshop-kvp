@@ -14,26 +14,26 @@ const QuantitySelector = ({
 }) => {
   const sizeClasses = {
     xs: {
-      container: 'h-7',
-      button: 'w-6 h-6 min-w-[24px] min-h-[24px]',
+      container: 'h-8',
+      button: 'w-7 h-7 min-w-[28px] min-h-[28px]',
       input: 'w-12 text-xs min-w-[48px]',
       icon: 'w-3 h-3'
     },
     sm: {
       container: 'h-10',
-      button: 'w-9 h-9 min-w-[36px] min-h-[36px]',
+      button: 'w-10 h-10 min-w-[40px] min-h-[40px]',
       input: 'w-18 text-sm min-w-[72px]',
       icon: 'w-4 h-4'
     },
     md: {
-      container: 'h-11',
-      button: 'w-10 h-10 min-w-[40px] min-h-[40px]',
+      container: 'h-12',
+      button: 'w-11 h-11 min-w-[44px] min-h-[44px]',
       input: 'w-20 text-sm min-w-[80px]',
       icon: 'w-4 h-4'
     },
     lg: {
-      container: 'h-12',
-      button: 'w-11 h-11 min-w-[44px] min-h-[44px]',
+      container: 'h-14',
+      button: 'w-12 h-12 min-w-[48px] min-h-[48px]',
       input: 'w-24 text-base min-w-[96px]',
       icon: 'w-5 h-5'
     }
