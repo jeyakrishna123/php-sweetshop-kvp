@@ -349,7 +349,9 @@ const Navbar = () => {
                 )}
               </button>
 
-              {/* Cart - Mobile Optimized */}
+              {/* Cart - Mobile Optimized - COMMENTED OUT FOR MOBILE (footer has cart icon) */}
+              {/* Uncomment below if you need header cart icon on mobile */}
+              {/*
               <button 
                 onClick={(e) => {
                   e.preventDefault();
@@ -367,6 +369,7 @@ const Navbar = () => {
                   </span>
                 )}
               </button>
+              */}
 
               {/* User Menu - Mobile Optimized */}
               {user ? (

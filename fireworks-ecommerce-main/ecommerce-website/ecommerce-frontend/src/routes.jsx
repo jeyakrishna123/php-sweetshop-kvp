@@ -10,6 +10,7 @@ import Success from "./pages/Success";
 import MyOrder from "./pages/MyOrder";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import Deals from "./pages/Deals";
 import AdminLogin from "./pages/AdminLogin";
 import AdminPanel from "./pages/AdminPanel";
 import AdminOrders from "./pages/AdminOrders";
@@ -104,6 +105,7 @@ const AppRoutes = () => {
               <Route path="/tracking" element={<Tracking />} />
               <Route path="/tracking/:trackingNumber" element={<Tracking />} />
               <Route path="/products" element={<ProductListing />} />
+              <Route path="/deals" element={<Deals />} />
               <Route path="/professional-products" element={<ProfessionalProducts />} />
               <Route path="/redesigned-products" element={<RedesignedProducts />} />
               <Route path="/product/:id" element={<ProductDetails />} />
