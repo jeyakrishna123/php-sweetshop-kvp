@@ -2,7 +2,7 @@ import axios from '../axios';
 
 class PaymentService {
   constructor() {
-    this.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+    this.baseURL = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' ? 'https://skbakers.com/api' : 'http://localhost:8000');
     this.merchantConfig = {
       googlePay: {
         merchantId: process.env.REACT_APP_GOOGLE_PAY_MERCHANT_ID || 'SK_BAKERS_001',

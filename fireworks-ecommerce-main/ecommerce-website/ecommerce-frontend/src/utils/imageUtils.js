@@ -14,7 +14,7 @@ export const getImageUrl = (imagePath) => {
   }
   
   // For other paths, construct the full URL
-  const backendUrl = 'http://localhost:8000';
+  const backendUrl = process.env.NODE_ENV === 'production' ? 'https://skbakers.com' : 'http://localhost:8000';
   return `${backendUrl}${imagePath}`;
 };
 

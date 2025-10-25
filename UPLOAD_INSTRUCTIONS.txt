@@ -1,0 +1,29 @@
+🚀 HOSTINGER UPLOAD - READY TO UPLOAD!
+=====================================
+
+📁 YOUR FOLDER STRUCTURE IS READY!
+
+Location: C:\Users\jeyakrishna\Documents\php-sweetshop-kvp\hostinger_upload\
+
+📋 WHAT TO UPLOAD TO HOSTINGER:
+
+1. UPLOAD ALL CONTENTS OF THIS FOLDER TO public_html/
+   - .htaccess
+   - setup_hostinger_database.php  
+   - sk-bakers-logo.png
+   - backend/ (entire folder)
+   - frontend/ (entire folder)
+
+2. AFTER UPLOAD - IMPORTANT STEPS:
+   - Update database password in setup_hostinger_database.php
+   - Rename backend/config/config_production.php to config.php
+   - Set permissions: backend/uploads/ and backend/logs/ to 755
+   - Visit: https://skbakers.com/setup_hostinger_database.php
+   - Delete setup_hostinger_database.php after success
+
+3. YOUR WEBSITE WILL BE LIVE AT:
+   - Frontend: https://skbakers.com
+   - Admin: https://skbakers.com/admin
+   - Login: admin@skbakers.com / admin123
+
+🎯 JUST UPLOAD THE ENTIRE hostinger_upload FOLDER TO public_html/ ON HOSTINGER!

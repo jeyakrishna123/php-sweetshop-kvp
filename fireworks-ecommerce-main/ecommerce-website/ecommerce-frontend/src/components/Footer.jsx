@@ -11,13 +11,26 @@ const Footer = () => {
           {/* Company Info */}
           <div className="space-y-4">
             <div className="flex items-center space-x-4">
-              {/* Professional SK Bakers Logo */}
-              <div className="flex items-center space-x-3">
-                {/* SK Bakers Logo */}
-                <div className="w-14 h-14 bg-gradient-to-br from-pink-600 to-red-600 rounded-lg flex items-center justify-center shadow-lg">
-                  <div className="text-white font-bold text-center">
-                    <div className="text-sm font-black">SK</div>
-                    <div className="text-xs font-bold">BAKERS</div>
+              {/* Real SK Bakers Logo */}
+              <div className="flex items-center space-x-4">
+                {/* SK Bakers Logo Image */}
+                <div className="flex-shrink-0">
+                  <img 
+                    src="/sk-bakers-logo.png" 
+                    alt="SK BAKERS HOME-MADE CAKES AND CAFE" 
+                    className="w-16 h-16 object-contain"
+                    onError={(e) => {
+                      // Fallback to gradient logo if image fails to load
+                      e.target.style.display = 'none';
+                      e.target.nextElementSibling.style.display = 'flex';
+                    }}
+                  />
+                  {/* Fallback Logo */}
+                  <div className="w-16 h-16 bg-gradient-to-br from-pink-600 to-red-600 rounded-lg flex items-center justify-center shadow-lg hidden">
+                    <div className="text-white font-bold text-center">
+                      <div className="text-sm font-black">SK</div>
+                      <div className="text-xs font-bold">BAKERS</div>
+                    </div>
                   </div>
                 </div>
                 

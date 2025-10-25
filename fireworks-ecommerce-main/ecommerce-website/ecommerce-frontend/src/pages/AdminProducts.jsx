@@ -167,7 +167,7 @@ const AdminProducts = () => {
 
   const fetchCategories = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/categories', {
+      const response = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://skbakers.com/api' : 'http://localhost:8000/api'}/categories`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         }
@@ -530,7 +530,7 @@ const AdminProducts = () => {
       }
       // If it's a relative URL from backend, make it absolute
       if (image.startsWith('/uploads/')) {
-        return `http://localhost:8000${image}`;
+        return `${process.env.NODE_ENV === 'production' ? 'https://skbakers.com' : 'http://localhost:8000'}${image}`;
       }
       return image;
     }
@@ -540,7 +540,7 @@ const AdminProducts = () => {
         return image.url;
       }
       if (image.url.startsWith('/uploads/')) {
-        return `http://localhost:8000${image.url}`;
+        return `${process.env.NODE_ENV === 'production' ? 'https://skbakers.com' : 'http://localhost:8000'}${image.url}`;
       }
       return image.url;
     }

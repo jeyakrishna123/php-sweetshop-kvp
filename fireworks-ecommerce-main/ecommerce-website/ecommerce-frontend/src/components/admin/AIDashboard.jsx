@@ -62,7 +62,7 @@ ChartJS.register(
   Legend
 );
 
-const API_BASE = 'http://localhost:8000/api/admin/ai';
+const API_BASE = process.env.NODE_ENV === 'production' ? 'https://skbakers.com/api/admin/ai' : 'http://localhost:8000/api/admin/ai';
 
 const AIDashboard = () => {
   const [activeTab, setActiveTab] = useState(0);

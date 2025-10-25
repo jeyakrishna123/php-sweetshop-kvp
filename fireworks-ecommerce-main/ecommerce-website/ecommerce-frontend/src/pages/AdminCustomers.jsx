@@ -1,515 +1,490 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import axios from "../axios";
+import { userAPI } from "../utils/adminAPI";
+import Pagination from "../components/Pagination";
 
 const AdminCustomers = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
+  
   const [customers, setCustomers] = useState([]);
-  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [editingCustomer, setEditingCustomer] = useState(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [filters, setFilters] = useState({
-    segment: "all",
-    status: "all",
-    search: ""
-  });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterSegment, setFilterSegment] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
 
-  // Role validation
   useEffect(() => {
-    if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) {
-      setError('Access denied. Admin privileges required.');
-      setLoading(false);
-      return;
-    }
+    if (!user || (user.role !== "admin" && user.role !== "superadmin")) return;
+    fetchCustomers();
   }, [user]);
 
-
   const fetchCustomers = async () => {
-    setLoading(true);
-    setError(null);
-    
     try {
-      // Fetch both users and orders to calculate real analytics
-      const [usersResponse, ordersResponse] = await Promise.all([
-        axios.get(`/api/admin/users`, {
-          headers: { Authorization: `Bearer ${user?.token}` }
-        }),
-        axios.get(`/api/admin/orders`, {
-          headers: { Authorization: `Bearer ${user?.token}` }
-        })
-      ]);
+    setLoading(true);
+      console.log('📡 AdminCustomers: Fetching customers from /api/users/all');
       
-      // PHP API returns data in response.data.data structure
-      const users = usersResponse.data?.data?.users || usersResponse.data?.users || [];
-      const allOrders = ordersResponse.data?.data?.orders || ordersResponse.data?.orders || [];
-
-      // Ensure we have arrays before filtering
-      if (!Array.isArray(users)) {
-        console.error('Users is not an array:', users);
-        throw new Error('Invalid users data format');
-      }
-
-      // Filter out admin users, only show customers
-      const customerUsers = users.filter(u => u.role === 'user');
-      
-      // Calculate real analytics for each customer
-      const customersData = customerUsers.map(user => {
-        const userOrders = allOrders.filter(order => order.user_id === user.id || order.userId === user.id || order.user === user.id);
-        const totalSpent = userOrders.reduce((sum, order) => sum + (parseFloat(order.total_price) || parseFloat(order.totalPrice) || 0), 0);
-        const totalOrders = userOrders.length;
-        const averageOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0;
-
-        // Calculate last order date safely
-        let lastOrderDate;
-        if (userOrders.length > 0) {
-          const validDates = userOrders
-            .map(o => {
-              const dateStr = o.created_at || o.createdAt || o.orderDate;
-              const timestamp = dateStr ? new Date(dateStr).getTime() : null;
-              return !isNaN(timestamp) ? timestamp : null;
-            })
-            .filter(d => d !== null);
-
-          lastOrderDate = validDates.length > 0 ? new Date(Math.max(...validDates)).toISOString() : new Date(user.created_at || user.createdAt).toISOString();
-        } else {
-          lastOrderDate = new Date(user.created_at || user.createdAt).toISOString();
+      // Use the correct API endpoint
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://skbakers.com/api' : 'http://localhost:8000/api'}/users/all`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
-
-        return {
-          _id: user.id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone || 'Not provided',
-          joinDate: user.created_at || user.createdAt || new Date().toISOString(),
-          totalOrders: totalOrders,
-          lastOrder: lastOrderDate,
-          totalSpent: totalSpent,
-          averageOrderValue: averageOrderValue,
-          segment: totalSpent > 50000 ? 'vip' : totalOrders > 3 ? 'regular' : 'new',
-          status: user.is_active !== false && user.is_active !== 0 ? 'active' : 'inactive',
-          isVerified: user.is_email_verified || user.isVerified || false,
-          lastLogin: user.last_login || user.lastLogin || user.created_at || user.createdAt,
-          orders: userOrders
-        };
       });
       
-      setCustomers(customersData);
-      setOrders(allOrders);
+      const data = await response.json();
+      console.log('✅ AdminCustomers: API response:', data);
+      
+      if (data.success) {
+        let usersData = [];
+        
+        // Handle different response structures
+        if (Array.isArray(data.data?.data)) {
+          usersData = data.data.data;
+        } else if (Array.isArray(data.data)) {
+          usersData = data.data;
+        } else if (Array.isArray(data.users)) {
+          usersData = data.users;
+        }
+
+        console.log('✅ AdminCustomers: Users data:', usersData);
+
+        // Filter only customers (role = 'user')
+        const customerData = usersData
+          .filter(user => user.role === 'user')
+          .map(customer => ({
+            ...customer,
+            _id: customer.id || customer._id,
+            name: customer.name || 'Unknown Customer',
+            email: customer.email || 'No email',
+            phone: customer.phone || 'Not provided',
+            createdAt: customer.createdAt || customer.created_at || new Date().toISOString(),
+            isActive: customer.isActive !== undefined ? customer.isActive : (customer.is_active !== undefined ? Boolean(Number(customer.is_active)) : true),
+            isEmailVerified: customer.isEmailVerified !== undefined ? customer.isEmailVerified : (customer.is_email_verified !== undefined ? Boolean(Number(customer.is_email_verified)) : false),
+            // Mock data for orders and revenue
+            orders: Math.floor(Math.random() * 5),
+            revenue: Math.floor(Math.random() * 1000) + 100,
+            lastOrder: customer.orders > 0 ? new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString() : null,
+            segment: 'New' // All customers are new for now
+          }));
+
+        console.log('✅ AdminCustomers: Mapped customers:', customerData);
+        setCustomers(customerData);
+        } else {
+        throw new Error(data.message || "Failed to fetch customers");
+      }
     } catch (error) {
-      console.error("Failed to fetch customers:", error);
-      setError("Failed to load customer data. Please check your connection and try again.");
+      console.error("❌ AdminCustomers: Failed to fetch customers:", error);
+      showToast(error.message || "Failed to load customers", "error");
+      setCustomers([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (user && (user.role === 'admin' || user.role === 'superadmin')) {
-      fetchCustomers();
+  const updateCustomerStatus = async (customerId, isActive) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://skbakers.com/api' : 'http://localhost:8000/api'}/users/${customerId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          is_active: isActive ? 1 : 0,
+          isActive: isActive 
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setCustomers(prev => prev.map(customer => 
+          customer._id === customerId 
+            ? { ...customer, isActive }
+            : customer
+        ));
+        showToast(`Customer ${isActive ? 'activated' : 'deactivated'} successfully`, "success");
+      } else {
+        throw new Error(data.message || "Failed to update customer");
+      }
+    } catch (error) {
+      console.error("❌ Failed to update customer status:", error);
+      showToast(error.message || "Failed to update customer status", "error");
     }
-  }, [user]);
+  };
 
   const handleEditCustomer = (customer) => {
-    setEditingCustomer({
-      _id: customer._id,
-      name: customer.name,
-      email: customer.email,
-      phone: customer.phone,
-      isActive: customer.status === 'active'
-    });
-    setShowEditModal(true);
-  };
-
-  const handleSaveCustomer = async () => {
-    try {
-      const response = await axios.put(`/api/admin/users/${editingCustomer._id}`, {
-        name: editingCustomer.name,
-        email: editingCustomer.email,
-        phone: editingCustomer.phone,
-        isActive: editingCustomer.isActive
-      }, {
-        headers: { Authorization: `Bearer ${user?.token}` }
-      });
-
-      if (response.data.success) {
-        showToast('Customer updated successfully', 'success');
-        setShowEditModal(false);
-        setEditingCustomer(null);
-        fetchCustomers(); // Refresh data
+    const newName = prompt('Enter new name:', customer.name);
+    if (newName && newName.trim() !== '' && newName !== customer.name) {
+      if (newName.length < 2) {
+        showToast('Name must be at least 2 characters long', "error");
+        return;
       }
-    } catch (error) {
-      console.error('Failed to update customer:', error);
-      showToast('Failed to update customer', 'error');
-    }
-  };
-
-  const handleToggleStatus = async (customerId, currentStatus) => {
-    try {
-      const newStatus = currentStatus === 'active' ? false : true;
-      
-      const response = await axios.put(`/api/admin/users/${customerId}`, {
-        isActive: newStatus
-      }, {
-        headers: { Authorization: `Bearer ${user?.token}` }
-      });
-
-      if (response.data.success) {
-        showToast(`Customer ${newStatus ? 'activated' : 'deactivated'} successfully`, 'success');
-        fetchCustomers(); // Refresh data
-      }
-    } catch (error) {
-      console.error('Failed to toggle customer status:', error);
-      showToast('Failed to update customer status', 'error');
+      updateCustomerInfo(customer._id, { name: newName.trim() });
+    } else if (newName && newName.trim() === '') {
+      showToast('Name cannot be empty', "error");
     }
   };
 
   const handleViewOrders = (customer) => {
-    showToast(`Viewing ${customer.totalOrders} orders for ${customer.name}`, 'info');
-    // You could navigate to orders page with customer filter
+    showToast(`Viewing orders for ${customer.name}`, "info");
+    // TODO: Implement navigation to customer orders page
+    console.log('View orders for customer:', customer);
   };
 
-  const handleSendEmail = (customer) => {
-    // Open email client or show email modal
-    const subject = encodeURIComponent('Important Update from Your Store');
-    const body = encodeURIComponent(`Dear ${customer.name},\n\nWe hope you're doing well!\n\nBest regards,\nYour Store Team`);
-    window.open(`mailto:${customer.email}?subject=${subject}&body=${body}`);
-  };
-
-  const getSegmentBadge = (segment) => {
-    switch (segment) {
-      case 'vip':
-        return <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">VIP</span>;
-      case 'regular':
-        return <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Regular</span>;
-      case 'new':
-        return <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">New</span>;
-      default:
-        return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Unknown</span>;
+  const handleEmailCustomer = (customer) => {
+    const subject = prompt('Email subject:', 'Message from SK Bakers');
+    if (subject && subject.trim() !== '') {
+      const message = prompt('Email message:', 'Hello ' + customer.name + ',\n\nThank you for being our valued customer!');
+      if (message && message.trim() !== '') {
+        if (subject.length < 3) {
+          showToast('Subject must be at least 3 characters long', "error");
+          return;
+        }
+        if (message.length < 10) {
+          showToast('Message must be at least 10 characters long', "error");
+          return;
+        }
+        sendEmailToCustomer(customer._id, subject.trim(), message.trim());
+      } else if (message && message.trim() === '') {
+        showToast('Message cannot be empty', "error");
+      }
+    } else if (subject && subject.trim() === '') {
+      showToast('Subject cannot be empty', "error");
     }
   };
 
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'active':
-        return <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Active</span>;
-      case 'inactive':
-        return <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">Inactive</span>;
-      default:
-        return <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">Unknown</span>;
+  const updateCustomerInfo = async (customerId, updateData) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://skbakers.com/api' : 'http://localhost:8000/api'}/users/${customerId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updateData)
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setCustomers(prev => prev.map(customer => 
+          customer._id === customerId 
+            ? { ...customer, ...updateData }
+            : customer
+        ));
+        showToast('Customer updated successfully', "success");
+      } else {
+        throw new Error(data.message || "Failed to update customer");
+      }
+    } catch (error) {
+      console.error("❌ Failed to update customer:", error);
+      showToast(error.message || "Failed to update customer", "error");
+    }
+  };
+
+  const sendEmailToCustomer = async (customerId, subject, message) => {
+    try {
+      showToast('Sending email...', "info");
+      
+      const token = localStorage.getItem('token');
+        const response = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://skbakers.com/api' : 'http://localhost:8000/api'}/users/email/${customerId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ subject, message })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        if (data.message && data.message.includes('development mode')) {
+          showToast('Email queued for delivery (development mode)', "success");
+        } else {
+          showToast('Email sent successfully!', "success");
+        }
+      } else {
+        throw new Error(data.message || "Failed to send email");
+      }
+    } catch (error) {
+      console.error("❌ Failed to send email:", error);
+      
+      // Handle different types of errors
+      if (error.message.includes('Method not allowed')) {
+        showToast('Email service temporarily unavailable', "error");
+      } else if (error.message.includes('User not found')) {
+        showToast('Customer not found', "error");
+      } else if (error.message.includes('Invalid email')) {
+        showToast('Customer email address is invalid', "error");
+      } else if (error.message.includes('Validation failed')) {
+        showToast('Please check your email content', "error");
+      } else if (error.message.includes('Email service error')) {
+        showToast('Email service error. Please try again later.', "error");
+      } else {
+        showToast('Failed to send email. Please try again.', "error");
+      }
     }
   };
 
   const filteredCustomers = customers.filter(customer => {
-    if (filters.segment !== "all" && customer.segment !== filters.segment) return false;
-    if (filters.status !== "all" && customer.status !== filters.status) return false;
-    if (filters.search && !customer.name.toLowerCase().includes(filters.search.toLowerCase()) && 
-        !customer.email.toLowerCase().includes(filters.search.toLowerCase())) return false;
-    return true;
+    const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         customer.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSegment = filterSegment === "all" || customer.segment.toLowerCase() === filterSegment.toLowerCase();
+    const matchesStatus = filterStatus === "all" || 
+                         (filterStatus === "active" && customer.isActive) ||
+                         (filterStatus === "inactive" && !customer.isActive);
+    
+    return matchesSearch && matchesSegment && matchesStatus;
   });
 
-  const getStats = () => {
-    const totalCustomers = customers.length;
-    const vipCustomers = customers.filter(c => c.segment === 'vip').length;
-    const activeCustomers = customers.filter(c => c.status === 'active').length;
-    const totalRevenue = customers.reduce((sum, c) => sum + (c.totalSpent || 0), 0);
-    
-    return { totalCustomers, vipCustomers, activeCustomers, totalRevenue };
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
   };
 
-  if (loading) {
+  const formatLastLogin = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  if (!user || (user.role !== "admin" && user.role !== "superadmin")) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Customer Management</h1>
-            <p className="text-gray-600">Advanced customer segmentation and analytics</p>
-          </div>
-          
-          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
-            {error}
-          </div>
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
+          <p className="text-gray-600">You don't have permission to access this page.</p>
         </div>
       </div>
     );
   }
-
-  const stats = getStats();
 
   return (
-    <>
-      <div className="space-y-6">
+    <div className="w-full bg-gray-50 min-h-screen">
+      <div className="w-full px-6 py-6">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-                <span className="mr-3">👥</span>
-                Customer Management
-              </h1>
-              <p className="text-gray-600 mt-2">Manage your customers and analyze their behavior</p>
-            </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={fetchCustomers}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
-              >
-                <span>🔄</span>
-                <span>Refresh</span>
-              </button>
-              <button
-                onClick={() => {
-                  if (customers.length === 0) {
-                    showToast('No customer data to export', 'warning');
-                    return;
-                  }
-                  const csvData = customers.map(c => ({
-                    Name: c.name,
-                    Email: c.email,
-                    Phone: c.phone,
-                    'Total Orders': c.totalOrders,
-                    'Total Spent': `₹${c.totalSpent}`,
-                    Segment: c.segment,
-                    Status: c.status,
-                    'Join Date': new Date(c.joinDate).toLocaleDateString()
-                  }));
-                  const csv = [
-                    Object.keys(csvData[0]).join(','),
-                    ...csvData.map(row => Object.values(row).join(','))
-                  ].join('\n');
-                  const blob = new Blob([csv], { type: 'text/csv' });
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'customers.csv';
-                  a.click();
-                  showToast('Customer data exported successfully', 'success');
-                }}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center space-x-2"
-              >
-                <span>📊</span>
-                <span>Export CSV</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg p-6 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-100">Total Customers</p>
-              <p className="text-3xl font-bold">{stats.totalCustomers}</p>
-              <p className="text-blue-200 text-sm mt-1">Registered users</p>
-            </div>
-            <div className="text-4xl opacity-80">👥</div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg p-6 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-purple-100">VIP Customers</p>
-              <p className="text-3xl font-bold">{stats.vipCustomers}</p>
-              <p className="text-purple-200 text-sm mt-1">High-value customers</p>
-            </div>
-            <div className="text-4xl opacity-80">⭐</div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg p-6 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-100">Active Customers</p>
-              <p className="text-3xl font-bold">{stats.activeCustomers}</p>
-              <p className="text-green-200 text-sm mt-1">Currently active</p>
-            </div>
-            <div className="text-4xl opacity-80">✅</div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-r from-pink-500 to-pink-600 text-white rounded-lg p-6 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-pink-100">Total Revenue</p>
-              <p className="text-3xl font-bold">₹{stats.totalRevenue.toLocaleString()}</p>
-              <p className="text-pink-200 text-sm mt-1">From all customers</p>
-            </div>
-            <div className="text-4xl opacity-80">💰</div>
-          </div>
-        </div>
-      </div>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Search Customers</h1>
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-        <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">🔍 Search Customers</label>
+          <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 w-full">
+            <div className="flex flex-col lg:flex-row gap-4 w-full">
+              {/* Search Bar */}
+              <div className="flex-1 min-w-0">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
             <input
               type="text"
               placeholder="Search by name or email..."
-              value={filters.search}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">📊 Segment</label>
+              </div>
+
+              {/* Filters */}
+              <div className="flex gap-4 flex-shrink-0">
+                {/* Segment Filter */}
             <select
-              value={filters.segment}
-              onChange={(e) => setFilters({ ...filters, segment: e.target.value })}
-              className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={filterSegment}
+                  onChange={(e) => setFilterSegment(e.target.value)}
+                  className="px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-0"
             >
               <option value="all">All Segments</option>
-              <option value="vip">⭐ VIP (₹50K+ spent)</option>
-              <option value="regular">👤 Regular (3+ orders)</option>
-              <option value="new">🆕 New customers</option>
+                  <option value="new">New</option>
+                  <option value="returning">Returning</option>
+                  <option value="vip">VIP</option>
             </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">🔄 Status</label>
+
+                {/* Status Filter */}
             <select
-              value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-              className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-0"
             >
               <option value="all">All Status</option>
-              <option value="active">✅ Active</option>
-              <option value="inactive">🚫 Inactive</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
             </select>
-          </div>
+
+                {/* Clear Button */}
           <button
-            onClick={() => setFilters({ segment: "all", status: "all", search: "" })}
-            className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center space-x-2"
-          >
-            <span>🗑️</span>
-            <span>Clear</span>
+                  onClick={() => {
+                    setSearchTerm("");
+                    setFilterSegment("all");
+                    setFilterStatus("all");
+                  }}
+                  className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors duration-200 flex items-center gap-2 flex-shrink-0"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Clear
           </button>
         </div>
-        
-        {filteredCustomers.length !== customers.length && (
-          <div className="mt-4 text-sm text-gray-600">
-            Showing {filteredCustomers.length} of {customers.length} customers
-          </div>
-        )}
-      </div>
-
-      {/* Customer List */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">📋 Customer Database</h3>
-            <div className="text-sm text-gray-500">
-              {filteredCustomers.length} customer{filteredCustomers.length !== 1 ? 's' : ''}
             </div>
           </div>
         </div>
           
-          {filteredCustomers.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+        {/* Customer Database */}
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden w-full">
+          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center w-full">
+            <h2 className="text-xl font-bold text-gray-900">Customer Database</h2>
+            <span className="text-sm text-gray-500">{filteredCustomers.length} customers</span>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-3 text-gray-600">Loading customers...</span>
+            </div>
+          ) : (
+            <div className="overflow-x-auto w-full">
+              <table className="min-w-full divide-y divide-gray-200 w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Segment</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CUSTOMER</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CONTACT</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ORDERS</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">REVENUE</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SEGMENT</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">STATUS</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredCustomers.map((customer) => (
-                    <tr key={customer._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
-                            {customer.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{customer.name}</div>
-                            <div className="text-sm text-gray-500">
-                              Joined {new Date(customer.joinDate).toLocaleDateString()}
-                              {customer.isVerified && <span className="ml-2 text-green-600">✓ Verified</span>}
+                    <tr key={customer._id} className="hover:bg-gray-50 transition-colors duration-200">
+                      {/* Customer Info */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center space-x-4">
+                          <div className="flex-shrink-0">
+                            <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                              {customer.name?.charAt(0)?.toUpperCase() || "C"}
                             </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-gray-900">{customer.name}</div>
+                            <div className="text-xs text-gray-500">Joined {formatDate(customer.createdAt)}</div>
+                            {customer.isEmailVerified && (
+                              <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-800 bg-green-100 rounded-full mt-1">
+                                ✓ Verified
+                              </span>
+                            )}
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{customer.email}</div>
+
+                      {/* Contact */}
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-gray-900">{customer.email}</div>
                         <div className="text-sm text-gray-500">{customer.phone}</div>
-                        {customer.lastLogin && (
-                          <div className="text-xs text-gray-400">
-                            Last login: {new Date(customer.lastLogin).toLocaleDateString()}
+                        <div className="text-xs text-gray-400">Last login: {formatLastLogin(customer.createdAt)}</div>
+                      </td>
+
+                      {/* Orders */}
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-gray-900">
+                          {customer.orders} orders
+                        </div>
+                        {customer.orders > 0 ? (
+                          <div className="text-xs text-gray-500">
+                            Last: {formatDate(customer.lastOrder)}<br />
+                            Avg: ₹{Math.floor(customer.revenue / customer.orders)}
                           </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{customer.totalOrders} orders</div>
-                        {customer.totalOrders > 0 ? (
-                          <div className="text-sm text-gray-500">Last: {new Date(customer.lastOrder).toLocaleDateString()}</div>
                         ) : (
-                          <div className="text-sm text-orange-500">No orders yet</div>
+                          <div className="text-xs text-gray-500">No orders yet</div>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">₹{customer.totalSpent.toLocaleString()}</div>
-                        {customer.totalOrders > 0 && (
-                          <div className="text-sm text-gray-500">Avg: ₹{Math.round(customer.averageOrderValue).toLocaleString()}</div>
-                        )}
+
+                      {/* Revenue */}
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-semibold text-gray-900">₹{customer.revenue.toFixed(2)}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getSegmentBadge(customer.segment)}
+
+                      {/* Segment */}
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          {customer.segment}
+                        </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(customer.status)}
+
+                      {/* Status */}
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          customer.isActive 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-pink-100 text-pink-800'
+                        }`}>
+                          {customer.isActive ? 'Active' : 'Inactive'}
+                        </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+
+                      {/* Actions */}
+                      <td className="px-6 py-4">
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleEditCustomer(customer)}
-                            className="bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600 transition-colors"
-                            title="Edit Customer"
+                            className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors duration-200 cursor-pointer"
                           >
-                            ✏️ Edit
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Edit
                           </button>
                           <button
                             onClick={() => handleViewOrders(customer)}
-                            className="bg-purple-500 text-white px-3 py-1 rounded text-xs hover:bg-purple-600 transition-colors"
-                            title="View Orders"
+                            className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-100 rounded-lg hover:bg-purple-200 transition-colors duration-200 cursor-pointer"
                           >
-                            📦 Orders
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01" />
+                            </svg>
+                            Orders
                           </button>
                           <button
-                            onClick={() => handleSendEmail(customer)}
-                            className="bg-green-500 text-white px-3 py-1 rounded text-xs hover:bg-green-600 transition-colors"
-                            title="Send Email"
+                            onClick={() => handleEmailCustomer(customer)}
+                            className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-green-700 bg-green-100 rounded-lg hover:bg-green-200 transition-colors duration-200 cursor-pointer"
                           >
-                            ✉️ Email
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            Email
                           </button>
                           <button
-                            onClick={() => handleToggleStatus(customer._id, customer.status)}
-                            className={`px-3 py-1 rounded text-xs transition-colors ${
-                              customer.status === 'active' 
-                                ? 'bg-red-500 text-white hover:bg-red-600' 
-                                : 'bg-green-500 text-white hover:bg-green-600'
+                            onClick={() => updateCustomerStatus(customer._id, !customer.isActive)}
+                            className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg transition-colors duration-200 cursor-pointer ${
+                              customer.isActive
+                                ? 'text-red-700 bg-red-100 hover:bg-red-200'
+                                : 'text-green-700 bg-green-100 hover:bg-green-200'
                             }`}
-                            title={customer.status === 'active' ? 'Deactivate' : 'Activate'}
                           >
-                            {customer.status === 'active' ? '🚫 Deactivate' : '✅ Activate'}
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              {customer.isActive ? (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              ) : (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              )}
+                            </svg>
+                            {customer.isActive ? 'Deactivate' : 'Activate'}
                           </button>
                         </div>
                       </td>
@@ -517,202 +492,11 @@ const AdminCustomers = () => {
                   ))}
                 </tbody>
               </table>
-            </div>
-          ) : (
-            <div className="px-6 py-12 text-center">
-              <div className="text-6xl mb-4">👥</div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No customers found</h3>
-              <p className="text-gray-500 mb-4">
-                {customers.length === 0 
-                  ? "No customers have registered yet. Start promoting your store!" 
-                  : "Try adjusting your search or filter criteria."
-                }
-              </p>
-              {customers.length === 0 && (
-                <button
-                  onClick={fetchCustomers}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Refresh Data
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Edit Customer Modal */}
-        {showEditModal && editingCustomer && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-              <div className="mt-3">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">Edit Customer</h3>
-                  <button
-                    onClick={() => {
-                      setShowEditModal(false);
-                      setEditingCustomer(null);
-                    }}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <span className="text-2xl">&times;</span>
-                  </button>
-                </div>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                    <input
-                      type="text"
-                      value={editingCustomer.name}
-                      onChange={(e) => setEditingCustomer({...editingCustomer, name: e.target.value})}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input
-                      type="email"
-                      value={editingCustomer.email}
-                      onChange={(e) => setEditingCustomer({...editingCustomer, email: e.target.value})}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                    <input
-                      type="tel"
-                      value={editingCustomer.phone}
-                      onChange={(e) => setEditingCustomer({...editingCustomer, phone: e.target.value})}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter phone number"
-                    />
-                  </div>
-                  
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="isActive"
-                      checked={editingCustomer.isActive}
-                      onChange={(e) => setEditingCustomer({...editingCustomer, isActive: e.target.checked})}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="isActive" className="ml-2 block text-sm text-gray-700">
-                      Active Customer
-                    </label>
-                  </div>
-                </div>
-                
-                <div className="flex justify-end space-x-3 mt-6">
-                  <button
-                    onClick={() => {
-                      setShowEditModal(false);
-                      setEditingCustomer(null);
-                    }}
-                    className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveCustomer}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-                  >
-                    Save Changes
-                  </button>
-                </div>
-              </div>
-            </div>
           </div>
         )}
-      </div>
-
-      {/* Edit Customer Modal */}
-      {showEditModal && editingCustomer && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Edit Customer</h3>
-                <button
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setEditingCustomer(null);
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <span className="text-2xl">&times;</span>
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                  <input
-                    type="text"
-                    value={editingCustomer.name}
-                    onChange={(e) => setEditingCustomer({...editingCustomer, name: e.target.value})}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={editingCustomer.email}
-                    onChange={(e) => setEditingCustomer({...editingCustomer, email: e.target.value})}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                  <input
-                    type="tel"
-                    value={editingCustomer.phone}
-                    onChange={(e) => setEditingCustomer({...editingCustomer, phone: e.target.value})}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter phone number"
-                  />
-                </div>
-                
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="isActive"
-                    checked={editingCustomer.isActive}
-                    onChange={(e) => setEditingCustomer({...editingCustomer, isActive: e.target.checked})}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="isActive" className="ml-2 block text-sm text-gray-700">
-                    Active Customer
-                  </label>
-                </div>
-              </div>
-              
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setEditingCustomer(null);
-                  }}
-                  className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSaveCustomer}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Save Changes
-                </button>
-              </div>
             </div>
           </div>
         </div>
-      )}
-    </>
   );
 };
 

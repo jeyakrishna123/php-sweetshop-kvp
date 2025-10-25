@@ -28,7 +28,7 @@ const MyOrder = () => {
       setLoading(true);
       setError(null);
 
-      const response = await axios.get("http://localhost:8000/api/orders", {
+      const response = await axios.get(`${process.env.NODE_ENV === 'production' ? 'https://skbakers.com/api' : 'http://localhost:8000/api'}/orders`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }

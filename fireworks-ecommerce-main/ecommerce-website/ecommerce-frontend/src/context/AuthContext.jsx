@@ -325,20 +325,17 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.post(API_CONFIG.ENDPOINTS.AUTH.REGISTER, userData);
 
       if (response.data.success) {
-        // PHP API returns data in response.data.data
-        const newUserData = response.data.data?.user || response.data.user;
-        const token = response.data.data?.token || response.data.token;
-
-        if (!newUserData || !token) {
-          throw new Error('Invalid response from server');
-        }
-
-        console.log('✅ Registration successful:', newUserData.email);
-
-        // Don't automatically log in after registration
-        // Just return the user data for the success message
-
-        return newUserData;
+        // For signup, we don't need user data or token immediately
+        // The user will be created as inactive and needs OTP verification
+        console.log('✅ Registration successful:', email);
+        console.log('📧 OTP sent to:', email);
+        
+        // Return basic user info for OTP modal
+        return {
+          email: email,
+          name: name,
+          phone: phone
+        };
       } else {
         throw new Error(response.data.message || 'Registration failed');
       }

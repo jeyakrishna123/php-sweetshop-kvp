@@ -16,7 +16,6 @@ const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [userMenuPosition, setUserMenuPosition] = useState({ top: 0, right: 0 });
-  const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false);
   const [isCakesDropdownOpen, setIsCakesDropdownOpen] = useState(false);
   const [isThemeCakesDropdownOpen, setIsThemeCakesDropdownOpen] = useState(false);
   const [isByRelationshipDropdownOpen, setIsByRelationshipDropdownOpen] = useState(false);
@@ -38,6 +37,9 @@ const Navbar = () => {
   const [dessertsDropdownPosition, setDessertsDropdownPosition] = useState({ top: 0, left: 0 });
   const [birthdayDropdownPosition, setBirthdayDropdownPosition] = useState({ top: 0, left: 0 });
   const [anniversaryDropdownPosition, setAnniversaryDropdownPosition] = useState({ top: 0, left: 0 });
+  const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef(null);
   const userMenuRef = useRef(null);
   const mobileMenuRef = useRef(null);
   const cakesDropdownRef = useRef(null);
@@ -203,6 +205,22 @@ const Navbar = () => {
     }, 100);
   };
 
+  const handleSearchIconClick = () => {
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+      setIsSearchFocused(true);
+    }
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      console.log('🔍 Searching for:', searchQuery);
+      navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery("");
+    }
+  };
+
   const closeMobileMenu = () => {
     console.log('🔒 Closing mobile menu');
     setIsMobileMenuOpen(false);
@@ -299,36 +317,56 @@ const Navbar = () => {
 
             {/* Search Bar */}
             <div className="hidden lg:flex flex-1 max-w-md mx-8">
-              <div className="relative w-full flex">
+              <form onSubmit={handleSearch} className="relative w-full flex">
                 <div className="relative flex-1">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Icon name="search" className="w-5 h-5 text-gray-400" />
                   </div>
                   <input
+                    ref={searchInputRef}
                     type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search cakes, pastries..."
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
                   />
                 </div>
                 <button
-                  onClick={() => setIsAdvancedSearchOpen(true)}
-                  className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-r-lg transition-colors duration-200 flex items-center space-x-1"
+                  type="submit"
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-r-lg transition-colors duration-200"
                 >
-                  <Icon name="filter" className="w-4 h-4" />
-                  <span className="text-sm">Filters</span>
+                  Search
                 </button>
-              </div>
+              </form>
+            </div>
+
+            {/* Mobile Search Bar - Only visible on smaller screens */}
+            <div className="lg:hidden flex-1 max-w-xs mx-2">
+              <form onSubmit={handleSearch} className="relative w-full flex">
+                <div className="relative flex-1">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Icon name="search" className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search..."
+                    className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-r-lg transition-colors duration-200 text-sm"
+                >
+                  Search
+                </button>
+              </form>
             </div>
 
             {/* Right Side Icons - Mobile Optimized */}
             <div className="flex items-center space-x-2 sm:space-x-4 relative">
-              {/* Mobile Search Button - Only visible on smaller screens */}
-              <button 
-                onClick={() => setIsAdvancedSearchOpen(true)}
-                className="lg:hidden p-2 text-gray-600 hover:text-red-600 transition-colors duration-200 group"
-              >
-                <Icon name="search" className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
-              </button>
 
               {/* Wishlist - Mobile Optimized */}
               <button 
@@ -561,10 +599,11 @@ const Navbar = () => {
                       console.log('🔑 Desktop Login button clicked');
                       handleNavigation("/login");
                     }}
-                    className="text-gray-600 hover:text-red-600 transition-colors duration-200 text-xs sm:text-sm font-medium px-2 py-1 rounded"
+                    className="flex items-center space-x-1 text-gray-600 hover:text-red-600 transition-colors duration-200 text-xs sm:text-sm font-medium px-2 py-1 rounded group"
                     style={{ minHeight: '44px' }}
                   >
-                    Login
+                    <Icon name="user" className="w-4 h-4 text-gray-600 group-hover:text-red-600 transition-colors duration-200" />
+                    <span>Login</span>
                   </button>
                   <button 
                     onClick={(e) => {

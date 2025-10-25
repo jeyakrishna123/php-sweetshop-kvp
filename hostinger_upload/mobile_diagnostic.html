@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>SK Bakers - Mobile Diagnostic</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-item {
+            margin: 15px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .warning { background: #fff3cd; border-color: #ffeaa7; }
+        .info { background: #d1ecf1; border-color: #bee5eb; }
+        button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #c82333;
+        }
+        .test-result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 SK Bakers - Mobile Diagnostic Tool</h1>
+        <p>This tool will help identify mobile issues with your website.</p>
+        
+        <div class="test-item info">
+            <h3>🔍 Device Information</h3>
+            <div id="device-info"></div>
+        </div>
+        
+        <div class="test-item">
+            <h3>🌐 Network Test</h3>
+            <button onclick="testNetwork()">Test Network Connection</button>
+            <div id="network-result" class="test-result"></div>
+        </div>
+        
+        <div class="test-item">
+            <h3>🔗 API Test</h3>
+            <button onclick="testAPI()">Test Backend API</button>
+            <div id="api-result" class="test-result"></div>
+        </div>
+        
+        <div class="test-item">
+            <h3>📱 Mobile Features Test</h3>
+            <button onclick="testMobileFeatures()">Test Mobile Features</button>
+            <div id="mobile-result" class="test-result"></div>
+        </div>
+        
+        <div class="test-item">
+            <h3>🎨 CSS Loading Test</h3>
+            <button onclick="testCSS()">Test CSS Loading</button>
+            <div id="css-result" class="test-result"></div>
+        </div>
+        
+        <div class="test-item">
+            <h3>📄 JavaScript Test</h3>
+            <button onclick="testJavaScript()">Test JavaScript</button>
+            <div id="js-result" class="test-result"></div>
+        </div>
+        
+        <div class="test-item">
+            <h3>🏠 Main Website Test</h3>
+            <button onclick="testMainWebsite()">Test Main Website</button>
+            <div id="main-result" class="test-result"></div>
+        </div>
+    </div>
+
+    <script>
+        // Display device information
+        function displayDeviceInfo() {
+            const deviceInfo = document.getElementById('device-info');
+            deviceInfo.innerHTML = `
+                <p><strong>User Agent:</strong> ${navigator.userAgent}</p>
+                <p><strong>Screen Size:</strong> ${screen.width}x${screen.height}</p>
+                <p><strong>Window Size:</strong> ${window.innerWidth}x${window.innerHeight}</p>
+                <p><strong>Device Pixel Ratio:</strong> ${window.devicePixelRatio}</p>
+                <p><strong>Touch Support:</strong> ${('ontouchstart' in window) ? 'Yes' : 'No'}</p>
+                <p><strong>Platform:</strong> ${navigator.platform}</p>
+                <p><strong>Language:</strong> ${navigator.language}</p>
+            `;
+        }
+        
+        // Test network connection
+        async function testNetwork() {
+            const result = document.getElementById('network-result');
+            result.innerHTML = '<p>Testing network connection...</p>';
+            
+            try {
+                const response = await fetch('https://skbakers.com', { 
+                    method: 'HEAD',
+                    mode: 'no-cors'
+                });
+                result.innerHTML = '<div class="success">✅ Network connection successful</div>';
+            } catch (error) {
+                result.innerHTML = `<div class="error">❌ Network error: ${error.message}</div>`;
+            }
+        }
+        
+        // Test API connection
+        async function testAPI() {
+            const result = document.getElementById('api-result');
+            result.innerHTML = '<p>Testing API connection...</p>';
+            
+            try {
+                const response = await fetch('https://skbakers.com/api/products');
+                if (response.ok) {
+                    result.innerHTML = '<div class="success">✅ API connection successful</div>';
+                } else {
+                    result.innerHTML = `<div class="warning">⚠️ API responded with status: ${response.status}</div>`;
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error">❌ API error: ${error.message}</div>`;
+            }
+        }
+        
+        // Test mobile features
+        function testMobileFeatures() {
+            const result = document.getElementById('mobile-result');
+            let tests = [];
+            
+            // Test viewport
+            const viewport = document.querySelector('meta[name="viewport"]');
+            if (viewport) {
+                tests.push('✅ Viewport meta tag present');
+            } else {
+                tests.push('❌ Viewport meta tag missing');
+            }
+            
+            // Test touch support
+            if ('ontouchstart' in window) {
+                tests.push('✅ Touch events supported');
+            } else {
+                tests.push('❌ Touch events not supported');
+            }
+            
+            // Test mobile user agent
+            const isMobile = /Mobile|Android|iPhone|iPad/.test(navigator.userAgent);
+            if (isMobile) {
+                tests.push('✅ Mobile user agent detected');
+            } else {
+                tests.push('⚠️ Desktop user agent detected');
+            }
+            
+            // Test screen size
+            if (window.innerWidth < 768) {
+                tests.push('✅ Mobile screen size detected');
+            } else {
+                tests.push('⚠️ Desktop screen size detected');
+            }
+            
+            result.innerHTML = tests.map(test => `<div>${test}</div>`).join('');
+        }
+        
+        // Test CSS loading
+        function testCSS() {
+            const result = document.getElementById('css-result');
+            let tests = [];
+            
+            // Test if CSS is loaded
+            const stylesheets = document.querySelectorAll('link[rel="stylesheet"]');
+            if (stylesheets.length > 0) {
+                tests.push(`✅ ${stylesheets.length} stylesheet(s) found`);
+            } else {
+                tests.push('❌ No stylesheets found');
+            }
+            
+            // Test computed styles
+            const body = document.body;
+            const computedStyle = window.getComputedStyle(body);
+            if (computedStyle.fontFamily) {
+                tests.push('✅ CSS is being applied');
+            } else {
+                tests.push('❌ CSS not being applied');
+            }
+            
+            result.innerHTML = tests.map(test => `<div>${test}</div>`).join('');
+        }
+        
+        // Test JavaScript
+        function testJavaScript() {
+            const result = document.getElementById('js-result');
+            let tests = [];
+            
+            // Test basic JavaScript
+            tests.push('✅ JavaScript is working');
+            
+            // Test ES6 features
+            try {
+                const test = () => 'arrow function';
+                tests.push('✅ ES6 arrow functions supported');
+            } catch (e) {
+                tests.push('❌ ES6 arrow functions not supported');
+            }
+            
+            // Test fetch API
+            if (typeof fetch !== 'undefined') {
+                tests.push('✅ Fetch API available');
+            } else {
+                tests.push('❌ Fetch API not available');
+            }
+            
+            // Test localStorage
+            try {
+                localStorage.setItem('test', 'value');
+                localStorage.removeItem('test');
+                tests.push('✅ localStorage available');
+            } catch (e) {
+                tests.push('❌ localStorage not available');
+            }
+            
+            result.innerHTML = tests.map(test => `<div>${test}</div>`).join('');
+        }
+        
+        // Test main website
+        async function testMainWebsite() {
+            const result = document.getElementById('main-result');
+            result.innerHTML = '<p>Testing main website...</p>';
+            
+            try {
+                const response = await fetch('https://skbakers.com');
+                if (response.ok) {
+                    result.innerHTML = '<div class="success">✅ Main website accessible</div>';
+                } else {
+                    result.innerHTML = `<div class="warning">⚠️ Main website responded with status: ${response.status}</div>`;
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error">❌ Main website error: ${error.message}</div>`;
+            }
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            displayDeviceInfo();
+        });
+    </script>
+</body>
+</html>

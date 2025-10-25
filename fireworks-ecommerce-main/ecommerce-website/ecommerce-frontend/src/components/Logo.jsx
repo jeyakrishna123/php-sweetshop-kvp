@@ -39,7 +39,7 @@ const Logo = ({
       <div className="relative flex-shrink-0">
         {/* Desktop Logo */}
         <img 
-          src="/logo.webp" 
+          src="/sk-bakers-logo.png" 
           alt="SK BAKERS HOME-MADE CAKES AND CAFE" 
           className={`hidden sm:block ${config.logo} object-contain transition-all duration-300 group-hover:scale-105`}
           onError={(e) => {
@@ -50,7 +50,7 @@ const Logo = ({
         
         {/* Mobile Logo */}
         <img 
-          src="/logo.webp" 
+          src="/sk-bakers-logo.png" 
           alt="SK BAKERS" 
           className={`block sm:hidden ${config.logo} object-contain transition-all duration-300 group-hover:scale-105`}
           onError={(e) => {

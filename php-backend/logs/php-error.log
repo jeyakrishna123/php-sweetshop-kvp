@@ -1,0 +1,4 @@
+[25-Oct-2025 15:45:47 Asia/Kolkata] PHP Warning:  Undefined array key "HTTP_HOST" in C:\Users\jeyakrishna\Documents\php-sweetshop-kvp\php-backend\config\config_production.php on line 82
+[25-Oct-2025 15:45:47 Asia/Kolkata] PHP Warning:  Undefined array key "REQUEST_URI" in C:\Users\jeyakrishna\Documents\php-sweetshop-kvp\php-backend\config\config_production.php on line 82
+[25-Oct-2025 15:45:55 Asia/Kolkata] PHP Warning:  Undefined array key "HTTP_HOST" in C:\Users\jeyakrishna\Documents\php-sweetshop-kvp\php-backend\config\config_production.php on line 82
+[25-Oct-2025 15:45:55 Asia/Kolkata] PHP Warning:  Undefined array key "REQUEST_URI" in C:\Users\jeyakrishna\Documents\php-sweetshop-kvp\php-backend\config\config_production.php on line 82
