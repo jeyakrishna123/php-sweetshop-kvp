@@ -13,10 +13,10 @@ class EmailService {
     private $fromName;
     
     public function __construct() {
-        // Load configuration
-        $this->smtpHost = defined('SMTP_HOST') ? SMTP_HOST : 'smtp.gmail.com';
+        // Load configuration with proper SMTP settings for Hostinger
+        $this->smtpHost = defined('SMTP_HOST') ? SMTP_HOST : 'smtp.hostinger.com';
         $this->smtpPort = defined('SMTP_PORT') ? SMTP_PORT : 587;
-        $this->smtpUsername = defined('SMTP_USERNAME') ? SMTP_USERNAME : '';
+        $this->smtpUsername = defined('SMTP_USERNAME') ? SMTP_USERNAME : 'noreply@skbakers.com';
         $this->smtpPassword = defined('SMTP_PASSWORD') ? SMTP_PASSWORD : '';
         $this->fromEmail = defined('FROM_EMAIL') ? FROM_EMAIL : 'noreply@skbakers.com';
         $this->fromName = defined('FROM_NAME') ? FROM_NAME : 'SK Bakers';
@@ -26,6 +26,24 @@ class EmailService {
      * Send email using PHPMailer
      */
     public function sendEmail($to, $subject, $message, $isHtml = true) {
+        try {
+            // Try PHPMailer first, then fallback to basic mail
+            if (class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+                return $this->sendEmailWithPHPMailer($to, $subject, $message, $isHtml);
+            } else {
+                return $this->sendBasicEmail($to, $subject, $message, $isHtml);
+            }
+        } catch (Exception $e) {
+            error_log("Email sending failed: " . $e->getMessage());
+            // Try basic mail as fallback
+            return $this->sendBasicEmail($to, $subject, $message, $isHtml);
+        }
+    }
+    
+    /**
+     * Send email using PHPMailer (if available)
+     */
+    public function sendEmailWithPHPMailer($to, $subject, $message, $isHtml = true) {
         try {
             // Check if PHPMailer is available
             if (!class_exists('PHPMailer\PHPMailer\PHPMailer')) {
@@ -75,9 +93,13 @@ class EmailService {
      * Fallback to basic mail() function
      */
     private function sendBasicEmail($to, $subject, $message, $isHtml = true) {
-        $headers = "From: {$this->fromName} <{$this->fromEmail}>\r\n";
+        // Enhanced headers for better delivery
+        $headers = "MIME-Version: 1.0\r\n";
+        $headers .= "From: {$this->fromName} <{$this->fromEmail}>\r\n";
         $headers .= "Reply-To: {$this->fromEmail}\r\n";
         $headers .= "X-Mailer: PHP/" . phpversion() . "\r\n";
+        $headers .= "X-Priority: 3\r\n";
+        $headers .= "Return-Path: {$this->fromEmail}\r\n";
         
         if ($isHtml) {
             $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
@@ -85,7 +107,18 @@ class EmailService {
             $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
         }
         
-        return @mail($to, $subject, $message, $headers);
+        // Log email attempt
+        error_log("Attempting to send email to: $to with subject: $subject");
+        
+        $result = @mail($to, $subject, $message, $headers);
+        
+        if ($result) {
+            error_log("Email sent successfully to: $to");
+        } else {
+            error_log("Email failed to send to: $to");
+        }
+        
+        return $result;
     }
     
     /**

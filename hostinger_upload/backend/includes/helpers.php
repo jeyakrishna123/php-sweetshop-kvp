@@ -85,8 +85,29 @@ function sanitizeInput($data) {
  * Get request body as JSON
  */
 function getRequestBody() {
+    // First try to get from php://input
     $input = file_get_contents('php://input');
-    return json_decode($input, true) ?? [];
+    $data = json_decode($input, true);
+    
+    // If no data from input stream, try POST data
+    if (empty($data) && !empty($_POST)) {
+        $data = $_POST;
+    }
+    
+    // If still no data, try to get from raw input
+    if (empty($data)) {
+        $rawInput = file_get_contents('php://input');
+        if (!empty($rawInput)) {
+            $data = json_decode($rawInput, true);
+        }
+    }
+    
+    // Log for debugging
+    error_log("getRequestBody() - Raw input: " . $input);
+    error_log("getRequestBody() - Parsed data: " . json_encode($data));
+    error_log("getRequestBody() - POST data: " . json_encode($_POST));
+    
+    return $data ?? [];
 }
 
 /**

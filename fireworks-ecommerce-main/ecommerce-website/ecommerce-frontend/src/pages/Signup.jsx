@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Icon from '../components/Icon';
 import SignupOtpModal from '../components/SignupOtpModal';
+import FixedOtpModal from '../components/FixedOtpModal';
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -402,7 +403,7 @@ const Signup = () => {
 
       {/* OTP Verification Modal */}
       {showOtpModal && pendingUser && (
-        <SignupOtpModal
+        <FixedOtpModal
           isOpen={showOtpModal}
           onClose={handleOtpClose}
           onSuccess={handleOtpSuccess}

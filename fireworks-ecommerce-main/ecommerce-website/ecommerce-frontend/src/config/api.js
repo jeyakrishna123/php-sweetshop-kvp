@@ -1,7 +1,7 @@
 // API Configuration
 export const API_CONFIG = {
-  // Backend API base URL (PHP Backend)
-  BASE_URL: import.meta.env.VITE_API_URL || (process.env.NODE_ENV === 'production' ? 'https://skbakers.com/api' : 'http://localhost:8000'),
+  // Backend API base URL (PHP Backend) - FORCE PRODUCTION
+  BASE_URL: 'https://skbakers.com/api',
   
   // API endpoints
   ENDPOINTS: {
@@ -29,16 +29,16 @@ export const API_CONFIG = {
   }
 };
 
-// Environment-specific configurations
+// Environment-specific configurations - FORCE PRODUCTION
 export const getApiConfig = () => {
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const isProduction = process.env.NODE_ENV === 'production';
-  
   return {
     ...API_CONFIG,
-    BASE_URL: isProduction 
-      ? import.meta.env.VITE_API_URL || ''
-      : API_CONFIG.BASE_URL,
-    TIMEOUT: isDevelopment ? 15000 : API_CONFIG.TIMEOUT
+    BASE_URL: 'https://skbakers.com/api', // ALWAYS USE PRODUCTION
+    TIMEOUT: API_CONFIG.TIMEOUT
   };
+};
+
+// Production-specific banner API fix - FORCE PRODUCTION
+export const getBannerApiUrl = () => {
+  return 'https://skbakers.com/api/banners/active';
 };

@@ -177,7 +177,7 @@ function createBanner($db) {
 
     // Process mobile image if uploaded
     if (isset($_FILES['mobileImage']) && $_FILES['mobileImage']['error'] === UPLOAD_ERR_OK) {
-        $uploadDir = __DIR__ . '/../uploads/banners/';
+        $uploadDir = defined('UPLOAD_DIR') ? UPLOAD_DIR . 'banners/' : __DIR__ . '/../uploads/banners/';
         if (!is_dir($uploadDir)) {
             mkdir($uploadDir, 0755, true);
         }
@@ -187,14 +187,14 @@ function createBanner($db) {
         $filepath = $uploadDir . $filename;
 
         if (move_uploaded_file($_FILES['mobileImage']['tmp_name'], $filepath)) {
-            $mobileImageUrl = '/uploads/banners/' . $filename;
+            $mobileImageUrl = '/backend/uploads/banners/' . $filename;
             error_log("✅ Mobile image uploaded: $mobileImageUrl");
         }
     }
 
     // Process desktop image if uploaded
     if (isset($_FILES['desktopImage']) && $_FILES['desktopImage']['error'] === UPLOAD_ERR_OK) {
-        $uploadDir = __DIR__ . '/../uploads/banners/';
+        $uploadDir = defined('UPLOAD_DIR') ? UPLOAD_DIR . 'banners/' : __DIR__ . '/../uploads/banners/';
         if (!is_dir($uploadDir)) {
             mkdir($uploadDir, 0755, true);
         }
@@ -204,7 +204,7 @@ function createBanner($db) {
         $filepath = $uploadDir . $filename;
 
         if (move_uploaded_file($_FILES['desktopImage']['tmp_name'], $filepath)) {
-            $desktopImageUrl = '/uploads/banners/' . $filename;
+            $desktopImageUrl = '/backend/uploads/banners/' . $filename;
             error_log("✅ Desktop image uploaded: $desktopImageUrl");
         }
     }

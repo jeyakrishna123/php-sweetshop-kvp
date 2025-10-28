@@ -33,8 +33,13 @@ try {
     // All upload endpoints require authentication
     error_log("🔍 Upload API called - Method: " . $method . ", Type: " . $uploadType);
     
-    $authUser = AuthMiddleware::authenticate();
-    AuthMiddleware::requireAdmin($authUser);
+    try {
+        $authUser = AuthMiddleware::authenticate();
+        AuthMiddleware::requireAdmin($authUser);
+    } catch (Exception $e) {
+        error_log("Upload API authentication failed: " . $e->getMessage());
+        sendError('Authentication required. Please login as admin.', [], 401);
+    }
 
     if ($method === 'POST') {
         switch ($uploadType) {

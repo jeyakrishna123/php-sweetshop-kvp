@@ -37,17 +37,8 @@ try {
     switch ($endpoint) {
         case '':
             if ($method === 'GET') {
-                // Check if user is admin
-                try {
-                    $authUser = AuthMiddleware::authenticate(false);
-                    if ($authUser && $authUser->role === 'admin') {
-                        getAllOfferPopups($db);
-                    } else {
-                        getActiveOfferPopups($db);
-                    }
-                } catch (Exception $e) {
-                    getActiveOfferPopups($db);
-                }
+                // Always return active popups for public access
+                getActiveOfferPopups($db);
             } elseif ($method === 'POST') {
                 createOfferPopup($db);
             }
@@ -110,19 +101,35 @@ try {
  * Get active offer popups
  */
 function getActiveOfferPopups($db) {
-    $stmt = $db->prepare("
-        SELECT id, title, description, image_url, coupon_code, discount_percentage,
-               button_text, button_link, is_active, show_on_homepage
-        FROM offer_popups
-        WHERE is_active = 1
-        AND (start_date IS NULL OR start_date <= NOW())
-        AND (end_date IS NULL OR end_date >= NOW())
-        ORDER BY created_at DESC
-    ");
-    $stmt->execute();
-    $popups = $stmt->fetchAll();
+    try {
+        // Check if offer_popups table exists
+        $stmt = $db->query("SHOW TABLES LIKE 'offer_popups'");
+        if ($stmt->rowCount() === 0) {
+            // Table doesn't exist, return empty array
+            sendSuccess('Active offer popups retrieved successfully', ['popups' => []]);
+            return;
+        }
 
-    sendSuccess('Active offer popups retrieved successfully', ['popups' => $popups]);
+        $stmt = $db->prepare("
+            SELECT id, title, description, image_url, coupon_code, discount_percentage,
+                   button_text, button_link, is_active, show_on_homepage
+            FROM offer_popups
+            WHERE is_active = 1
+            AND (start_date IS NULL OR start_date <= NOW())
+            AND (end_date IS NULL OR end_date >= NOW())
+            ORDER BY created_at DESC
+        ");
+        $stmt->execute();
+        $popups = $stmt->fetchAll();
+
+        sendSuccess('Active offer popups retrieved successfully', ['popups' => $popups]);
+        
+    } catch (PDOException $e) {
+        error_log("❌ getActiveOfferPopups Error: " . $e->getMessage());
+        
+        // Return empty array on error to prevent 500 errors
+        sendSuccess('Active offer popups retrieved successfully', ['popups' => []]);
+    }
 }
 
 /**

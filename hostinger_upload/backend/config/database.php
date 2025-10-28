@@ -40,17 +40,17 @@ class Database {
 
         // Try multiple database configurations
         $configs = [
-            // Config 1: Local development with existing database
-            ['host' => 'localhost', 'db' => 'u707629033_skbakers_main', 'user' => 'root', 'pass' => ''],
+            // Config 1: Hostinger production (correct credentials)
+            ['host' => 'localhost', 'db' => 'u707629033_skbakers', 'user' => 'u707629033_sksweets', 'pass' => 'Skbakers@123'],
             // Config 2: Environment variables from .env
             ['host' => $_ENV['DB_HOST'] ?? 'localhost',
-             'db' => $_ENV['DB_NAME'] ?? 'u707629033_skbakers_main',
-             'user' => $_ENV['DB_USER'] ?? 'root',
-             'pass' => $_ENV['DB_PASS'] ?? ''],
-            // Config 3: Alternative local name
-            ['host' => 'localhost', 'db' => 'sk_bakers', 'user' => 'root', 'pass' => ''],
-            // Config 4: Hostinger production
-            ['host' => 'localhost', 'db' => 'u707629033_skbakers_main', 'user' => 'u707629033_admin', 'pass' => 'Skbakers@123']
+             'db' => $_ENV['DB_NAME'] ?? 'u707629033_skbakers',
+             'user' => $_ENV['DB_USER'] ?? 'u707629033_sksweets',
+             'pass' => $_ENV['DB_PASS'] ?? 'Skbakers@123'],
+            // Config 3: Local development
+            ['host' => 'localhost', 'db' => 'u707629033_skbakers', 'user' => 'root', 'pass' => ''],
+            // Config 4: Alternative local name
+            ['host' => 'localhost', 'db' => 'sk_bakers', 'user' => 'root', 'pass' => '']
         ];
         
         $connected = false;

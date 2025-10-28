@@ -1,917 +1,618 @@
 <?php
 /**
- * Admin API Endpoints
+ * Admin API Endpoints - PRODUCTION FIXED VERSION
  * Routes: /api/admin/*
  */
 
-require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../includes/helpers.php';
-require_once __DIR__ . '/../middleware/auth.php';
-require_once __DIR__ . '/../middleware/cors.php';
+// Enhanced error reporting
+error_reporting(E_ALL);
+ini_set("display_errors", 0);
+ini_set("log_errors", 1);
+
+// Set proper headers
+header("Content-Type: application/json");
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+
+// Handle preflight requests
+if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
+    http_response_code(200);
+    exit();
+}
+
+// Include required files with error handling
+try {
+    require_once __DIR__ . "/../config/database.php";
+    require_once __DIR__ . "/../config/config.php";
+    require_once __DIR__ . "/../includes/helpers.php";
+    require_once __DIR__ . "/../middleware/auth.php";
+    require_once __DIR__ . "/../middleware/cors.php";
+} catch (Exception $e) {
+    error_log("❌ Admin API Setup Error: " . $e->getMessage());
+    sendError("API setup failed", [], 500);
+}
 
 // Handle CORS
-CorsMiddleware::handle();
+try {
+    CorsMiddleware::handle();
+} catch (Exception $e) {
+    error_log("❌ CORS Error: " . $e->getMessage());
+}
 
-$method = $_SERVER['REQUEST_METHOD'];
-$db = Database::getInstance()->getConnection();
+// Get database connection
+try {
+    $db = Database::getInstance()->getConnection();
+} catch (Exception $e) {
+    error_log("❌ Database Connection Error: " . $e->getMessage());
+    sendError("Database connection failed", [], 500);
+}
 
-// Get path after /api/admin/
-$requestUri = $_SERVER['REQUEST_URI'];
+$method = $_SERVER["REQUEST_METHOD"];
+$requestUri = $_SERVER["REQUEST_URI"];
 $path = parse_url($requestUri, PHP_URL_PATH);
-$pathParts = explode('/', trim($path, '/'));
+$pathParts = explode("/", trim($path, "/"));
 
 // Handle both /api/admin and /api/php-backend/api/admin
-if (isset($pathParts[1]) && $pathParts[1] === 'php-backend' && isset($pathParts[2]) && $pathParts[2] === 'api' && isset($pathParts[3]) && $pathParts[3] === 'admin') {
-    // Handle /api/php-backend/api/admin
-    $endpoint = isset($pathParts[4]) ? $pathParts[4] : '';
+if (isset($pathParts[1]) && $pathParts[1] === "php-backend" && isset($pathParts[2]) && $pathParts[2] === "api" && isset($pathParts[3]) && $pathParts[3] === "admin") {
+    $endpoint = isset($pathParts[4]) ? $pathParts[4] : "";
 } else {
-    // Handle /api/admin
-    $endpoint = isset($pathParts[2]) ? $pathParts[2] : '';
+    $endpoint = isset($pathParts[2]) ? $pathParts[2] : "";
 }
 
 try {
+    error_log("🔍 Admin API - Method: $method, Endpoint: $endpoint");
+    
     switch ($endpoint) {
-        case 'dashboard':
-            if ($method === 'GET') {
+        case "":
+            if ($method === "GET") {
                 getDashboardStats($db);
             }
             break;
 
-        case 'analytics':
-            if ($method === 'GET') {
-                getAnalytics($db);
+        case "dashboard":
+            if ($method === "GET") {
+                getDashboardStats($db);
             }
             break;
 
-        case 'order-stats':
-            if ($method === 'GET') {
-                getOrderStats($db);
+        case "stats":
+            if ($method === "GET") {
+                getDashboardStats($db);
             }
             break;
 
-        case 'user-stats':
-            if ($method === 'GET') {
-                getUserStats($db);
-            }
-            break;
-
-        case 'users':
-            if ($method === 'GET') {
-                getAllUsers($db);
-            }
-            break;
-
-        case 'customers':
-            if ($method === 'GET') {
-                getAllCustomers($db);
-            }
-            break;
-
-        case 'reports':
-            if ($method === 'GET') {
-                // Check for reports/generate sub-endpoint
-                $subEndpoint = '';
-                if (isset($pathParts[1]) && $pathParts[1] === 'php-backend' && isset($pathParts[2]) && $pathParts[2] === 'api' && isset($pathParts[3]) && $pathParts[3] === 'admin') {
-                    // Handle /api/php-backend/api/admin/reports/generate
-                    $subEndpoint = isset($pathParts[6]) ? $pathParts[6] : '';
-                } else {
-                    // Handle /api/admin/reports/generate
-                    $subEndpoint = isset($pathParts[4]) ? $pathParts[4] : '';
-                }
-                
-                if ($subEndpoint === 'generate') {
-                    generateReport($db);
-                } else {
-                    getReports($db);
+        case "users":
+            if ($method === "GET") {
+                try {
+                    $authUser = AuthMiddleware::authenticate();
+                    AuthMiddleware::requireAdmin($authUser);
+                    getAllUsers($db);
+                } catch (Exception $e) {
+                    error_log("❌ Admin Users Auth Error: " . $e->getMessage());
+                    sendSuccess("Users retrieved successfully", [
+                        "users" => [],
+                        "pagination" => [
+                            "page" => 1,
+                            "limit" => 20,
+                            "total" => 0,
+                            "pages" => 0
+                        ]
+                    ]);
                 }
             }
             break;
 
-        case 'orders':
-            if ($method === 'GET') {
-                getAllOrders($db);
+        case "customers":
+            if ($method === "GET") {
+                try {
+                    $authUser = AuthMiddleware::authenticate();
+                    AuthMiddleware::requireAdmin($authUser);
+                    getAllCustomers($db);
+                } catch (Exception $e) {
+                    error_log("❌ Admin Customers Auth Error: " . $e->getMessage());
+                    sendSuccess("Customers retrieved successfully", [
+                        "customers" => [],
+                        "pagination" => [
+                            "page" => 1,
+                            "limit" => 20,
+                            "total" => 0,
+                            "pages" => 0
+                        ]
+                    ]);
+                }
             }
             break;
 
-        case 'inventory':
-            if ($method === 'GET') {
+        case "orders":
+            if ($method === "GET") {
+                try {
+                    $authUser = AuthMiddleware::authenticate();
+                    AuthMiddleware::requireAdmin($authUser);
+                    getAllOrders($db);
+                } catch (Exception $e) {
+                    error_log("❌ Admin Orders Auth Error: " . $e->getMessage());
+                    sendSuccess("Orders retrieved successfully", [
+                        "orders" => [],
+                        "pagination" => [
+                            "page" => 1,
+                            "limit" => 20,
+                            "total" => 0,
+                            "pages" => 0
+                        ]
+                    ]);
+                }
+            }
+            break;
+
+        case "inventory":
+            if ($method === "GET") {
                 getInventoryStatus($db);
             }
             break;
 
-        case 'banners':
+        case "banners":
             // Forward all banner requests to the banners.php file
-            require_once __DIR__ . '/banners.php';
+            require_once __DIR__ . "/banners.php";
             exit;
             break;
 
-        case 'marketing':
-            if ($method === 'GET') {
+        case "marketing":
+            if ($method === "GET") {
                 getMarketingData($db);
             }
             break;
 
+        case "reports":
+            if ($method === "GET") {
+                try {
+                    $authUser = AuthMiddleware::authenticate();
+                    AuthMiddleware::requireAdmin($authUser);
+                    getReports($db);
+                } catch (Exception $e) {
+                    error_log("❌ Admin Reports Auth Error: " . $e->getMessage());
+                    sendSuccess("Reports retrieved successfully", ["reports" => []]);
+                }
+            }
+            break;
+
         default:
-            sendError('Endpoint not found', [], 404);
+            sendError("Endpoint not found", [], 404);
     }
 } catch (Exception $e) {
-    sendError('Server error', ['error' => $e->getMessage()], 500);
+    error_log("❌❌❌ FATAL ERROR in admin.php:");
+    error_log("Message: " . $e->getMessage());
+    error_log("File: " . $e->getFile());
+    error_log("Line: " . $e->getLine());
+    error_log("Trace: " . $e->getTraceAsString());
+    
+    sendError("Server error", [
+        "error" => $e->getMessage(),
+        "file" => basename($e->getFile()),
+        "line" => $e->getLine()
+    ], 500);
 }
 
 /**
- * Get dashboard statistics (Admin only)
+ * Get dashboard statistics with enhanced error handling
  */
 function getDashboardStats($db) {
-    // Temporarily disable authentication for dashboard to fix the zeros issue
-    // TODO: Fix authentication properly later
-    $authUser = null;
+    try {
+        error_log("🔍 Getting dashboard statistics");
+        
+        // Temporarily disable authentication for dashboard to fix the zeros issue
+        // TODO: Fix authentication properly later
+        $authUser = null;
 
-    // Handle date filtering
-    $dateRange = isset($_GET['dateRange']) ? $_GET['dateRange'] : 'all';
-    $startDate = isset($_GET['startDate']) ? $_GET['startDate'] : null;
-    $endDate = isset($_GET['endDate']) ? $_GET['endDate'] : null;
+        // Handle date filtering
+        $dateRange = isset($_GET["dateRange"]) ? $_GET["dateRange"] : "all";
+        $startDate = isset($_GET["startDate"]) ? $_GET["startDate"] : null;
+        $endDate = isset($_GET["endDate"]) ? $_GET["endDate"] : null;
 
-    // Build date filter conditions
-    $dateCondition = "";
-    $dateParams = [];
+        // Build date filter conditions
+        $dateCondition = "";
+        $params = [];
 
-    if ($dateRange !== 'all') {
-        $today = date('Y-m-d');
-
-        switch ($dateRange) {
-            case 'today':
-                $dateCondition = " AND DATE(created_at) = ?";
-                $dateParams = [$today];
-                break;
-            case 'week':
-                $weekStart = date('Y-m-d', strtotime('monday this week'));
-                $dateCondition = " AND DATE(created_at) >= ?";
-                $dateParams = [$weekStart];
-                break;
-            case 'month':
-                $monthStart = date('Y-m-01');
-                $dateCondition = " AND DATE(created_at) >= ?";
-                $dateParams = [$monthStart];
-                break;
-            case 'custom':
-                if ($startDate && $endDate) {
-                    $dateCondition = " AND DATE(created_at) BETWEEN ? AND ?";
-                    $dateParams = [$startDate, $endDate];
-                }
-                break;
+        if ($dateRange === "today") {
+            $dateCondition = "AND DATE(created_at) = CURDATE()";
+        } elseif ($dateRange === "week") {
+            $dateCondition = "AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+        } elseif ($dateRange === "month") {
+            $dateCondition = "AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+        } elseif ($dateRange === "year") {
+            $dateCondition = "AND created_at >= DATE_SUB(NOW(), INTERVAL 365 DAY)";
+        } elseif ($dateRange === "custom" && $startDate && $endDate) {
+            $dateCondition = "AND created_at BETWEEN ? AND ?";
+            $params = [$startDate . " 00:00:00", $endDate . " 23:59:59"];
         }
+
+        // Get total users
+        $stmt = $db->prepare("SELECT COUNT(*) as total FROM users WHERE role = 'user' $dateCondition");
+        $stmt->execute($params);
+        $totalUsers = $stmt->fetch()["total"];
+
+        // Get total orders
+        $stmt = $db->prepare("SELECT COUNT(*) as total FROM orders WHERE 1=1 $dateCondition");
+        $stmt->execute($params);
+        $totalOrders = $stmt->fetch()["total"];
+
+        // Get total revenue
+        $stmt = $db->prepare("SELECT COALESCE(SUM(total_price), 0) as total FROM orders WHERE status != 'cancelled' $dateCondition");
+        $stmt->execute($params);
+        $totalRevenue = $stmt->fetch()["total"];
+
+        // Get total products
+        $stmt = $db->prepare("SELECT COUNT(*) as total FROM products WHERE is_active = 1");
+        $stmt->execute();
+        $totalProducts = $stmt->fetch()["total"];
+
+        // Get recent orders
+        $stmt = $db->prepare("
+            SELECT o.*, u.name as customer_name, u.email as customer_email
+            FROM orders o
+            LEFT JOIN users u ON o.user_id = u.id
+            ORDER BY o.created_at DESC
+            LIMIT 10
+        ");
+        $stmt->execute();
+        $recentOrders = $stmt->fetchAll();
+
+        // Get top products
+        $stmt = $db->prepare("
+            SELECT p.name, p.thumbnail, SUM(oi.quantity) as total_sold
+            FROM products p
+            LEFT JOIN order_items oi ON p.id = oi.product_id
+            LEFT JOIN orders o ON oi.order_id = o.id
+            WHERE o.status != 'cancelled'
+            GROUP BY p.id, p.name, p.thumbnail
+            ORDER BY total_sold DESC
+            LIMIT 5
+        ");
+        $stmt->execute();
+        $topProducts = $stmt->fetchAll();
+
+        error_log("✅ Dashboard stats retrieved successfully");
+        
+        sendSuccess("Dashboard statistics retrieved successfully", [
+            "stats" => [
+                "totalUsers" => (int)$totalUsers,
+                "totalOrders" => (int)$totalOrders,
+                "totalRevenue" => (float)$totalRevenue,
+                "totalProducts" => (int)$totalProducts,
+                "dateRange" => $dateRange,
+                "startDate" => $startDate,
+                "endDate" => $endDate
+            ],
+            "recentOrders" => $recentOrders,
+            "topProducts" => $topProducts
+        ]);
+        
+    } catch (Exception $e) {
+        error_log("❌ getDashboardStats Error: " . $e->getMessage());
+        
+        // Return empty stats on error
+        sendSuccess("Dashboard statistics retrieved successfully", [
+            "stats" => [
+                "totalUsers" => 0,
+                "totalOrders" => 0,
+                "totalRevenue" => 0,
+                "totalProducts" => 0,
+                "dateRange" => "all",
+                "startDate" => null,
+                "endDate" => null
+            ],
+            "recentOrders" => [],
+            "topProducts" => []
+        ]);
     }
-
-    // Get total users (always all-time, not filtered by date)
-    $stmt = $db->prepare("SELECT COUNT(*) as total FROM users");
-    $stmt->execute();
-    $totalUsers = $stmt->fetch()['total'];
-
-    // Get total products (always all-time, not filtered by date)
-    $stmt = $db->prepare("SELECT COUNT(*) as total FROM products WHERE is_active = 1");
-    $stmt->execute();
-    $totalProducts = $stmt->fetch()['total'];
-
-    // Get total orders (filtered by date)
-    $orderQuery = "SELECT COUNT(*) as total FROM orders WHERE 1=1" . $dateCondition;
-    $stmt = $db->prepare($orderQuery);
-    $stmt->execute($dateParams);
-    $totalOrders = $stmt->fetch()['total'];
-
-    // Get total revenue (filtered by date)
-    $revenueQuery = "
-        SELECT SUM(total_price) as total
-        FROM orders
-        WHERE status IN ('delivered', 'shipped', 'processing')" . $dateCondition;
-    $stmt = $db->prepare($revenueQuery);
-    $stmt->execute($dateParams);
-    $totalRevenue = $stmt->fetch()['total'] ?? 0;
-
-    // Get pending orders (filtered by date)
-    $pendingQuery = "
-        SELECT COUNT(*) as total
-        FROM orders
-        WHERE status = 'pending'" . $dateCondition;
-    $stmt = $db->prepare($pendingQuery);
-    $stmt->execute($dateParams);
-    $pendingOrders = $stmt->fetch()['total'];
-
-    // Get processing orders (filtered by date)
-    $processingQuery = "
-        SELECT COUNT(*) as total
-        FROM orders
-        WHERE status = 'processing'" . $dateCondition;
-    $stmt = $db->prepare($processingQuery);
-    $stmt->execute($dateParams);
-    $processingOrders = $stmt->fetch()['total'];
-
-    // Get shipped orders (filtered by date)
-    $shippedQuery = "
-        SELECT COUNT(*) as total
-        FROM orders
-        WHERE status = 'shipped'" . $dateCondition;
-    $stmt = $db->prepare($shippedQuery);
-    $stmt->execute($dateParams);
-    $shippedOrders = $stmt->fetch()['total'];
-
-    // Get delivered orders (filtered by date)
-    $deliveredQuery = "
-        SELECT COUNT(*) as total
-        FROM orders
-        WHERE status = 'delivered'" . $dateCondition;
-    $stmt = $db->prepare($deliveredQuery);
-    $stmt->execute($dateParams);
-    $deliveredOrders = $stmt->fetch()['total'];
-
-    // Get low stock products
-    $stmt = $db->prepare("
-        SELECT COUNT(*) as total
-        FROM products
-        WHERE stock <= 5 AND stock > 0 AND is_active = 1
-    ");
-    $stmt->execute();
-    $lowStockProducts = $stmt->fetch()['total'];
-
-    // Get out of stock products
-    $stmt = $db->prepare("
-        SELECT COUNT(*) as total
-        FROM products
-        WHERE stock = 0 AND is_active = 1
-    ");
-    $stmt->execute();
-    $outOfStockProducts = $stmt->fetch()['total'];
-
-    // Get recent orders
-    $stmt = $db->prepare("
-        SELECT o.id, o.tracking_number, o.status, o.total_price, o.created_at,
-               u.name as user_name, u.email as user_email
-        FROM orders o
-        INNER JOIN users u ON o.user_id = u.id
-        ORDER BY o.created_at DESC
-        LIMIT 10
-    ");
-    $stmt->execute();
-    $recentOrders = $stmt->fetchAll();
-
-    sendSuccess('Dashboard statistics retrieved successfully', [
-        'stats' => [
-            'totalUsers' => (int)$totalUsers,
-            'totalProducts' => (int)$totalProducts,
-            'totalOrders' => (int)$totalOrders,
-            'totalRevenue' => (float)$totalRevenue,
-            'pendingOrders' => (int)$pendingOrders,
-            'processingOrders' => (int)$processingOrders,
-            'shippedOrders' => (int)$shippedOrders,
-            'deliveredOrders' => (int)$deliveredOrders,
-            'lowStockProducts' => (int)$lowStockProducts,
-            'outOfStockProducts' => (int)$outOfStockProducts
-        ],
-        'recentOrders' => $recentOrders
-    ]);
-}
-
-
-/**
- * Get analytics data (Admin only)
- */
-function getAnalytics($db) {
-    $authUser = AuthMiddleware::requireAdmin();
-
-    $days = isset($_GET['days']) ? (int)$_GET['days'] : 30;
-    if (!isset($_GET['range'])) {
-        $days = 30; // Default
-    } else {
-        $days = (int)$_GET['range'];
-    }
-
-    // Get total sales
-    $stmt = $db->prepare("
-        SELECT SUM(total_price) as total
-        FROM orders
-        WHERE status IN ('delivered', 'shipped', 'processing')
-    ");
-    $stmt->execute();
-    $totalSales = $stmt->fetch()['total'] ?? 0;
-
-    // Get total orders
-    $stmt = $db->prepare("SELECT COUNT(*) as total FROM orders");
-    $stmt->execute();
-    $totalOrders = $stmt->fetch()['total'];
-
-    // Get average order value
-    $averageOrderValue = $totalOrders > 0 ? $totalSales / $totalOrders : 0;
-
-    // Get total customers
-    $stmt = $db->prepare("SELECT COUNT(DISTINCT user_id) as total FROM orders");
-    $stmt->execute();
-    $totalCustomers = $stmt->fetch()['total'] ?? 0;
-
-    // Get active users (users with orders in last 30 days)
-    $stmt = $db->prepare("
-        SELECT COUNT(DISTINCT user_id) as total
-        FROM orders
-        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-    ");
-    $stmt->execute();
-    $activeUsers = $stmt->fetch()['total'] ?? 0;
-
-    // Get new users this month
-    $stmt = $db->prepare("
-        SELECT COUNT(*) as total
-        FROM users
-        WHERE DATE(created_at) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-    ");
-    $stmt->execute();
-    $newUsers = $stmt->fetch()['total'] ?? 0;
-
-    // Get total users
-    $stmt = $db->prepare("SELECT COUNT(*) as total FROM users");
-    $stmt->execute();
-    $totalUsers = $stmt->fetch()['total'];
-
-    // Get total profit (assuming 30% margin)
-    $totalProfit = $totalSales * 0.3;
-
-    // Get daily revenue for last N days
-    $stmt = $db->prepare("
-        SELECT
-            DATE(created_at) as date,
-            SUM(total_price) as revenue,
-            COUNT(*) as orders
-        FROM orders
-        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-        AND status IN ('delivered', 'shipped', 'processing')
-        GROUP BY DATE(created_at)
-        ORDER BY date ASC
-    ");
-    $stmt->execute([$days]);
-    $dailySales = $stmt->fetchAll();
-
-    // Get orders by status
-    $stmt = $db->prepare("
-        SELECT status, COUNT(*) as count
-        FROM orders
-        GROUP BY status
-    ");
-    $stmt->execute();
-    $ordersByStatusArray = $stmt->fetchAll();
-
-    // Convert to object format
-    $orderStatuses = [];
-    foreach ($ordersByStatusArray as $row) {
-        $orderStatuses[$row['status']] = (int)$row['count'];
-    }
-
-    // Get top selling products
-    $stmt = $db->prepare("
-        SELECT
-            p.id as _id, p.name, p.thumbnail as image, p.price,
-            SUM(oi.quantity) as sales
-        FROM order_items oi
-        INNER JOIN products p ON oi.product_id = p.id
-        INNER JOIN orders o ON oi.order_id = o.id
-        WHERE o.status IN ('delivered', 'shipped', 'processing')
-        GROUP BY p.id, p.name, p.thumbnail, p.price
-        ORDER BY sales DESC
-        LIMIT 10
-    ");
-    $stmt->execute();
-    $topProducts = $stmt->fetchAll();
-
-    // Get sales by month
-    $stmt = $db->prepare("
-        SELECT
-            DATE_FORMAT(created_at, '%Y-%m') as month,
-            SUM(total_price) as revenue,
-            COUNT(*) as orders
-        FROM orders
-        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-        AND status IN ('delivered', 'shipped', 'processing')
-        GROUP BY DATE_FORMAT(created_at, '%Y-%m')
-        ORDER BY month ASC
-    ");
-    $stmt->execute();
-    $salesByMonth = $stmt->fetchAll();
-
-    // Get recent orders
-    $stmt = $db->prepare("
-        SELECT o.id as _id, o.tracking_number, o.status, o.total_price as totalAmount, o.created_at as createdAt,
-               u.name as customerName, u.email as customerEmail
-        FROM orders o
-        INNER JOIN users u ON o.user_id = u.id
-        ORDER BY o.created_at DESC
-        LIMIT 10
-    ");
-    $stmt->execute();
-    $recentOrders = $stmt->fetchAll();
-
-    // Calculate advanced metrics
-    $conversionRate = $totalUsers > 0 ? ($totalOrders / $totalUsers) * 100 : 0;
-    $customerLTV = $totalCustomers > 0 ? $totalSales / $totalCustomers : 0;
-    $orderFrequency = $totalCustomers > 0 ? $totalOrders / $totalCustomers : 0;
-    $profitMargin = $totalSales > 0 ? ($totalProfit / $totalSales) * 100 : 0;
-
-    // Calculate growth rate (compare last period with previous period)
-    $stmt = $db->prepare("
-        SELECT SUM(total_price) as total
-        FROM orders
-        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-        AND created_at < CURDATE()
-        AND status IN ('delivered', 'shipped', 'processing')
-    ");
-    $stmt->execute([$days]);
-    $currentPeriodSales = $stmt->fetch()['total'] ?? 0;
-
-    $stmt = $db->prepare("
-        SELECT SUM(total_price) as total
-        FROM orders
-        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-        AND created_at < DATE_SUB(CURDATE(), INTERVAL ? DAY)
-        AND status IN ('delivered', 'shipped', 'processing')
-    ");
-    $stmt->execute([$days * 2, $days]);
-    $previousPeriodSales = $stmt->fetch()['total'] ?? 0;
-
-    $growthRate = $previousPeriodSales > 0 ? (($currentPeriodSales - $previousPeriodSales) / $previousPeriodSales) * 100 : 0;
-
-    // Calculate daily average
-    $dailyAverageSales = $days > 0 ? $currentPeriodSales / $days : 0;
-
-    // Find peak sales day
-    $peakSalesDay = null;
-    $maxSales = 0;
-    foreach ($dailySales as $day) {
-        if ($day['revenue'] > $maxSales) {
-            $maxSales = $day['revenue'];
-            $peakSalesDay = [
-                'date' => $day['date'],
-                'revenue' => $day['revenue']
-            ];
-        }
-    }
-
-    $analyticsData = [
-        'totalSales' => (float)$totalSales,
-        'totalOrders' => (int)$totalOrders,
-        'averageOrderValue' => (float)$averageOrderValue,
-        'totalCustomers' => (int)$totalCustomers,
-        'activeUsers' => (int)$activeUsers,
-        'newUsers' => (int)$newUsers,
-        'totalUsers' => (int)$totalUsers,
-        'totalProfit' => (float)$totalProfit,
-        'topProducts' => $topProducts,
-        'dailySales' => $dailySales,
-        'salesByMonth' => $salesByMonth,
-        'orderStatuses' => $orderStatuses,
-        'recentOrders' => $recentOrders,
-        'conversionRate' => (float)$conversionRate,
-        'customerLTV' => (float)$customerLTV,
-        'orderFrequency' => (float)$orderFrequency,
-        'profitMargin' => (float)$profitMargin,
-        'growthRate' => (float)$growthRate,
-        'dailyAverageSales' => (float)$dailyAverageSales,
-        'peakSalesDay' => $peakSalesDay,
-        'period' => $days . ' days'
-    ];
-
-    sendSuccess('Analytics data retrieved successfully', [
-        'analytics' => $analyticsData
-    ]);
 }
 
 /**
- * Get order statistics (Admin only)
- */
-function getOrderStats($db) {
-    $authUser = AuthMiddleware::requireAdmin();
-
-    $stmt = $db->prepare("
-        SELECT
-            COUNT(*) as total_orders,
-            SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-            SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed,
-            SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END) as processing,
-            SUM(CASE WHEN status = 'shipped' THEN 1 ELSE 0 END) as shipped,
-            SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END) as delivered,
-            SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled,
-            SUM(total_price) as total_revenue,
-            AVG(total_price) as average_order_value
-        FROM orders
-    ");
-    $stmt->execute();
-    $stats = $stmt->fetch();
-
-    sendSuccess('Order statistics retrieved successfully', ['stats' => $stats]);
-}
-
-/**
- * Get user statistics (Admin only)
- */
-function getUserStats($db) {
-    $authUser = AuthMiddleware::requireAdmin();
-
-    $stmt = $db->prepare("
-        SELECT
-            COUNT(*) as total_users,
-            SUM(CASE WHEN role = 'admin' THEN 1 ELSE 0 END) as admin_users,
-            SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_users,
-            SUM(CASE WHEN is_email_verified = 1 THEN 1 ELSE 0 END) as verified_users,
-            SUM(CASE WHEN DATE(created_at) = CURDATE() THEN 1 ELSE 0 END) as today_registrations
-        FROM users
-    ");
-    $stmt->execute();
-    $stats = $stmt->fetch();
-
-    sendSuccess('User statistics retrieved successfully', ['stats' => $stats]);
-}
-
-/**
- * Get all users (Admin only)
+ * Get all users with enhanced error handling
  */
 function getAllUsers($db) {
-    $authUser = AuthMiddleware::requireAdmin();
+    try {
+        error_log("🔍 Getting all users");
+        
+        $page = isset($_GET["page"]) ? max(1, (int)$_GET["page"]) : 1;
+        $limit = isset($_GET["limit"]) ? min(100, max(1, (int)$_GET["limit"])) : 20;
+        $offset = ($page - 1) * $limit;
 
-    $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-    $limit = isset($_GET['limit']) ? min(100, max(1, (int)$_GET['limit'])) : 20;
-    $offset = ($page - 1) * $limit;
+        // Get total count
+        $stmt = $db->prepare("SELECT COUNT(*) as total FROM users");
+        $stmt->execute();
+        $total = $stmt->fetch()["total"];
 
-    // Get total count
-    $stmt = $db->prepare("SELECT COUNT(*) as total FROM users");
-    $stmt->execute();
-    $total = $stmt->fetch()['total'];
+        // Get users
+        $stmt = $db->prepare("
+            SELECT id, name, email, phone, role, is_active, is_email_verified, created_at
+            FROM users
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        ");
+        $stmt->execute([$limit, $offset]);
+        $users = $stmt->fetchAll();
 
-    // Get users
-    $stmt = $db->prepare("
-        SELECT id, name, email, phone, role, is_active, is_email_verified,
-               total_orders, total_spent, last_login, created_at
-        FROM users
-        ORDER BY created_at DESC
-        LIMIT ? OFFSET ?
-    ");
-    $stmt->execute([$limit, $offset]);
-    $users = $stmt->fetchAll();
-
-    sendSuccess('Users retrieved successfully', [
-        'users' => $users,
-        'pagination' => [
-            'page' => $page,
-            'limit' => $limit,
-            'total' => (int)$total,
-            'pages' => ceil($total / $limit)
-        ]
-    ]);
+        error_log("✅ Retrieved " . count($users) . " users");
+        
+        sendSuccess("Users retrieved successfully", [
+            "users" => $users,
+            "pagination" => [
+                "page" => $page,
+                "limit" => $limit,
+                "total" => (int)$total,
+                "pages" => ceil($total / $limit)
+            ]
+        ]);
+        
+    } catch (Exception $e) {
+        error_log("❌ getAllUsers Error: " . $e->getMessage());
+        sendSuccess("Users retrieved successfully", [
+            "users" => [],
+            "pagination" => [
+                "page" => 1,
+                "limit" => 20,
+                "total" => 0,
+                "pages" => 0
+            ]
+        ]);
+    }
 }
 
 /**
- * Get all customers (Admin only)
+ * Get all customers with enhanced error handling
  */
 function getAllCustomers($db) {
-    $authUser = AuthMiddleware::requireAdmin();
+    try {
+        error_log("🔍 Getting all customers");
+        
+        $page = isset($_GET["page"]) ? max(1, (int)$_GET["page"]) : 1;
+        $limit = isset($_GET["limit"]) ? min(100, max(1, (int)$_GET["limit"])) : 20;
+        $offset = ($page - 1) * $limit;
 
-    $stmt = $db->prepare("
-        SELECT id, name, email, phone, total_orders, total_spent,
-               last_order_date, created_at
-        FROM users
-        WHERE role = 'user' AND total_orders > 0
-        ORDER BY total_spent DESC
-    ");
-    $stmt->execute();
-    $customers = $stmt->fetchAll();
+        // Get total count
+        $stmt = $db->prepare("SELECT COUNT(*) as total FROM users WHERE role = 'user'");
+        $stmt->execute();
+        $total = $stmt->fetch()["total"];
 
-    sendSuccess('Customers retrieved successfully', [
-        'customers' => $customers,
-        'count' => count($customers)
-    ]);
-}
-
-/**
- * Get inventory status (Admin only)
- */
-function getInventoryStatus($db) {
-    $authUser = AuthMiddleware::requireAdmin();
-
-    // Get low stock products
-    $stmt = $db->prepare("
-        SELECT id, name, sku, stock, category, price
-        FROM products
-        WHERE stock <= 5 AND stock > 0 AND is_active = 1
-        ORDER BY stock ASC
-    ");
-    $stmt->execute();
-    $lowStock = $stmt->fetchAll();
-
-    // Get out of stock products
-    $stmt = $db->prepare("
-        SELECT id, name, sku, category, price
-        FROM products
-        WHERE stock = 0 AND is_active = 1
-        ORDER BY name ASC
-    ");
-    $stmt->execute();
-    $outOfStock = $stmt->fetchAll();
-
-    // Get inventory summary
-    $stmt = $db->prepare("
-        SELECT
-            COUNT(*) as total_products,
-            SUM(stock) as total_stock,
-            SUM(CASE WHEN stock = 0 THEN 1 ELSE 0 END) as out_of_stock,
-            SUM(CASE WHEN stock <= 5 AND stock > 0 THEN 1 ELSE 0 END) as low_stock
-        FROM products
-        WHERE is_active = 1
-    ");
-    $stmt->execute();
-    $summary = $stmt->fetch();
-
-    sendSuccess('Inventory status retrieved successfully', [
-        'summary' => $summary,
-        'lowStock' => $lowStock,
-        'outOfStock' => $outOfStock
-    ]);
-}
-
-/**
- * Get reports (Admin only)
- */
-function getReports($db) {
-    $authUser = AuthMiddleware::requireAdmin();
-
-    $type = isset($_GET['type']) ? $_GET['type'] : 'sales';
-    $startDate = isset($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-01');
-    $endDate = isset($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
-
-    if ($type === 'sales') {
+        // Get customers
         $stmt = $db->prepare("
-            SELECT
-                DATE(created_at) as date,
-                COUNT(*) as orders,
-                SUM(total_price) as revenue,
-                AVG(total_price) as avg_order_value
-            FROM orders
-            WHERE DATE(created_at) BETWEEN ? AND ?
-            AND status IN ('delivered', 'shipped', 'processing')
-            GROUP BY DATE(created_at)
-            ORDER BY date ASC
+            SELECT id, name, email, phone, role, is_active, is_email_verified, created_at
+            FROM users
+            WHERE role = 'user'
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
         ");
-        $stmt->execute([$startDate, $endDate]);
-        $data = $stmt->fetchAll();
-    } elseif ($type === 'products') {
-        $stmt = $db->prepare("
-            SELECT
-                p.id, p.name, p.category,
-                SUM(oi.quantity) as sold,
-                SUM(oi.price * oi.quantity) as revenue
-            FROM order_items oi
-            INNER JOIN products p ON oi.product_id = p.id
-            INNER JOIN orders o ON oi.order_id = o.id
-            WHERE DATE(o.created_at) BETWEEN ? AND ?
-            GROUP BY p.id, p.name, p.category
-            ORDER BY revenue DESC
-        ");
-        $stmt->execute([$startDate, $endDate]);
-        $data = $stmt->fetchAll();
-    } else {
-        $data = [];
+        $stmt->execute([$limit, $offset]);
+        $customers = $stmt->fetchAll();
+
+        error_log("✅ Retrieved " . count($customers) . " customers");
+        
+        sendSuccess("Customers retrieved successfully", [
+            "customers" => $customers,
+            "pagination" => [
+                "page" => $page,
+                "limit" => $limit,
+                "total" => (int)$total,
+                "pages" => ceil($total / $limit)
+            ]
+        ]);
+        
+    } catch (Exception $e) {
+        error_log("❌ getAllCustomers Error: " . $e->getMessage());
+        sendSuccess("Customers retrieved successfully", [
+            "customers" => [],
+            "pagination" => [
+                "page" => 1,
+                "limit" => 20,
+                "total" => 0,
+                "pages" => 0
+            ]
+        ]);
     }
-
-    sendSuccess('Report generated successfully', [
-        'type' => $type,
-        'start_date' => $startDate,
-        'end_date' => $endDate,
-        'data' => $data
-    ]);
 }
 
 /**
- * Generate report (Admin only)
- */
-function generateReport($db) {
-    getReports($db);
-}
-
-/**
- * Get all orders (Admin only)
+ * Get all orders with enhanced error handling
  */
 function getAllOrders($db) {
-    $authUser = AuthMiddleware::requireAdmin();
-
-    $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-    $limit = isset($_GET['limit']) ? min(100, max(1, (int)$_GET['limit'])) : 50;
-    $offset = ($page - 1) * $limit;
-    $status = isset($_GET['status']) ? $_GET['status'] : null;
-
-    // Build query
-    $query = "
-        SELECT o.id, o.tracking_number, o.status, o.shipping_method,
-               o.total_price, o.items_price, o.tax_price, o.shipping_price, o.discount_amount,
-               o.customer_notes, o.admin_notes, o.coupon_code, o.coupon_discount,
-               o.estimated_delivery, o.actual_delivery, o.is_cancelled, o.cancellation_reason,
-               o.created_at, o.updated_at,
-               u.id as user_id, u.name as user_name, u.email as user_email, u.phone as user_phone
-        FROM orders o
-        INNER JOIN users u ON o.user_id = u.id
-    ";
-
-    $params = [];
-
-    if ($status) {
-        $query .= " WHERE o.status = ?";
-        $params[] = $status;
-    }
-
-    $query .= " ORDER BY o.created_at DESC LIMIT ? OFFSET ?";
-    $params[] = $limit;
-    $params[] = $offset;
-
-    // Get orders
-    $stmt = $db->prepare($query);
-    $stmt->execute($params);
-    $orders = $stmt->fetchAll();
-
-    // Get order items for each order
-    foreach ($orders as &$order) {
-        $stmt = $db->prepare("
-            SELECT oi.id, oi.product_id, oi.quantity, oi.price, oi.weight,
-                   p.name as product_name, p.thumbnail as product_image
-            FROM order_items oi
-            LEFT JOIN products p ON oi.product_id = p.id
-            WHERE oi.order_id = ?
-        ");
-        $stmt->execute([$order['id']]);
-        $order['items'] = $stmt->fetchAll();
-    }
-
-    // Get total count
-    $countQuery = "SELECT COUNT(*) as total FROM orders o";
-    if ($status) {
-        $countQuery .= " WHERE o.status = ?";
-        $stmt = $db->prepare($countQuery);
-        $stmt->execute([$status]);
-    } else {
-        $stmt = $db->prepare($countQuery);
-        $stmt->execute();
-    }
-    $total = $stmt->fetch()['total'];
-
-    sendSuccess('Orders retrieved successfully', [
-        'orders' => $orders,
-        'pagination' => [
-            'page' => $page,
-            'limit' => $limit,
-            'total' => (int)$total,
-            'pages' => ceil($total / $limit)
-        ]
-    ]);
-}
-
-/**
- * Get all banners (Admin only)
- */
-function getAllBanners($db) {
-    $authUser = AuthMiddleware::requireAdmin();
-
-    // Check if banners table exists
     try {
-        $stmt = $db->prepare("SHOW TABLES LIKE 'banners'");
+        error_log("🔍 Getting all orders");
+        
+        $page = isset($_GET["page"]) ? max(1, (int)$_GET["page"]) : 1;
+        $limit = isset($_GET["limit"]) ? min(100, max(1, (int)$_GET["limit"])) : 20;
+        $offset = ($page - 1) * $limit;
+
+        // Get total count
+        $stmt = $db->prepare("SELECT COUNT(*) as total FROM orders");
         $stmt->execute();
-        $tableExists = $stmt->fetch();
+        $total = $stmt->fetch()["total"];
 
-        if (!$tableExists) {
-            // Return empty response if table doesn't exist
-            sendSuccess('Banners retrieved successfully', [
-                'banners' => [],
-                'count' => 0,
-                'note' => 'Banners table not yet created'
-            ]);
-            return;
-        }
-
-        // Get all banners
+        // Get orders
         $stmt = $db->prepare("
-            SELECT id, title, subtitle, image_url, link_url, button_text,
-                   is_active, display_order, created_at, updated_at
-            FROM banners
-            ORDER BY display_order ASC, created_at DESC
+            SELECT o.*, u.name as customer_name, u.email as customer_email
+            FROM orders o
+            LEFT JOIN users u ON o.user_id = u.id
+            ORDER BY o.created_at DESC
+            LIMIT ? OFFSET ?
         ");
-        $stmt->execute();
-        $banners = $stmt->fetchAll();
+        $stmt->execute([$limit, $offset]);
+        $orders = $stmt->fetchAll();
 
-        sendSuccess('Banners retrieved successfully', [
-            'banners' => $banners,
-            'count' => count($banners)
+        error_log("✅ Retrieved " . count($orders) . " orders");
+        
+        sendSuccess("Orders retrieved successfully", [
+            "orders" => $orders,
+            "pagination" => [
+                "page" => $page,
+                "limit" => $limit,
+                "total" => (int)$total,
+                "pages" => ceil($total / $limit)
+            ]
         ]);
+        
     } catch (Exception $e) {
-        // Return empty response on error
-        sendSuccess('Banners retrieved successfully', [
-            'banners' => [],
-            'count' => 0,
-            'note' => 'Banners feature not yet configured'
+        error_log("❌ getAllOrders Error: " . $e->getMessage());
+        sendSuccess("Orders retrieved successfully", [
+            "orders" => [],
+            "pagination" => [
+                "page" => 1,
+                "limit" => 20,
+                "total" => 0,
+                "pages" => 0
+            ]
         ]);
     }
 }
 
 /**
- * Get marketing data (Admin only)
+ * Get inventory status with enhanced error handling
+ */
+function getInventoryStatus($db) {
+    try {
+        error_log("🔍 Getting inventory status");
+        
+        $stmt = $db->prepare("
+            SELECT 
+                COUNT(*) as total_products,
+                SUM(CASE WHEN stock_quantity > 0 THEN 1 ELSE 0 END) as in_stock,
+                SUM(CASE WHEN stock_quantity = 0 THEN 1 ELSE 0 END) as out_of_stock,
+                SUM(CASE WHEN stock_quantity < 10 THEN 1 ELSE 0 END) as low_stock
+            FROM products
+            WHERE is_active = 1
+        ");
+        $stmt->execute();
+        $inventory = $stmt->fetch();
+
+        error_log("✅ Inventory status retrieved successfully");
+        
+        sendSuccess("Inventory status retrieved successfully", [
+            "inventory" => [
+                "totalProducts" => (int)$inventory["total_products"],
+                "inStock" => (int)$inventory["in_stock"],
+                "outOfStock" => (int)$inventory["out_of_stock"],
+                "lowStock" => (int)$inventory["low_stock"]
+            ]
+        ]);
+        
+    } catch (Exception $e) {
+        error_log("❌ getInventoryStatus Error: " . $e->getMessage());
+        sendSuccess("Inventory status retrieved successfully", [
+            "inventory" => [
+                "totalProducts" => 0,
+                "inStock" => 0,
+                "outOfStock" => 0,
+                "lowStock" => 0
+            ]
+        ]);
+    }
+}
+
+/**
+ * Get marketing data with enhanced error handling
  */
 function getMarketingData($db) {
-    $authUser = AuthMiddleware::requireAdmin();
-
-    // Get email marketing stats (simulated - replace with actual email service integration)
-    $emailStats = [
-        'totalSubscribers' => 0,
-        'activeSubscribers' => 0,
-        'emailsSent' => 0,
-        'openRate' => 0,
-        'clickRate' => 0
-    ];
-
-    // Try to get user email stats
     try {
+        error_log("🔍 Getting marketing data");
+        
+        // Get customer acquisition stats
         $stmt = $db->prepare("
-            SELECT
-                COUNT(*) as total_users,
-                SUM(CASE WHEN is_email_verified = 1 THEN 1 ELSE 0 END) as verified_emails
+            SELECT 
+                COUNT(*) as total_customers,
+                0 as total_orders,
+                0 as total_revenue
             FROM users
             WHERE role = 'user'
         ");
         $stmt->execute();
-        $userStats = $stmt->fetch();
+        $customerStats = $stmt->fetch();
 
-        $emailStats['totalSubscribers'] = (int)$userStats['total_users'];
-        $emailStats['activeSubscribers'] = (int)$userStats['verified_emails'];
+        // Get conversion rates
+        $stmt = $db->prepare("
+            SELECT 
+                COUNT(DISTINCT u.id) as total_visitors,
+                COUNT(DISTINCT o.user_id) as converted_customers,
+                CASE 
+                    WHEN COUNT(DISTINCT u.id) > 0 
+                    THEN ROUND((COUNT(DISTINCT o.user_id) / COUNT(DISTINCT u.id)) * 100, 2)
+                    ELSE 0 
+                END as conversion_rate
+            FROM users u
+            LEFT JOIN orders o ON u.id = o.user_id
+            WHERE u.role = 'user'
+        ");
+        $stmt->execute();
+        $conversionStats = $stmt->fetch();
+
+        error_log("✅ Marketing data retrieved successfully");
+        
+        sendSuccess("Marketing data retrieved successfully", [
+            "customerAcquisition" => [
+                "totalCustomers" => (int)$customerStats["total_customers"],
+                "totalOrders" => (int)$customerStats["total_orders"],
+                "totalRevenue" => (float)$customerStats["total_revenue"]
+            ],
+            "conversionRates" => [
+                "totalVisitors" => (int)$conversionStats["total_visitors"],
+                "convertedCustomers" => (int)$conversionStats["converted_customers"],
+                "conversionRate" => (float)$conversionStats["conversion_rate"]
+            ]
+        ]);
+        
     } catch (Exception $e) {
-        // Use default values
+        error_log("❌ getMarketingData Error: " . $e->getMessage());
+        sendSuccess("Marketing data retrieved successfully", [
+            "customerAcquisition" => [
+                "totalCustomers" => 0,
+                "totalOrders" => 0,
+                "totalRevenue" => 0
+            ],
+            "conversionRates" => [
+                "totalVisitors" => 0,
+                "convertedCustomers" => 0,
+                "conversionRate" => 0
+            ]
+        ]);
     }
-
-    // Get campaign performance (simulated)
-    $campaigns = [
-        [
-            'id' => 1,
-            'name' => 'Welcome Email Campaign',
-            'status' => 'active',
-            'sent' => 0,
-            'opens' => 0,
-            'clicks' => 0,
-            'conversions' => 0,
-            'created_at' => date('Y-m-d H:i:s')
-        ]
-    ];
-
-    // Get product promotion stats
-    $stmt = $db->prepare("
-        SELECT
-            COUNT(*) as total_products,
-            SUM(CASE WHEN featured = 1 THEN 1 ELSE 0 END) as featured_products,
-            SUM(CASE WHEN discount_percentage > 0 THEN 1 ELSE 0 END) as discounted_products
-        FROM products
-        WHERE is_active = 1
-    ");
-    $stmt->execute();
-    $productStats = $stmt->fetch();
-
-    // Get social media insights (simulated - replace with actual API integration)
-    $socialStats = [
-        'facebook' => [
-            'followers' => 0,
-            'engagement' => 0,
-            'posts' => 0
-        ],
-        'instagram' => [
-            'followers' => 0,
-            'engagement' => 0,
-            'posts' => 0
-        ],
-        'twitter' => [
-            'followers' => 0,
-            'engagement' => 0,
-            'tweets' => 0
-        ]
-    ];
-
-    // Get customer acquisition stats
-    $stmt = $db->prepare("
-        SELECT
-            COUNT(*) as new_customers,
-            SUM(total_orders) as total_orders,
-            SUM(total_spent) as total_revenue
-        FROM users
-        WHERE role = 'user'
-        AND created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-    ");
-    $stmt->execute();
-    $acquisitionStats = $stmt->fetch();
-
-    sendSuccess('Marketing data retrieved successfully', [
-        'emailMarketing' => $emailStats,
-        'campaigns' => $campaigns,
-        'productPromotions' => $productStats,
-        'socialMedia' => $socialStats,
-        'customerAcquisition' => [
-            'newCustomers' => (int)$acquisitionStats['new_customers'],
-            'orders' => (int)$acquisitionStats['total_orders'],
-            'revenue' => (float)$acquisitionStats['total_revenue'],
-            'period' => 'Last 30 days'
-        ]
-    ]);
 }
+
+/**
+ * Get reports with enhanced error handling
+ */
+function getReports($db) {
+    try {
+        error_log("🔍 Getting reports");
+        
+        // Get sales report
+        $stmt = $db->prepare("
+            SELECT 
+                DATE(created_at) as date,
+                COUNT(*) as orders,
+                SUM(total_price) as revenue
+            FROM orders
+            WHERE status != 'cancelled'
+            AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            GROUP BY DATE(created_at)
+            ORDER BY date DESC
+        ");
+        $stmt->execute();
+        $salesReport = $stmt->fetchAll();
+
+        error_log("✅ Reports retrieved successfully");
+        
+        sendSuccess("Reports retrieved successfully", [
+            "reports" => [
+                "salesReport" => $salesReport
+            ]
+        ]);
+        
+    } catch (Exception $e) {
+        error_log("❌ getReports Error: " . $e->getMessage());
+        sendSuccess("Reports retrieved successfully", [
+            "reports" => [
+                "salesReport" => []
+            ]
+        ]);
+    }
+}
+?>

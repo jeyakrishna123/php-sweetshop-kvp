@@ -94,12 +94,10 @@ try {
     </html>
     ";
 
-    $headers = "MIME-Version: 1.0" . "\r\n";
-    $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
-    $headers .= "From: SK Bakers <noreply@skbakers.com>" . "\r\n";
-
-    // Send email (in production, use proper email service like SendGrid, Mailgun, etc.)
-    $mailSent = mail($email, $subject, $message, $headers);
+    // Use EmailService for better email delivery
+    require_once __DIR__ . '/../includes/EmailService.php';
+    $emailService = new EmailService();
+    $mailSent = $emailService->sendEmail($email, $subject, $message, true);
 
     if ($mailSent) {
         echo json_encode([

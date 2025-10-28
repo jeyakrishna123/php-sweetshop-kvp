@@ -1,76 +1,66 @@
-# SK Bakers - Hostinger Production Configuration
-# This file handles routing for both frontend and backend
+# Hostinger Production .htaccess
+# Optimized for shared hosting environment
 
-<IfModule mod_rewrite.c>
-    RewriteEngine On
+# Enable rewrite engine
+RewriteEngine On
 
-    # Force HTTPS in production
-    RewriteCond %{HTTPS} off
-    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# Force HTTPS (uncomment if you have SSL)
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-    # Handle API requests (PHP Backend)
-    # Route /api/* requests to backend/api/index.php
-    RewriteRule ^api/(.*)$ backend/api/index.php [L,QSA]
-
-    # Handle static files from backend
-    RewriteRule ^backend/(.*)$ backend/$1 [L]
-
-    # Handle frontend static assets (CSS, JS, images)
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_URI} ^/(static|assets|images|css|js)/
-    RewriteRule ^(.*)$ frontend/$1 [L]
-
-    # Handle React Router (SPA)
-    # If the request is not for a file or directory, serve index.html from frontend
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_URI} !^/backend/
-    RewriteCond %{REQUEST_URI} !^/api/
-    RewriteRule ^(.*)$ frontend/index.html [L]
-
-    # Serve the main index.html for the root
-    RewriteRule ^$ frontend/index.html [L]
+# Fix MIME types for JavaScript and CSS
+<IfModule mod_mime.c>
+    AddType application/javascript .js
+    AddType text/javascript .js
+    AddType text/css .css
+    AddType application/json .json
 </IfModule>
 
-# Security Headers
+# Set proper headers for static files
 <IfModule mod_headers.c>
+    <FilesMatch "\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$">
+        Header set Cache-Control "public, max-age=31536000"
+    </FilesMatch>
+    
+    <FilesMatch "\.(html|htm)$">
+        Header set Cache-Control "public, max-age=3600"
+    </FilesMatch>
+    
+    # Security headers
     Header always set X-Content-Type-Options nosniff
     Header always set X-Frame-Options DENY
     Header always set X-XSS-Protection "1; mode=block"
-    Header always set Referrer-Policy "strict-origin-when-cross-origin"
-    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
 </IfModule>
 
-# Set default character set
-AddDefaultCharset UTF-8
+# API routing - Handle all /api/* requests
+RewriteCond %{REQUEST_URI} ^/api/(.*)$
+RewriteRule ^api/(.*)$ /backend/index.php [QSA,L]
 
-# PHP settings for production
-<IfModule mod_php7.c>
-    php_value display_errors Off
-    php_value log_errors On
-    php_value error_log /home/u707629033/domains/skbakers.com/public_html/backend/logs/php-error.log
-    php_value upload_max_filesize 64M
-    php_value post_max_size 64M
-    php_value memory_limit 256M
-    php_value max_execution_time 300
-    php_value max_input_time 300
-    php_value max_input_vars 3000
-</IfModule>
+# Handle frontend assets
+RewriteCond %{REQUEST_URI} ^/frontend/assets/.*\.(js|css|png|jpg|jpeg|gif|ico|svg)$
+RewriteRule ^frontend/assets/(.*)$ /frontend/assets/$1 [L]
 
-# Cache static assets
-<IfModule mod_expires.c>
-    ExpiresActive On
-    ExpiresByType text/css "access plus 1 month"
-    ExpiresByType application/javascript "access plus 1 month"
-    ExpiresByType image/png "access plus 1 month"
-    ExpiresByType image/jpg "access plus 1 month"
-    ExpiresByType image/jpeg "access plus 1 month"
-    ExpiresByType image/gif "access plus 1 month"
-    ExpiresByType image/webp "access plus 1 month"
-</IfModule>
+# Admin panel routing
+RewriteCond %{REQUEST_URI} ^/admin/(.*)$
+RewriteRule ^admin/(.*)$ /index.html [QSA,L]
 
-# Compress files
+# Handle all other requests to main site
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ /index.html [QSA,L]
+
+# Prevent access to sensitive files
+<FilesMatch "\.(env|log|sql|md|txt)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Prevent access to backend directories
+<Directory "backend">
+    Options -Indexes
+</Directory>
+
+# Enable compression
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/plain
     AddOutputFilterByType DEFLATE text/html
@@ -82,15 +72,3 @@ AddDefaultCharset UTF-8
     AddOutputFilterByType DEFLATE application/javascript
     AddOutputFilterByType DEFLATE application/x-javascript
 </IfModule>
-
-# Prevent access to sensitive files
-<FilesMatch "\.(htaccess|htpasswd|ini|log|sh|inc|bak)$">
-    Order Allow,Deny
-    Deny from all
-</FilesMatch>
-
-# Prevent access to config files
-<FilesMatch "config\.php$">
-    Order Allow,Deny
-    Deny from all
-</FilesMatch>

@@ -19,9 +19,9 @@ define('JWT_EXPIRATION', 7 * 24 * 60 * 60); // 7 days in seconds
 
 // Database Configuration for Hostinger
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'u707629033_skbakers_001');
-define('DB_USER', 'u707629033_skbakers');
-define('DB_PASS', 'Skbakers@123'); // Replace with your actual Hostinger database password
+define('DB_NAME', 'u707629033_skbakers');
+define('DB_USER', 'u707629033_sksweets');
+define('DB_PASS', 'Skbakers@123');
 
 // CORS Settings - Production domains
 define('ALLOWED_ORIGINS', [
@@ -29,8 +29,9 @@ define('ALLOWED_ORIGINS', [
     'https://www.skbakers.com'
 ]);
 
-// Upload settings
-define('UPLOAD_DIR', __DIR__ . '/../uploads/');
+// Upload settings - Hostinger specific paths
+define('UPLOAD_DIR', $_SERVER['DOCUMENT_ROOT'] . '/backend/uploads/');
+define('UPLOAD_URL', 'https://skbakers.com/backend/uploads/');
 define('MAX_FILE_SIZE', 10 * 1024 * 1024); // 10MB
 define('ALLOWED_IMAGE_TYPES', ['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
@@ -66,9 +67,24 @@ ini_set('session.cookie_secure', 1); // HTTPS only
 ini_set('session.use_strict_mode', 1);
 ini_set('session.cookie_samesite', 'Lax');
 
-// Create upload directory if it doesn't exist
+// Create upload directories if they don't exist
 if (!file_exists(UPLOAD_DIR)) {
     mkdir(UPLOAD_DIR, 0755, true);
+}
+
+// Create specific upload subdirectories for Hostinger
+$uploadDirs = [
+    UPLOAD_DIR . 'banners/',
+    UPLOAD_DIR . 'products/',
+    UPLOAD_DIR . 'popups/',
+    UPLOAD_DIR . 'menu-items/',
+    UPLOAD_DIR . 'users/'
+];
+
+foreach ($uploadDirs as $dir) {
+    if (!file_exists($dir)) {
+        mkdir($dir, 0755, true);
+    }
 }
 
 // Create logs directory if it doesn't exist

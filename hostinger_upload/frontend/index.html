@@ -116,8 +116,519 @@
     <link rel="modulepreload" crossorigin href="./assets/router-Bie5Mwwm.js">
     <link rel="stylesheet" crossorigin href="./assets/index-Da2rp_AC.css">
     
+    <!-- Production Environment Fix - AGGRESSIVE -->
+    <script>
+      console.log('🔧 FORCING PRODUCTION ENVIRONMENT...');
+      
+      // Force production environment variables
+      window.NODE_ENV = 'production';
+      window.VITE_API_URL = 'https://skbakers.com/api';
+      window.ENV = 'production';
+      window.VITE_ENV = 'production';
+      
+      // Override process.env if it exists
+      if (typeof process !== 'undefined') {
+        process.env.NODE_ENV = 'production';
+        process.env.VITE_API_URL = 'https://skbakers.com/api';
+      }
+      
+      // AGGRESSIVE fetch override - catch ALL localhost calls
+      const originalFetch = window.fetch;
+      window.fetch = function(url, options) {
+        let newUrl = url;
+        
+        // Convert any localhost calls to production
+        if (typeof url === 'string') {
+          if (url.startsWith('http://localhost:8000/api/')) {
+            newUrl = url.replace('http://localhost:8000/api/', 'https://skbakers.com/api/');
+          } else if (url.startsWith('http://localhost:3000/api/')) {
+            newUrl = url.replace('http://localhost:3000/api/', 'https://skbakers.com/api/');
+          } else if (url.startsWith('/api/')) {
+            newUrl = 'https://skbakers.com' + url;
+          } else if (url.includes('localhost') && url.includes('/api/')) {
+            newUrl = 'https://skbakers.com/api/';
+          }
+        }
+        
+        console.log('🌐 API Request Redirected:', url, '→', newUrl);
+        return originalFetch.call(this, newUrl, options);
+      };
+      
+      // Override axios if available
+      if (typeof window.axios !== 'undefined') {
+        window.axios.defaults.baseURL = 'https://skbakers.com/api';
+        console.log('✅ Axios base URL set to production');
+      }
+      
+      // Override XMLHttpRequest as well
+      const originalXHR = window.XMLHttpRequest;
+      window.XMLHttpRequest = function() {
+        const xhr = new originalXHR();
+        const originalOpen = xhr.open;
+        xhr.open = function(method, url, ...args) {
+          let newUrl = url;
+          if (typeof url === 'string' && url.includes('localhost')) {
+            newUrl = url.replace(/http:\/\/localhost:\d+\/api\//, 'https://skbakers.com/api/');
+          }
+          console.log('🌐 XHR Request Redirected:', url, '→', newUrl);
+          return originalOpen.call(this, method, newUrl, ...args);
+        };
+        return xhr;
+      };
+      
+      console.log('✅ AGGRESSIVE Production API fix applied');
+      console.log('🎯 All API calls will be redirected to https://skbakers.com/api');
+      
+      // Token refresh mechanism to prevent automatic logoffs
+      function setupTokenRefresh() {
+        const token = localStorage.getItem('token');
+        if (token) {
+          // Check if token is close to expiry (refresh if less than 1 day left)
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const now = Math.floor(Date.now() / 1000);
+            const timeLeft = payload.exp - now;
+            
+            // If less than 24 hours left, refresh token
+            if (timeLeft < 86400) {
+              console.log('🔄 Token expiring soon, refreshing...');
+              refreshToken();
+            }
+          } catch (e) {
+            console.log('🔄 Invalid token, clearing...');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+          }
+        }
+      }
+      
+      // Refresh token function
+      async function refreshToken() {
+        try {
+          const response = await fetch('https://skbakers.com/api/auth/refresh-token', {
+            method: 'POST',
+            headers: {
+              'Authorization': 'Bearer ' + localStorage.getItem('token'),
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            localStorage.setItem('token', data.data.token);
+            localStorage.setItem('user', JSON.stringify(data.data.user));
+            console.log('✅ Token refreshed successfully');
+          } else {
+            console.log('❌ Token refresh failed, user needs to login again');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+          }
+        } catch (error) {
+          console.log('❌ Token refresh error:', error);
+        }
+      }
+      
+      // Set up token refresh on page load
+      setupTokenRefresh();
+      
+      // Refresh token every 12 hours
+      setInterval(setupTokenRefresh, 12 * 60 * 60 * 1000);
+    </script>
+    
+    <!-- Force Clear All Mock Data -->
+    <script src="../force-clear-mock-data.js"></script>
+    
+    <!-- ULTIMATE Production API Fix -->
+    <script src="../force-production-api.js"></script>
+    
     <!-- Mobile API Connectivity Fix -->
     <script src="./mobile_api_connectivity_fix.js"></script>
+    
+    <!-- OTP Input Type Fix -->
+    <script src="./otp_input_fix.js"></script>
+    
+    <!-- AuthContext Fix -->
+    <script>
+      // Create AuthContext for the app
+      window.AuthContext = {
+        user: null,
+        loading: false,
+        
+        register: async function(name, email, phone, password) {
+          try {
+            console.log('Attempting user registration for:', email);
+            
+            const response = await fetch('https://skbakers.com/api/auth?endpoint=register', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                name,
+                email,
+                phone,
+                password,
+              }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+              console.log('Registration successful:', data);
+              return data;
+            } else {
+              console.error('Registration failed:', data);
+              throw new Error(data.message || 'Registration failed');
+            }
+          } catch (error) {
+            console.error('Registration error:', error);
+            throw error;
+          }
+        },
+        
+        login: async function(email, password) {
+          try {
+            const response = await fetch('https://skbakers.com/api/auth?endpoint=login', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                email,
+                password,
+              }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+              localStorage.setItem('token', data.data.token);
+              this.user = data.data.user;
+              return data;
+            } else {
+              throw new Error(data.message || 'Login failed');
+            }
+          } catch (error) {
+            console.error('Login error:', error);
+            throw error;
+          }
+        },
+        
+        logout: function() {
+          localStorage.removeItem('token');
+          this.user = null;
+        },
+        
+        getCurrentUser: async function() {
+          try {
+            const token = localStorage.getItem('token');
+            if (!token) return null;
+
+            const response = await fetch('https://skbakers.com/api/auth?endpoint=getCurrentUser', {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              this.user = data.data;
+              return data.data;
+            } else {
+              localStorage.removeItem('token');
+              this.user = null;
+              return null;
+            }
+          } catch (error) {
+            console.error('Error getting current user:', error);
+            localStorage.removeItem('token');
+            this.user = null;
+            return null;
+          }
+        }
+      };
+      
+      // Make it available globally
+      window.useAuth = function() {
+        return window.AuthContext;
+      };
+      
+      console.log('AuthContext loaded and available globally');
+    </script>
+    
+    <!-- Banner Display Fix -->
+    <script>
+      // Banner Display Implementation - Following Product Pattern
+      (function() {
+        console.log('🎯 Banner Display Fix Loading...');
+        
+        // Function to fetch and display banners
+        async function loadBanners() {
+          try {
+            console.log('🖼️ Fetching banners from API...');
+            const response = await fetch('https://skbakers.com/api/banners/active');
+            
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            console.log('🖼️ Banners API response:', data);
+            
+            if (data.success && data.data && data.data.banners && data.data.banners.length > 0) {
+              displayBanners(data.data.banners);
+            } else {
+              console.log('🖼️ No active banners found');
+            }
+          } catch (error) {
+            console.error('🖼️ Error fetching banners:', error);
+          }
+        }
+        
+        // Function to display banners on the page
+        function displayBanners(banners) {
+          console.log('🖼️ Displaying banners:', banners);
+          
+          // Remove any existing loading elements first
+          const loadingElements = document.querySelectorAll('[class*="loading"], [id*="loading"], .spinner, .loader');
+          loadingElements.forEach(el => el.remove());
+          
+          // Find or create banner container
+          let bannerContainer = document.querySelector('.banner-container');
+          if (!bannerContainer) {
+            // Create banner container if it doesn't exist
+            bannerContainer = document.createElement('div');
+            bannerContainer.className = 'banner-container';
+            bannerContainer.style.cssText = `
+              position: relative;
+              overflow: visible;
+              margin-bottom: 0;
+              min-height: 24rem;
+              width: 100vw !important;
+              max-width: 100vw !important;
+              margin-left: calc(-50vw + 50%) !important;
+              margin-right: calc(-50vw + 50%) !important;
+            `;
+            
+            // Insert at the top of the main content
+            const mainContent = document.querySelector('main') || document.querySelector('#root') || document.body;
+            if (mainContent) {
+              mainContent.insertBefore(bannerContainer, mainContent.firstChild);
+            }
+          }
+          
+          // Clear existing banners
+          bannerContainer.innerHTML = '';
+          
+          // Only display banners if we have them
+          if (banners && banners.length > 0) {
+            banners.forEach((banner, index) => {
+              const bannerElement = createBannerElement(banner, index);
+              bannerContainer.appendChild(bannerElement);
+            });
+            console.log('✅ Banners displayed successfully');
+          } else {
+            console.log('🖼️ No banners to display, hiding container');
+            bannerContainer.style.display = 'none';
+          }
+        }
+        
+        // Function to create individual banner element
+        function createBannerElement(banner, index) {
+          const bannerDiv = document.createElement('div');
+          bannerDiv.className = 'banner-content';
+          bannerDiv.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            min-height: 24rem;
+          `;
+          
+          // Determine which image to use (desktop, mobile, or main)
+          let imageUrl = banner.desktopImageUrl || banner.mobileImageUrl || banner.imageUrl;
+          if (!imageUrl) {
+            console.warn('🖼️ No image URL found for banner:', banner);
+            return bannerDiv;
+          }
+          
+          // Make sure image URL is absolute
+          if (imageUrl.startsWith('/')) {
+            imageUrl = 'https://skbakers.com' + imageUrl;
+          }
+          
+          const img = document.createElement('img');
+          img.src = imageUrl;
+          img.alt = banner.title || 'Banner';
+          img.className = 'banner-image-wavy';
+          img.style.cssText = `
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            clip-path: polygon(0% 0%, 100% 0%, 100% 95%, 95% 100%, 90% 95%, 85% 100%, 80% 95%, 75% 100%, 70% 95%, 65% 100%, 60% 95%, 55% 100%, 50% 95%, 45% 100%, 40% 95%, 35% 100%, 30% 95%, 25% 100%, 20% 95%, 15% 100%, 10% 95%, 5% 100%, 0% 95%);
+            transition: clip-path 0.3s ease;
+          `;
+          
+          // Add click handler if banner has a link
+          if (banner.linkUrl) {
+            bannerDiv.style.cursor = 'pointer';
+            bannerDiv.addEventListener('click', () => {
+              window.open(banner.linkUrl, '_blank');
+            });
+          }
+          
+          // Add banner text overlay if title exists
+          if (banner.title || banner.subtitle) {
+            const textOverlay = document.createElement('div');
+            textOverlay.style.cssText = `
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              text-align: center;
+              color: white;
+              z-index: 2;
+              background: rgba(0,0,0,0.5);
+              padding: 20px;
+              border-radius: 10px;
+            `;
+            
+            if (banner.title) {
+              const title = document.createElement('h2');
+              title.textContent = banner.title;
+              title.style.cssText = `
+                margin: 0 0 10px 0;
+                font-size: 2rem;
+                font-weight: bold;
+              `;
+              textOverlay.appendChild(title);
+            }
+            
+            if (banner.subtitle) {
+              const subtitle = document.createElement('p');
+              subtitle.textContent = banner.subtitle;
+              subtitle.style.cssText = `
+                margin: 0;
+                font-size: 1.2rem;
+              `;
+              textOverlay.appendChild(subtitle);
+            }
+            
+            if (banner.buttonText) {
+              const button = document.createElement('button');
+              button.textContent = banner.buttonText;
+              button.style.cssText = `
+                margin-top: 15px;
+                padding: 10px 20px;
+                background: #dc3545;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 1rem;
+              `;
+              textOverlay.appendChild(button);
+            }
+            
+            bannerDiv.appendChild(textOverlay);
+          }
+          
+          bannerDiv.appendChild(img);
+          return bannerDiv;
+        }
+        
+        // Clean up unwanted elements
+        function cleanupUnwantedElements() {
+          console.log('🧹 Cleaning up unwanted elements...');
+          
+          // Remove loading spinners, placeholders, and other unwanted elements
+          const unwantedSelectors = [
+            '[class*="loading"]',
+            '[id*="loading"]',
+            '.spinner',
+            '.loader',
+            '.placeholder',
+            '[class*="placeholder"]',
+            '.loading-indicator',
+            '.loading-overlay'
+          ];
+          
+          unwantedSelectors.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(el => {
+              console.log('🧹 Removing element:', el);
+              el.remove();
+            });
+          });
+          
+          // Remove any elements with just a white dot (common loading indicator)
+          const allElements = document.querySelectorAll('*');
+          allElements.forEach(el => {
+            if (el.children.length === 0 && 
+                el.textContent.trim() === '' && 
+                el.style.backgroundColor === 'rgb(128, 128, 128)' || 
+                el.style.backgroundColor === '#808080') {
+              console.log('🧹 Removing gray element:', el);
+              el.remove();
+            }
+          });
+        }
+        
+        // Test banner API first
+        async function testBannerAPI() {
+          try {
+            console.log('🧪 Testing banner API...');
+            const response = await fetch('https://skbakers.com/api/banners/active');
+            console.log('🧪 Banner API Response Status:', response.status);
+            
+            if (response.ok) {
+              const data = await response.json();
+              console.log('🧪 Banner API Data:', data);
+              return true;
+            } else {
+              console.error('🧪 Banner API Error:', response.status, response.statusText);
+              return false;
+            }
+          } catch (error) {
+            console.error('🧪 Banner API Test Failed:', error);
+            return false;
+          }
+        }
+        
+        // Load banners when DOM is ready
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', async () => {
+            cleanupUnwantedElements();
+            const apiWorking = await testBannerAPI();
+            if (apiWorking) {
+              loadBanners();
+            }
+          });
+        } else {
+          cleanupUnwantedElements();
+          testBannerAPI().then(apiWorking => {
+            if (apiWorking) {
+              loadBanners();
+            }
+          });
+        }
+        
+        // Also load banners on window load
+        window.addEventListener('load', async () => {
+          cleanupUnwantedElements();
+          const apiWorking = await testBannerAPI();
+          if (apiWorking) {
+            loadBanners();
+          }
+        });
+        
+        console.log('✅ Banner Display Fix Initialized');
+      })();
+    </script>
     
     <!-- Mobile-specific CSS fixes -->
     <style>
@@ -139,6 +650,43 @@
           .desktop-menu {
             display: none !important;
           }
+        }
+        
+        /* OTP Input Mobile Fix - Enhanced for number inputs */
+        input[type="number"], input[type="text"][inputmode="numeric"] {
+          -webkit-appearance: none;
+          -moz-appearance: textfield;
+        }
+        
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="text"][inputmode="numeric"]::-webkit-outer-spin-button,
+        input[type="text"][inputmode="numeric"]::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        
+        /* Force numeric keypad on mobile for OTP inputs */
+        input[type="number"], input[type="text"][inputmode="numeric"] {
+          inputmode: numeric;
+          pattern: "[0-9]*";
+        }
+        
+        /* Ensure OTP inputs look clean */
+        input[type="number"][maxlength="1"] {
+          text-align: center;
+          font-size: 24px;
+          font-weight: bold;
+          border: 2px solid #d1d5db;
+          border-radius: 8px;
+          width: 48px;
+          height: 48px;
+        }
+        
+        input[type="number"][maxlength="1"]:focus {
+          outline: none;
+          border-color: #ef4444;
+          box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
         }
         
         /* Fix mobile footer */

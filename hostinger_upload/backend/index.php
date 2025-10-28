@@ -47,6 +47,7 @@ if (empty($resource)) {
         'timestamp' => date('c'),
         'request_uri' => $requestUri,
         'path_parts' => $pathParts,
+        'method' => $method,
         'features' => [
             'MySQL Database',
             'Enhanced Security',
@@ -135,6 +136,13 @@ switch ($resource) {
 
     case 'payment':
         require_once __DIR__ . '/api/payment.php';
+        break;
+
+    case 'forgot-password':
+    case 'reset-password':
+    case 'verify-otp':
+    case 'refresh-token':
+        require_once __DIR__ . '/api/auth.php'; // All auth endpoints handled in auth.php
         break;
 
     case 'health':

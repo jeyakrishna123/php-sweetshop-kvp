@@ -8,14 +8,14 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
 
-require_once __DIR__ . '/backend/config/database.php';
-require_once __DIR__ . '/backend/config/config.php';
-require_once __DIR__ . '/backend/includes/helpers.php';
+require_once __DIR__ . '/../backend/config/database.php';
+require_once __DIR__ . '/../backend/config/config.php';
+require_once __DIR__ . '/../backend/includes/helpers.php';
 
 $results = [];
 
@@ -78,7 +78,7 @@ try {
     $imageFiles = [];
     foreach ($activeBanners as $banner) {
         if ($banner['imageUrl']) {
-            $imagePath = __DIR__ . '/backend/uploads/banners/' . basename($banner['imageUrl']);
+            $imagePath = __DIR__ . '/../backend/uploads/banners/' . basename($banner['imageUrl']);
             $imageFiles[] = [
                 'url' => $banner['imageUrl'],
                 'path' => $imagePath,
@@ -87,7 +87,7 @@ try {
             ];
         }
         if ($banner['desktopImageUrl']) {
-            $imagePath = __DIR__ . '/backend/uploads/banners/' . basename($banner['desktopImageUrl']);
+            $imagePath = __DIR__ . '/../backend/uploads/banners/' . basename($banner['desktopImageUrl']);
             $imageFiles[] = [
                 'url' => $banner['desktopImageUrl'],
                 'path' => $imagePath,
@@ -96,7 +96,7 @@ try {
             ];
         }
         if ($banner['mobileImageUrl']) {
-            $imagePath = __DIR__ . '/backend/uploads/banners/' . basename($banner['mobileImageUrl']);
+            $imagePath = __DIR__ . '/../backend/uploads/banners/' . basename($banner['mobileImageUrl']);
             $imageFiles[] = [
                 'url' => $banner['mobileImageUrl'],
                 'path' => $imagePath,
@@ -112,7 +112,7 @@ try {
     $results['api_url'] = $apiUrl;
     
     // Test 9: Check upload directory
-    $uploadDir = __DIR__ . '/backend/uploads/banners/';
+    $uploadDir = __DIR__ . '/../backend/uploads/banners/';
     $results['upload_directory'] = [
         'path' => $uploadDir,
         'exists' => is_dir($uploadDir),

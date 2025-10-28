@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../axios';
 import { getImageUrl } from '../utils/imageUtils';
+import { getBannerApiUrl } from '../config/api';
 import '../styles/banner.css';
 
 const ResponsiveBanner = () => {
@@ -70,16 +71,28 @@ const ResponsiveBanner = () => {
       
       // Try to fetch from API first
       try {
-        const response = await axios.get('/api/banners/active');
+        const apiUrl = getBannerApiUrl();
+        console.log('🌐 Using API URL:', apiUrl);
+        const response = await axios.get(apiUrl);
         console.log('📡 API Response:', response.data);
         
         if (response.data.success && response.data.banners) {
           console.log('✅ Banners fetched from API:', response.data.banners.length);
-          setBanners(response.data.banners);
+          // Process banner URLs for production
+          const processedBanners = response.data.banners.map(banner => ({
+            ...banner,
+            desktopImageUrl: banner.desktopImageUrl ? (banner.desktopImageUrl.startsWith('http') ? banner.desktopImageUrl : `https://skbakers.com${banner.desktopImageUrl}`) : null,
+            mobileImageUrl: banner.mobileImageUrl ? (banner.mobileImageUrl.startsWith('http') ? banner.mobileImageUrl : `https://skbakers.com${banner.mobileImageUrl}`) : null,
+            imageUrl: banner.imageUrl ? (banner.imageUrl.startsWith('http') ? banner.imageUrl : `https://skbakers.com${banner.imageUrl}`) : null
+          }));
+          setBanners(processedBanners);
+          // Store in localStorage for fallback
+          localStorage.setItem('banners', JSON.stringify(processedBanners));
           return;
         }
       } catch (apiError) {
         console.log('⚠️ API call failed, trying localStorage:', apiError.message);
+        console.log('⚠️ API Error details:', apiError.response?.data || apiError.message);
       }
       
       // Fallback to localStorage
@@ -189,12 +202,17 @@ const ResponsiveBanner = () => {
           {filteredBanners.map((banner, index) => {
             // Use the image URL directly for external URLs, or process through getImageUrl for local ones
             let imageUrl = '';
-            if (banner.desktopImageUrl && banner.desktopImageUrl.startsWith('http')) {
+            const targetImage = isMobile ? banner.mobileImageUrl : banner.desktopImageUrl;
+            
+            if (targetImage && targetImage.startsWith('http')) {
               // External URL - use directly
-              imageUrl = banner.desktopImageUrl;
+              imageUrl = targetImage;
+            } else if (banner.imageUrl && banner.imageUrl.startsWith('http')) {
+              // Fallback to main imageUrl if it's external
+              imageUrl = banner.imageUrl;
             } else {
               // Local URL - process through getImageUrl
-              const baseImageUrl = getImageUrl(isMobile ? banner.mobileImageUrl : banner.desktopImageUrl) || getImageUrl(banner.imageUrl);
+              const baseImageUrl = getImageUrl(targetImage) || getImageUrl(banner.imageUrl);
               imageUrl = baseImageUrl ? `${baseImageUrl}?t=${Date.now()}` : '';
             }
             

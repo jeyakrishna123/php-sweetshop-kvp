@@ -9,6 +9,7 @@
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../middleware/cors.php';
 
 // Handle CORS
@@ -61,10 +62,15 @@ try {
             sendError('Method not allowed', [], 405);
         }
     } else if ($endpoint === 'order' && isset($pathParts[3]) && $pathParts[3] === 'update') {
-        // Handle /api/menu/order/update
+        // Handle /api/menu/order/update - requires admin auth
         if ($method === 'PUT') {
-            require_once __DIR__ . '/../middleware/auth.php';
-            updateMenuOrder($db);
+            try {
+                $authUser = AuthMiddleware::authenticate();
+                AuthMiddleware::requireAdmin($authUser);
+                updateMenuOrder($db);
+            } catch (Exception $e) {
+                sendError('Authentication required', [], 401);
+            }
         } else {
             sendError('Method not allowed', [], 405);
         }
@@ -72,32 +78,45 @@ try {
         // Handle /api/menu (no ID)
         switch ($method) {
             case 'GET':
+                // Public access for getting menu items
                 getAllMenuItems($db);
                 break;
             case 'POST':
-                require_once __DIR__ . '/../middleware/auth.php';
-                createMenuItem($db);
+                // Requires admin authentication
+                try {
+                    $authUser = AuthMiddleware::authenticate();
+                    AuthMiddleware::requireAdmin($authUser);
+                    createMenuItem($db);
+                } catch (Exception $e) {
+                    sendError('Authentication required', [], 401);
+                }
                 break;
             default:
                 sendError('Method not allowed', [], 405);
         }
     } else if (is_numeric($endpoint)) {
-        // Handle /api/menu/:id
-        require_once __DIR__ . '/../middleware/auth.php';
+        // Handle /api/menu/:id - requires admin auth for all operations
         $menuId = (int)$endpoint;
-
-        switch ($method) {
-            case 'GET':
-                getMenuItem($db, $menuId);
-                break;
-            case 'PUT':
-                updateMenuItem($db, $menuId);
-                break;
-            case 'DELETE':
-                deleteMenuItem($db, $menuId);
-                break;
+        
+        try {
+            $authUser = AuthMiddleware::authenticate();
+            AuthMiddleware::requireAdmin($authUser);
+            
+            switch ($method) {
+                case 'GET':
+                    getMenuItem($db, $menuId);
+                    break;
+                case 'PUT':
+                    updateMenuItem($db, $menuId);
+                    break;
+                case 'DELETE':
+                    deleteMenuItem($db, $menuId);
+                    break;
             default:
                 sendError('Method not allowed', [], 405);
+        }
+        } catch (Exception $e) {
+            sendError('Authentication required', [], 401);
         }
     } else {
         sendError('Menu endpoint not found', [], 404);

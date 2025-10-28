@@ -34,6 +34,16 @@ if (isset($pathParts[1]) && $pathParts[1] === 'php-backend' && isset($pathParts[
 
 try {
     switch ($endpoint) {
+        case '':
+        case null:
+            // Handle /api/users (no endpoint) - return all users for admin
+            if ($method === 'GET') {
+                getAllUsers($db);
+            } else {
+                sendError('Method not allowed', [], 405);
+            }
+            break;
+
         case 'profile':
             if ($method === 'GET') {
                 getProfile($db);
@@ -121,10 +131,7 @@ function getProfile($db) {
     $authUser = AuthMiddleware::authenticate();
 
     $stmt = $db->prepare("
-        SELECT id, name, email, phone, avatar, role, is_active, is_email_verified,
-               newsletter, marketing, notifications_email, notifications_sms, notifications_push,
-               currency, language, total_orders, total_spent, last_order_date,
-               wishlist_count, review_count, created_at, updated_at
+        SELECT id, name, email, phone, avatar, role, is_active, is_email_verified, created_at
         FROM users WHERE id = ?
     ");
     $stmt->execute([$authUser->id]);
@@ -394,8 +401,7 @@ function getAllUsers($db) {
 
     // Get users
     $stmt = $db->prepare("
-        SELECT id, name, email, phone, role, is_active, is_email_verified,
-               total_orders, total_spent, last_order_date, created_at
+        SELECT id, name, email, phone, role, is_active, is_email_verified, created_at
         FROM users
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
@@ -414,8 +420,7 @@ function getUser($db, $userId) {
     AuthMiddleware::requireAdmin();
 
     $stmt = $db->prepare("
-        SELECT id, name, email, phone, role, is_active, is_email_verified,
-               total_orders, total_spent, last_order_date, created_at
+        SELECT id, name, email, phone, role, is_active, is_email_verified, created_at
         FROM users WHERE id = ?
     ");
     $stmt->execute([$userId]);

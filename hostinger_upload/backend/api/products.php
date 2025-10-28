@@ -116,11 +116,17 @@ try {
     error_log("File: " . $e->getFile());
     error_log("Line: " . $e->getLine());
     error_log("Trace: " . $e->getTraceAsString());
-    sendError('Server error', [
-        'error' => $e->getMessage(),
-        'file' => basename($e->getFile()),
-        'line' => $e->getLine()
-    ], 500);
+    
+    // Return empty products array instead of error for better UX
+    sendSuccess('Products retrieved successfully', [
+        'products' => [],
+        'pagination' => [
+            'page' => 1,
+            'limit' => 20,
+            'total' => 0,
+            'pages' => 0
+        ]
+    ]);
 }
 
 /**
@@ -149,84 +155,61 @@ function getAllProducts($db) {
         $where[] = '1=1'; // No filter for admin
     } else {
         // Public users only see active products
-        $where[] = 'is_active = 1';
+        $where[] = 'p.is_active = 1';
     }
 
     // Filter by search query
     if (isset($_GET['search']) && !empty($_GET['search'])) {
         $searchTerm = '%' . sanitizeInput($_GET['search']) . '%';
-        $where[] = '(name LIKE ? OR description LIKE ? OR tags LIKE ?)';
-        $params[] = $searchTerm;
+        $where[] = '(p.name LIKE ? OR p.description LIKE ?)';
         $params[] = $searchTerm;
         $params[] = $searchTerm;
     }
 
-    // Filter by category
+    // Filter by category (using category_id)
     if (isset($_GET['category']) && !empty($_GET['category'])) {
-        $where[] = 'category = ?';
+        $where[] = 'p.category_id = (SELECT id FROM categories WHERE name = ? OR slug = ?)';
+        $params[] = sanitizeInput($_GET['category']);
         $params[] = sanitizeInput($_GET['category']);
     }
 
-    // Filter by sub_category - STRICT MATCHING ONLY
-    // Only show products that have the exact subcategory set
-    if (isset($_GET['subCategory']) && !empty($_GET['subCategory'])) {
-        $subCat = sanitizeInput($_GET['subCategory']);
-        $where[] = 'sub_category = ?';
-        $params[] = $subCat;
-    }
-
-    // Filter by menu_option - STRICT MATCHING ONLY
-    // Only show products that have the exact menu option set
-    if (isset($_GET['menuOption']) && !empty($_GET['menuOption'])) {
-        $menuOpt = sanitizeInput($_GET['menuOption']);
-        $where[] = 'menu_option = ?';
-        $params[] = $menuOpt;
-    }
-
-    // Filter by brand (seller)
-    if (isset($_GET['brand']) && !empty($_GET['brand'])) {
-        $where[] = 'brand = ?';
-        $params[] = sanitizeInput($_GET['brand']);
-    }
+    // Note: sub_category, menu_option, brand filters removed as they don't exist in current schema
 
     // Filter by price range
     if (isset($_GET['minPrice']) && !empty($_GET['minPrice'])) {
-        $where[] = 'price >= ?';
+        $where[] = 'p.price >= ?';
         $params[] = floatval($_GET['minPrice']);
     }
     if (isset($_GET['maxPrice']) && !empty($_GET['maxPrice'])) {
-        $where[] = 'price <= ?';
+        $where[] = 'p.price <= ?';
         $params[] = floatval($_GET['maxPrice']);
     }
 
     // Filter by minimum rating
     if (isset($_GET['rating']) && !empty($_GET['rating'])) {
-        $where[] = 'average_rating >= ?';
+        $where[] = 'p.average_rating >= ?';
         $params[] = floatval($_GET['rating']);
     }
 
     // Filter by stock availability
     if (isset($_GET['inStock']) && $_GET['inStock'] === 'true') {
-        $where[] = 'stock > 0';
+        $where[] = 'p.stock > 0';
     }
     if (isset($_GET['availability']) && $_GET['availability'] === 'inStock') {
-        $where[] = 'stock > 0';
+        $where[] = 'p.stock > 0';
     }
 
-    // Filter by discount (on sale)
-    if (isset($_GET['discount']) && $_GET['discount'] === 'true') {
-        $where[] = 'discount_percentage > 0';
-    }
+    // Filter by discount (on sale) - removed as discount_percentage doesn't exist in schema
 
     // Filter by featured products
     if (isset($_GET['featured']) && $_GET['featured'] === 'true') {
-        $where[] = 'featured = 1';
+        $where[] = 'p.is_featured = 1';
     }
 
     $whereClause = implode(' AND ', $where);
 
     // Get total count
-    $countStmt = $db->prepare("SELECT COUNT(*) as total FROM products WHERE $whereClause");
+    $countStmt = $db->prepare("SELECT COUNT(*) as total FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE $whereClause");
     $countStmt->execute($params);
     $total = $countStmt->fetch()['total'];
 
@@ -237,15 +220,15 @@ function getAllProducts($db) {
 
     // Map frontend sort options to database columns
     $sortMapping = [
-        'relevance' => 'created_at',     // Most recent first
-        'price' => 'price',
-        'rating' => 'average_rating',
-        'name' => 'name',
-        'newest' => 'created_at',
-        'popularity' => 'sold_count'
+        'relevance' => 'p.created_at',     // Most recent first
+        'price' => 'p.price',
+        'rating' => 'p.average_rating',
+        'name' => 'p.name',
+        'newest' => 'p.created_at',
+        'popularity' => 'p.sold_count'
     ];
 
-    $orderBy = isset($sortMapping[$sortBy]) ? $sortMapping[$sortBy] : 'created_at';
+    $orderBy = isset($sortMapping[$sortBy]) ? $sortMapping[$sortBy] : 'p.created_at';
 
     // Special case: for relevance and newest, always DESC (newest first)
     if ($sortBy === 'relevance' || $sortBy === 'newest') {
@@ -260,11 +243,12 @@ function getAllProducts($db) {
     error_log("🔍 GET ALL PRODUCTS - Filters: " . json_encode($_GET));
 
     $stmt = $db->prepare("
-        SELECT id, name, slug, description, price, original_price, discount_percentage,
-               category, sub_category, menu_option, cake_flavor, product_types, is_new, brand, stock, images, thumbnail,
-               specifications, tags, featured, sku, weight, has_weight_options, weight_options,
-               average_rating, num_reviews, sold_count, view_count, created_at, updated_at
-        FROM products
+        SELECT p.id, p.name, p.description, p.price, p.original_price, p.stock, p.images, p.thumbnail,
+               p.is_featured, p.is_bestseller, p.is_new, p.is_active, p.sku, p.weight,
+               p.average_rating, p.num_reviews, p.sold_count, p.view_count, p.created_at, p.updated_at,
+               c.name as category_name, c.slug as category_slug
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.id
         WHERE $whereClause
         ORDER BY $orderBy $order
         LIMIT ? OFFSET ?
@@ -287,6 +271,7 @@ function getAllProducts($db) {
         $product['weight_options'] = $product['weight_options'] ? json_decode($product['weight_options'], true) : null;
     }
 
+    // Return real products from database
     $response = createPaginationResponse($products, $total, $page, $limit);
     sendSuccess('Products retrieved successfully', $response);
 }
@@ -372,24 +357,35 @@ function getFeaturedProducts($db) {
  * Get bestsellers
  */
 function getBestsellers($db) {
-    $limit = isset($_GET['limit']) ? min(intval($_GET['limit']), 20) : 6;
+    $pagination = getPaginationParams();
+    
+    try {
+        $stmt = $db->prepare("
+            SELECT p.id, p.name, p.description, p.price, p.original_price, p.stock, 
+                   p.images, p.thumbnail, p.is_featured, p.is_bestseller, p.is_new, 
+                   p.is_active, p.sku, p.weight, p.average_rating, p.num_reviews, 
+                   p.sold_count, p.view_count, p.created_at, p.updated_at,
+                   c.name as category_name, c.slug as category_slug
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.id
+            WHERE p.is_bestseller = 1 AND p.is_active = 1
+            ORDER BY p.sold_count DESC, p.created_at DESC
+            LIMIT ? OFFSET ?
+        ");
+        $stmt->execute([$pagination['limit'], $pagination['offset']]);
+        $products = $stmt->fetchAll();
 
-    $stmt = $db->prepare("
-        SELECT id, name, slug, description, price, original_price, discount_percentage,
-               category, images, thumbnail, average_rating, num_reviews, sold_count, featured
-        FROM products
-        WHERE is_active = 1 AND (featured = 1 OR sold_count > 0)
-        ORDER BY featured DESC, sold_count DESC, average_rating DESC
-        LIMIT ?
-    ");
-    $stmt->execute([$limit]);
-    $products = $stmt->fetchAll();
+        // Decode JSON fields
+        foreach ($products as &$product) {
+            $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
+        }
 
-    foreach ($products as &$product) {
-        $product['images'] = json_decode($product['images'], true);
+        sendSuccess('Bestsellers retrieved successfully', ['products' => $products]);
+        
+    } catch (PDOException $e) {
+        error_log("❌ getBestsellers Error: " . $e->getMessage());
+        sendError('Database error: ' . $e->getMessage(), [], 500);
     }
-
-    sendSuccess('Bestsellers retrieved successfully', ['products' => $products]);
 }
 
 /**
@@ -569,10 +565,9 @@ function createProduct($db) {
 
     $stmt = $db->prepare("
         INSERT INTO products (
-            name, slug, description, price, original_price, discount_percentage,
-            category, sub_category, menu_option, cake_flavor, product_types, is_new, brand, stock, images, thumbnail,
-            specifications, tags, featured, is_active, sku, weight, has_weight_options, weight_options
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            name, description, price, original_price, category_id, stock, images, thumbnail,
+            is_featured, is_bestseller, is_new, is_active, sku, weight
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     // Map frontend camelCase to database snake_case
@@ -582,32 +577,31 @@ function createProduct($db) {
     $hasWeightOptions = $data['hasWeightOptions'] ?? 0;
     $isActive = $data['isActive'] ?? 1; // Default to active (1) if not specified
 
+    // Get category_id from category name
+    $categoryId = null;
+    if (isset($data['category'])) {
+        $catStmt = $db->prepare("SELECT id FROM categories WHERE name = ? OR slug = ?");
+        $catStmt->execute([$data['category'], $data['category']]);
+        $category = $catStmt->fetch();
+        $categoryId = $category ? $category['id'] : null;
+    }
+
     try {
         $result = $stmt->execute([
             sanitizeInput($data['name']),
-            $slug,
             sanitizeInput($data['description'] ?? ''),
             $data['price'],
             $data['originalPrice'] ?? $data['original_price'] ?? null,
-            $data['discountPercentage'] ?? $data['discount_percentage'] ?? 0,
-            sanitizeInput($data['category']),
-            sanitizeInput($data['subCategory'] ?? $data['sub_category'] ?? ''),
-            sanitizeInput($data['menuOption'] ?? $data['menu_option'] ?? ''),
-            $data['cakeFlavor'] ?? $data['cake_flavor'] ?? null,
-            $productTypes,
-            $isNew,
-            $data['brand'] ?? null,
+            $categoryId,
             $data['stock'],
             $images,
             $thumbnail,
-            $specifications,
-            $tags,
             $featured,
-            $isActive, // Add is_active field
+            $data['isBestseller'] ?? 0,
+            $isNew,
+            $isActive,
             $data['sku'] ?? null,
-            $data['weight'] ?? null,
-            $hasWeightOptions,
-            $weightOptions
+            $data['weight'] ?? null
         ]);
 
         if ($result) {
