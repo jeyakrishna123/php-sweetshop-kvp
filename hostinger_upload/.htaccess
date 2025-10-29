@@ -40,14 +40,26 @@ RewriteRule ^api/(.*)$ /backend/index.php [QSA,L]
 RewriteCond %{REQUEST_URI} ^/frontend/assets/.*\.(js|css|png|jpg|jpeg|gif|ico|svg)$
 RewriteRule ^frontend/assets/(.*)$ /frontend/assets/$1 [L]
 
+# Handle frontend JavaScript files
+RewriteCond %{REQUEST_URI} ^/otp_input_fix\.js$
+RewriteRule ^otp_input_fix\.js$ /frontend/otp_input_fix.js [L]
+
+# Handle mobile API fix
+RewriteCond %{REQUEST_URI} ^/mobile_api_connectivity_fix\.js$
+RewriteRule ^mobile_api_connectivity_fix\.js$ /mobile_api_connectivity_fix.js [L]
+
+# Handle uploads directory
+RewriteCond %{REQUEST_URI} ^/backend/uploads/(.*)$
+RewriteRule ^backend/uploads/(.*)$ /backend/uploads/$1 [L]
+
 # Admin panel routing
 RewriteCond %{REQUEST_URI} ^/admin/(.*)$
-RewriteRule ^admin/(.*)$ /index.html [QSA,L]
+RewriteRule ^admin/(.*)$ /frontend/index.html [QSA,L]
 
 # Handle all other requests to main site
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ /index.html [QSA,L]
+RewriteRule ^(.*)$ /frontend/index.html [QSA,L]
 
 # Prevent access to sensitive files
 <FilesMatch "\.(env|log|sql|md|txt)$">

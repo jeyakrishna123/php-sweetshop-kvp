@@ -10,6 +10,9 @@ require_once __DIR__ . "/../includes/helpers.php";
 require_once __DIR__ . "/../middleware/cors.php";
 require_once __DIR__ . "/../middleware/auth.php";
 
+// Handle CORS
+CorsMiddleware::handle();
+
 // Get request method and endpoint
 $method = $_SERVER["REQUEST_METHOD"];
 
@@ -30,6 +33,16 @@ if (isset($pathParts[2]) && $pathParts[2] !== '') {
 
 // Log the request for debugging
 error_log("🔍 AUTH API - Method: $method, Endpoint: '$endpoint', Path: " . json_encode($pathParts));
+
+// Initialize database connection with error handling
+try {
+    $db = Database::getInstance()->getConnection();
+    error_log("✅ AUTH API - Database connection successful");
+} catch (Exception $e) {
+    error_log("❌ AUTH API - Database connection failed: " . $e->getMessage());
+    sendError("Database connection failed", ["error" => $e->getMessage()], 500);
+    exit;
+}
 
 // Route the request
 switch ($endpoint) {
@@ -250,21 +263,35 @@ function register($db) {
  */
 function login($db) {
     try {
+        error_log("🔍 LOGIN API - Starting login process");
+        
+        // Check if database connection is valid
+        if (!$db) {
+            error_log("❌ LOGIN API - Database connection is null");
+            sendError("Database connection error", [], 500);
+            return;
+        }
+        
         $data = getRequestBody();
+        error_log("🔍 LOGIN API - Request data: " . json_encode($data));
         
         if (empty($data)) {
+            error_log("❌ LOGIN API - No data received");
             sendError("No data received", [], 400);
             return;
         }
 
         $errors = validateRequired($data, ["email", "password"]);
         if (!empty($errors)) {
+            error_log("❌ LOGIN API - Validation failed: " . json_encode($errors));
             sendError("Validation failed", $errors, 400);
             return;
         }
 
         $email = sanitizeInput($data["email"]);
         $password = $data["password"];
+        
+        error_log("🔍 LOGIN API - Attempting login for email: " . $email);
 
         $stmt = $db->prepare("
             SELECT id, name, email, password, role, is_active, is_email_verified
@@ -885,31 +912,45 @@ function verifySignupOtp($db) {
  * Refresh JWT token
  */
 function refreshToken($db) {
-    $authUser = AuthMiddleware::authenticate();
-    
-    // Get fresh user data
-    $stmt = $db->prepare("
-        SELECT id, name, email, role, is_active, is_email_verified
-        FROM users WHERE id = ?
-    ");
-    $stmt->execute([$authUser->id]);
-    $user = $stmt->fetch();
-    
-    if (!$user) {
-        sendError("User not found", [], 404);
+    try {
+        error_log("🔄 REFRESH TOKEN - Starting token refresh");
+        
+        $authUser = AuthMiddleware::authenticate();
+        error_log("🔄 REFRESH TOKEN - User authenticated: " . $authUser->id);
+        
+        // Get fresh user data
+        $stmt = $db->prepare("
+            SELECT id, name, email, role, is_active, is_email_verified
+            FROM users WHERE id = ?
+        ");
+        $stmt->execute([$authUser->id]);
+        $user = $stmt->fetch();
+        
+        if (!$user) {
+            error_log("❌ REFRESH TOKEN - User not found: " . $authUser->id);
+            sendError("User not found", [], 404);
+            return;
+        }
+        
+        if (!$user["is_active"]) {
+            error_log("❌ REFRESH TOKEN - Account deactivated: " . $authUser->id);
+            sendError("Account is deactivated", [], 403);
+            return;
+        }
+        
+        // Generate new token
+        $token = AuthMiddleware::generateToken($user);
+        error_log("✅ REFRESH TOKEN - New token generated for user: " . $user['email']);
+        
+        sendSuccess("Token refreshed successfully", [
+            "user" => $user,
+            "token" => $token
+        ]);
+        
+    } catch (Exception $e) {
+        error_log("❌ REFRESH TOKEN - Error: " . $e->getMessage());
+        sendError("Token refresh failed", ["error" => $e->getMessage()], 500);
     }
-    
-    if (!$user["is_active"]) {
-        sendError("Account is deactivated", [], 403);
-    }
-    
-    // Generate new token
-    $token = AuthMiddleware::generateToken($user);
-    
-    sendSuccess("Token refreshed successfully", [
-        "user" => $user,
-        "token" => $token
-    ]);
 }
 
 /**

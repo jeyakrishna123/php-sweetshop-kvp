@@ -48,11 +48,23 @@
             });
         });
         
-        // Start observing
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
+        // Start observing only if document.body exists
+        if (document.body) {
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        } else {
+            // Wait for body to be available
+            document.addEventListener('DOMContentLoaded', function() {
+                if (document.body) {
+                    observer.observe(document.body, {
+                        childList: true,
+                        subtree: true
+                    });
+                }
+            });
+        }
     }
     
     // Function to force fix all numeric inputs

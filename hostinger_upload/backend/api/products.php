@@ -520,6 +520,33 @@ function createProduct($db) {
     error_log("🔍 CREATE PRODUCT - Raw input (first 500 chars): " . substr($rawInput, 0, 500));
 
     $data = getRequestBody();
+    
+    // Check for duplicate creation within last 5 seconds
+    if (isset($data['name'])) {
+        $checkStmt = $db->prepare("
+            SELECT id, name, created_at 
+            FROM products 
+            WHERE name = ? AND created_at > DATE_SUB(NOW(), INTERVAL 5 SECOND)
+            ORDER BY created_at DESC 
+            LIMIT 1
+        ");
+        $checkStmt->execute([$data['name']]);
+        $recentProduct = $checkStmt->fetch();
+        
+        if ($recentProduct) {
+            error_log("⚠️ CREATE PRODUCT - Duplicate creation prevented for: " . $data['name']);
+            error_log("⚠️ CREATE PRODUCT - Recent product ID: " . $recentProduct['id'] . " created at: " . $recentProduct['created_at']);
+            sendError('Product creation in progress. Please wait a moment before creating again.', [
+                'duplicate_id' => $recentProduct['id'],
+                'created_at' => $recentProduct['created_at']
+            ], 429);
+            return;
+        }
+    }
+    
+    // Add request tracking
+    $requestId = uniqid('req_', true);
+    error_log("🔍 CREATE PRODUCT - Request ID: " . $requestId . " for product: " . ($data['name'] ?? 'UNKNOWN'));
 
     // DEBUG: Log incoming data
     error_log("🔍 CREATE PRODUCT - Decoded data keys: " . json_encode(array_keys($data)));

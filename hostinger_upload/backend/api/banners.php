@@ -88,21 +88,56 @@ try {
  * Get active banners
  */
 function getActiveBanners($db) {
-    $stmt = $db->prepare("
-        SELECT id as _id, title, subtitle, image_url as imageUrl, mobile_image_url as mobileImageUrl,
-               desktop_image_url as desktopImageUrl, link as linkUrl, button_text as buttonText,
-               is_active as isActive, sort_order as displayOrder, start_date as startDate,
-               end_date as endDate, created_at as createdAt, updated_at as updatedAt
-        FROM banners
-        WHERE is_active = 1
-        AND (start_date IS NULL OR start_date <= NOW())
-        AND (end_date IS NULL OR end_date >= NOW())
-        ORDER BY sort_order ASC, created_at DESC
-    ");
-    $stmt->execute();
-    $banners = $stmt->fetchAll();
+    try {
+        // Check if banners table exists, create if not
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS banners (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                title VARCHAR(255) NOT NULL,
+                subtitle TEXT,
+                image_url VARCHAR(500),
+                mobile_image_url VARCHAR(500),
+                desktop_image_url VARCHAR(500),
+                link VARCHAR(500),
+                button_text VARCHAR(100),
+                is_active BOOLEAN DEFAULT TRUE,
+                sort_order INT DEFAULT 0,
+                start_date DATETIME NULL,
+                end_date DATETIME NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_is_active (is_active),
+                INDEX idx_sort_order (sort_order),
+                INDEX idx_dates (start_date, end_date)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        
+        $stmt = $db->prepare("
+            SELECT id as _id, title, subtitle, image_url as imageUrl, mobile_image_url as mobileImageUrl,
+                   desktop_image_url as desktopImageUrl, link as linkUrl, button_text as buttonText,
+                   is_active as isActive, sort_order as displayOrder, start_date as startDate,
+                   end_date as endDate, created_at as createdAt, updated_at as updatedAt
+            FROM banners
+            WHERE is_active = 1
+            AND (start_date IS NULL OR start_date <= NOW())
+            AND (end_date IS NULL OR end_date >= NOW())
+            ORDER BY sort_order ASC, created_at DESC
+        ");
+        $stmt->execute();
+        $banners = $stmt->fetchAll();
 
-    sendSuccess('Active banners retrieved successfully', ['banners' => $banners]);
+        // Convert image URLs to production URLs
+        foreach ($banners as &$banner) {
+            $banner['imageUrl'] = getImageUrl($banner['imageUrl']);
+            $banner['mobileImageUrl'] = getImageUrl($banner['mobileImageUrl']);
+            $banner['desktopImageUrl'] = getImageUrl($banner['desktopImageUrl']);
+        }
+
+        sendSuccess('Active banners retrieved successfully', ['banners' => $banners]);
+    } catch (Exception $e) {
+        error_log("❌ GET ACTIVE BANNERS - Error: " . $e->getMessage());
+        sendError('Failed to retrieve banners', ['error' => $e->getMessage()], 500);
+    }
 }
 
 /**

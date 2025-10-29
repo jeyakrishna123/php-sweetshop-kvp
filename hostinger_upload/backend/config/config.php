@@ -65,6 +65,7 @@ define('APP_ENV', 'production');
 // Base URL - Production domain
 define('BASE_URL', 'https://skbakers.com');
 define('API_BASE_URL', 'https://skbakers.com/api');
+define('IMAGE_BASE_URL', 'https://skbakers.com/backend/uploads');
 
 // Session settings for security
 ini_set('session.cookie_httponly', 1);
