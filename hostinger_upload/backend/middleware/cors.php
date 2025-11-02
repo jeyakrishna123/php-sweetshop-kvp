@@ -17,22 +17,32 @@ class CorsMiddleware {
         // Get the origin from the request
         $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
 
-        // List of allowed origins
+        // List of allowed origins - Production domains included
         $allowedOrigins = [
             'http://localhost:5173',
             'http://localhost:3000',
             'http://localhost:5174',
             'http://127.0.0.1:5173',
             'http://127.0.0.1:3000',
+            'https://skbakers.com',
+            'https://www.skbakers.com',
         ];
 
         // Check if origin is allowed
-        if (in_array($origin, $allowedOrigins)) {
+        if (!empty($origin) && in_array($origin, $allowedOrigins)) {
             header("Access-Control-Allow-Origin: $origin");
             header("Access-Control-Allow-Credentials: true");
         } else {
-            // For other origins or no origin header, use wildcard without credentials
-            header("Access-Control-Allow-Origin: *");
+            // For production, allow requests from same domain or no origin (direct requests)
+            if (empty($origin) || strpos($origin, 'skbakers.com') !== false) {
+                header("Access-Control-Allow-Origin: " . ($origin ?: '*'));
+                if (!empty($origin)) {
+                    header("Access-Control-Allow-Credentials: true");
+                }
+            } else {
+                // For development/unknown origins, still allow but without credentials
+                header("Access-Control-Allow-Origin: *");
+            }
         }
 
         header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH");

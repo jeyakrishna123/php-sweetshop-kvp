@@ -128,9 +128,11 @@ function uploadProductImage() {
     $imagePath = uploadImage($file, 'products');
 
     if ($imagePath) {
+        // Use production URL with HTTPS
+        $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
         sendSuccess('Image uploaded successfully', [
             'imageUrl' => $imagePath,
-            'fullUrl' => 'http://' . $_SERVER['HTTP_HOST'] . $imagePath
+            'fullUrl' => $baseUrl . $imagePath
         ], 201);
     } else {
         sendError('Failed to upload image', [], 500);
@@ -159,9 +161,11 @@ function uploadBannerImage() {
     $imagePath = uploadImage($file, 'banners');
 
     if ($imagePath) {
+        // Use production URL with HTTPS
+        $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
         sendSuccess('Image uploaded successfully', [
             'imageUrl' => $imagePath,
-            'fullUrl' => 'http://' . $_SERVER['HTTP_HOST'] . $imagePath
+            'fullUrl' => $baseUrl . $imagePath
         ], 201);
     } else {
         sendError('Failed to upload image', [], 500);
@@ -196,9 +200,11 @@ function uploadPopupImage() {
 
     if ($imagePath) {
         error_log("✅ Image uploaded successfully: $imagePath");
+        // Use production URL with HTTPS
+        $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
         sendSuccess('Popup image uploaded successfully', [
             'imageUrl' => $imagePath,
-            'fullUrl' => 'http://' . $_SERVER['HTTP_HOST'] . $imagePath
+            'fullUrl' => $baseUrl . $imagePath
         ], 201);
     } else {
         error_log("❌ uploadImage() returned false - file upload failed");

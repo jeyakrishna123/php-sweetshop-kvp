@@ -102,17 +102,37 @@ try {
  */
 function getActiveOfferPopups($db) {
     try {
-        // Check if offer_popups table exists
+        // Check if offer_popups table exists, create if needed
         $stmt = $db->query("SHOW TABLES LIKE 'offer_popups'");
         if ($stmt->rowCount() === 0) {
-            // Table doesn't exist, return empty array
-            sendSuccess('Active offer popups retrieved successfully', ['popups' => []]);
-            return;
+            // Create table if it doesn't exist
+            $createTable = "
+                CREATE TABLE IF NOT EXISTS offer_popups (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    title VARCHAR(255) NOT NULL,
+                    description TEXT,
+                    image_url VARCHAR(500),
+                    coupon_code VARCHAR(50),
+                    discount_percentage DECIMAL(5,2),
+                    button_text VARCHAR(100) DEFAULT 'Shop Now',
+                    button_link VARCHAR(500),
+                    is_active TINYINT(1) DEFAULT 1,
+                    show_on_homepage TINYINT(1) DEFAULT 1,
+                    start_date DATETIME NULL,
+                    end_date DATETIME NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_active (is_active),
+                    INDEX idx_dates (start_date, end_date)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ";
+            $db->exec($createTable);
         }
 
         $stmt = $db->prepare("
             SELECT id, title, description, image_url, coupon_code, discount_percentage,
-                   button_text, button_link, is_active, show_on_homepage
+                   button_text, button_link, is_active, show_on_homepage,
+                   start_date, end_date, created_at, updated_at
             FROM offer_popups
             WHERE is_active = 1
             AND (start_date IS NULL OR start_date <= NOW())
@@ -121,6 +141,13 @@ function getActiveOfferPopups($db) {
         ");
         $stmt->execute();
         $popups = $stmt->fetchAll();
+
+        // Convert image URLs to production URLs
+        foreach ($popups as &$popup) {
+            if (!empty($popup['image_url'])) {
+                $popup['image_url'] = getImageUrl($popup['image_url']);
+            }
+        }
 
         sendSuccess('Active offer popups retrieved successfully', ['popups' => $popups]);
         
@@ -146,6 +173,13 @@ function getAllOfferPopups($db) {
     $stmt->execute();
     $popups = $stmt->fetchAll();
 
+    // Convert image URLs to production URLs
+    foreach ($popups as &$popup) {
+        if (!empty($popup['image_url'])) {
+            $popup['image_url'] = getImageUrl($popup['image_url']);
+        }
+    }
+
     sendSuccess('All offer popups retrieved successfully', [
         'popups' => $popups,
         'count' => count($popups)
@@ -169,6 +203,12 @@ function getOfferPopupById($db, $popupId) {
 
     if (!$popup) {
         sendError('Offer popup not found', [], 404);
+        return;
+    }
+
+    // Convert image URL to production URL
+    if (!empty($popup['image_url'])) {
+        $popup['image_url'] = getImageUrl($popup['image_url']);
     }
 
     sendSuccess('Offer popup retrieved successfully', ['popup' => $popup]);
@@ -240,6 +280,11 @@ function createOfferPopup($db) {
             $stmt = $db->prepare("SELECT * FROM offer_popups WHERE id = ?");
             $stmt->execute([$popupId]);
             $popup = $stmt->fetch();
+
+            // Convert image URL to production URL
+            if (!empty($popup['image_url'])) {
+                $popup['image_url'] = getImageUrl($popup['image_url']);
+            }
 
             sendSuccess('Offer popup created successfully', ['popup' => $popup], 201);
         } else {
@@ -339,6 +384,11 @@ function updateOfferPopup($db, $popupId) {
         $stmt = $db->prepare("SELECT * FROM offer_popups WHERE id = ?");
         $stmt->execute([$popupId]);
         $popup = $stmt->fetch();
+
+        // Convert image URL to production URL
+        if (!empty($popup['image_url'])) {
+            $popup['image_url'] = getImageUrl($popup['image_url']);
+        }
 
         sendSuccess('Offer popup updated successfully', ['popup' => $popup]);
     } else {

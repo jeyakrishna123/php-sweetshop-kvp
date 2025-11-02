@@ -1,0 +1,202 @@
+HOSTINGER UPLOAD FOLDER STRUCTURE
+==================================
+
+Complete folder structure for SK Bakers E-Commerce Application
+Ready for Hostinger Production Deployment
+
+hostinger_upload/
+│
+├── .htaccess                           ✅ ROOT - CRITICAL: Routes all API calls
+│
+├── force-production-api.js             ✅ Root - Forces production API URLs
+│
+├── mobile_api_connectivity_fix.js      ✅ Root - Mobile API connectivity fix
+│
+├── sk-bakers-logo.png                  ✅ Root - Logo file
+│
+├── robots.txt                          ✅ SEO - Search engine crawler rules
+│
+├── web.config                          ✅ IIS/Windows compatibility (backup config)
+│
+├── FAVICON_NOTE.txt                    📝 Note about creating favicon.ico (optional)
+│
+├── .gitignore                          ✅ Git ignore rules (optional)
+│
+├── SENIOR_DEV_REVIEW.md                ✅ Production review checklist
+│
+├── setup_hostinger_database.php       ⚠️ OPTIONAL - Run ONCE for initial DB setup, then DELETE
+│
+├── backend/                            ✅ BACKEND DIRECTORY
+│   │
+│   ├── index.php                       ✅ CRITICAL - Main API router
+│   │
+│   ├── .htaccess                       ✅ Backend security
+│   │
+│   ├── config/                         ✅ CONFIGURATION
+│   │   ├── config.php                  ✅ Production settings (URLs, JWT, SMTP)
+│   │   └── database.php                ✅ Database connection
+│   │
+│   ├── api/                            ✅ API ENDPOINTS (23 endpoints)
+│   │   ├── admin.php                   ✅ Admin dashboard APIs
+│   │   ├── analytics.php               ✅ Analytics APIs
+│   │   ├── auth.php                    ✅ CRITICAL - Authentication & OTP
+│   │   ├── banners.php                 ✅ Banner management
+│   │   ├── categories.php              ✅ Category management
+│   │   ├── contacts.php                ✅ Contact form
+│   │   ├── coupons.php                 ✅ Coupon management
+│   │   ├── forgot-password.php          ✅ Legacy (handled by auth.php)
+│   │   ├── hide-sections.php           ✅ Section visibility
+│   │   ├── index.php                   ✅ API index
+│   │   ├── inventory.php               ✅ Inventory management
+│   │   ├── menu.php                    ✅ Menu management
+│   │   ├── offer-popups.php            ✅ Offer popup management
+│   │   ├── orders.php                  ✅ Order management
+│   │   ├── payment.php                 ✅ Payment processing
+│   │   ├── products.php                ✅ Product management
+│   │   ├── reset-password.php          ✅ Legacy (handled by auth.php)
+│   │   ├── reviews.php                 ✅ Review management
+│   │   ├── team.php                    ✅ Team management
+│   │   ├── upload.php                  ✅ Image upload APIs
+│   │   ├── users.php                   ✅ User management
+│   │   ├── verify-otp.php              ✅ Legacy (handled by auth.php)
+│   │   └── wishlist.php                ✅ Wishlist management
+│   │
+│   ├── includes/                       ✅ HELPER FILES
+│   │   ├── EmailService.php            ✅ Email service (PHPMailer)
+│   │   ├── ErrorHandler.php            ✅ CRITICAL - Global error handler
+│   │   ├── helpers.php                 ✅ Helper functions
+│   │   └── SimpleMailer.php            ✅ Fallback mailer
+│   │
+│   ├── middleware/                     ✅ MIDDLEWARE
+│   │   ├── auth.php                    ✅ JWT authentication
+│   │   └── cors.php                    ✅ CORS handler
+│   │
+│   ├── vendor/                         ✅ THIRD-PARTY
+│   │   └── jwt/
+│   │       └── JWT.php                 ✅ JWT library
+│   │
+│   ├── uploads/                        ✅ UPLOAD DIRECTORY (Must be writable)
+│   │   ├── banners/                    ✅ Banner images
+│   │   │   └── *.webp                  ✅ Uploaded banner files
+│   │   ├── menu-items/                 ✅ Menu item images
+│   │   │   └── *.webp                  ✅ Uploaded menu files
+│   │   ├── popups/                     ✅ Popup images
+│   │   │   └── *.webp                  ✅ Uploaded popup files
+│   │   ├── products/                   ✅ Product images (empty, ready)
+│   │   ├── temp/                       ✅ Temporary uploads
+│   │   └── users/                      ✅ User profile images
+│   │
+│   └── logs/                           ✅ LOG FILES (Auto-created)
+│       ├── activity.log                ✅ Activity logs
+│       └── php-error.log               ✅ PHP error logs
+│
+└── frontend/                           ✅ FRONTEND DIRECTORY
+    │
+    ├── index.html                      ✅ CRITICAL - Main HTML file
+    │
+    ├── .htaccess                       ✅ Frontend routing
+    │
+    ├── 404.html                        ✅ Custom 404 error page
+    │
+    ├── 500.html                        ✅ Custom 500 error page
+    │
+    ├── assets/                         ✅ COMPILED ASSETS
+    │   ├── .htaccess                   ✅ Asset security
+    │   ├── index-CnrEf73-.js          ✅ Main React bundle
+    │   ├── index-Da2rp_AC.css         ✅ Main stylesheet
+    │   ├── router-Bie5Mwwm.js          ✅ Router bundle
+    │   └── vendor-C8w-UNLI.js          ✅ Vendor bundle
+    │
+    ├── otp_input_fix.js                ✅ OTP input fix
+    │
+    ├── mobile_api_connectivity_fix.js  ✅ Mobile connectivity fix
+    │
+    ├── FixedOtpModal.jsx               ✅ React component (optional)
+    │
+    ├── Signup.jsx                       ✅ React component (optional)
+    │
+    ├── sk-bakers-logo.png              ✅ Logo
+    │
+    ├── logo.webp                       ✅ Logo webp
+    │
+    ├── billlogo.webp                   ✅ Bill logo
+    │
+    ├── manifest.json                   ✅ PWA manifest
+    │
+    ├── sw.js                           ✅ Service worker
+    │
+    ├── offline.html                    ✅ Offline page
+    │
+    ├── _redirects                      ✅ Redirect rules
+    │
+    └── context/                        ✅ Context files (if any)
+
+═══════════════════════════════════════════════════════════════════
+
+📋 CRITICAL FILES CHECKLIST (Must Upload):
+
+✅ ROOT LEVEL:
+   - .htaccess (CRITICAL - Routes all requests)
+   - robots.txt (SEO - Search engine crawler rules)
+   - web.config (IIS/Windows compatibility)
+   - force-production-api.js (Production API fix)
+   - mobile_api_connectivity_fix.js (Mobile fix)
+   - sk-bakers-logo.png (Logo)
+   - favicon.ico (OPTIONAL - Create from logo using favicon.io)
+
+✅ BACKEND:
+   - backend/index.php (Main router with ErrorHandler)
+   - backend/config/config.php (Production config)
+   - backend/config/database.php (DB connection)
+   - backend/includes/* (All helper files including ErrorHandler.php)
+   - backend/middleware/* (All middleware)
+   - backend/api/* (All 23 API files)
+   - backend/vendor/jwt/JWT.php (JWT library)
+   - backend/uploads/* (All subdirectories - must be writable 755)
+
+✅ FRONTEND:
+   - frontend/index.html (Main HTML)
+   - frontend/404.html (Custom 404 page)
+   - frontend/500.html (Custom 500 page)
+   - frontend/assets/* (All compiled assets)
+   - frontend/otp_input_fix.js
+   - frontend/mobile_api_connectivity_fix.js
+   - frontend/*.png, *.webp (All image files)
+   - frontend/manifest.json
+   - frontend/sw.js
+
+═══════════════════════════════════════════════════════════════════
+
+🔒 FILE PERMISSIONS (Set via FTP/cPanel):
+
+   Folders (Directories):     755 (rwxr-xr-x)
+   PHP Files:                 644 (rw-r--r--)
+   JavaScript/CSS Files:      644 (rw-r--r--)
+   Uploads Directory:         755 (must be writable)
+   Logs Directory:           755 (must be writable)
+   .htaccess Files:          644 (rw-r--r--)
+
+═══════════════════════════════════════════════════════════════════
+
+📁 UPLOAD INSTRUCTIONS:
+
+1. Upload ALL files from hostinger_upload/ to your domain root (public_html/)
+2. Ensure .htaccess is in the root
+3. Set backend/uploads/ permissions to 755 (writable)
+4. Set backend/logs/ permissions to 755 (writable)
+5. Verify database credentials in backend/config/config.php
+6. Test: https://skbakers.com/api/health
+
+═══════════════════════════════════════════════════════════════════
+
+✅ VERIFICATION:
+
+After upload, check:
+- ✅ https://skbakers.com/ (Frontend loads)
+- ✅ https://skbakers.com/api/ (API info shows)
+- ✅ https://skbakers.com/api/health (Health check)
+- ✅ https://skbakers.com/admin/ (Admin panel loads)
+- ✅ Images load from /backend/uploads/
+
+═══════════════════════════════════════════════════════════════════
+

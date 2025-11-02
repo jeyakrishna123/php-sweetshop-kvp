@@ -19,8 +19,20 @@ RewriteRule ^(.*)$ index.php [QSA,L]
 # Disable directory browsing
 Options -Indexes
 
-# Protect sensitive files
-<FilesMatch "^(config|database|\.env|composer\.(json|lock))">
+# Protect sensitive files and directories
+<FilesMatch "^(config|database|\.env|composer\.(json|lock)|\.git|\.gitignore)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Protect includes directory (prevent direct access)
+<FilesMatch "^(ErrorHandler|EmailService|SimpleMailer|helpers)\.php$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Block access to log files via HTTP
+<FilesMatch "\.(log)$">
     Order allow,deny
     Deny from all
 </FilesMatch>

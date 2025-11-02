@@ -2,7 +2,7 @@
 (function() {
     'use strict';
     
-    console.log('🚀 FORCING PRODUCTION API - ULTIMATE FIX');
+    // Production API configuration (Silent execution - no console logs)
     
     // 1. FORCE ALL ENVIRONMENT VARIABLES
     window.NODE_ENV = 'production';
@@ -35,14 +35,14 @@
             }
         }
         
-        console.log('🌐 FETCH REDIRECT:', url, '→', newUrl);
+        // Silently redirect to production API
         return originalFetch.call(this, newUrl, options);
     };
     
     // 3. OVERRIDE AXIOS
     if (typeof window.axios !== 'undefined') {
         window.axios.defaults.baseURL = 'https://skbakers.com/api';
-        console.log('✅ Axios redirected to production');
+        // Axios redirected to production silently
     }
     
     // 4. OVERRIDE XMLHttpRequest
@@ -55,7 +55,7 @@
             if (typeof url === 'string' && url.includes('localhost')) {
                 newUrl = url.replace(/http:\/\/localhost:\d+/, 'https://skbakers.com');
             }
-            console.log('🌐 XHR REDIRECT:', url, '→', newUrl);
+            // Silently redirect XHR to production
             return originalOpen.call(this, method, newUrl, ...args);
         };
         return xhr;
@@ -80,8 +80,7 @@
         localStorage.removeItem('vite_api_url');
     }
     
-    console.log('✅ ULTIMATE PRODUCTION API FIX APPLIED');
-    console.log('🎯 All API calls redirected to: https://skbakers.com/api');
+    // Production API fix applied silently - no console output
     
     // 7. SUCCESS MESSAGE REMOVED (as requested)
     // The green banner message has been removed

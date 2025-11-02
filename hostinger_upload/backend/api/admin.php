@@ -4,22 +4,13 @@
  * Routes: /api/admin/*
  */
 
-// Enhanced error reporting
+// Error reporting - CORS and headers handled by middleware
 error_reporting(E_ALL);
 ini_set("display_errors", 0);
 ini_set("log_errors", 1);
 
-// Set proper headers
-header("Content-Type: application/json");
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
-
-// Handle preflight requests
-if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
-    http_response_code(200);
-    exit();
-}
+// Note: CORS headers and Content-Type are handled by CorsMiddleware
+// Don't set duplicate headers here to prevent conflicts
 
 // Include required files with error handling
 try {
@@ -157,6 +148,21 @@ try {
             exit;
             break;
 
+        case "upload-images":
+            if ($method === "POST") {
+                try {
+                    $authUser = AuthMiddleware::authenticate();
+                    AuthMiddleware::requireAdmin($authUser);
+                    uploadMultipleImages();
+                } catch (Exception $e) {
+                    error_log("❌ Upload Images Auth Error: " . $e->getMessage());
+                    sendError('Authentication required. Please login as admin.', [], 401);
+                }
+            } else {
+                sendError('Method not allowed', [], 405);
+            }
+            break;
+
         case "marketing":
             if ($method === "GET") {
                 getMarketingData($db);
@@ -246,6 +252,24 @@ function getDashboardStats($db) {
         $stmt->execute();
         $totalProducts = $stmt->fetch()["total"];
 
+        // Get total contacts
+        $totalContacts = 0;
+        $unreadContacts = 0;
+        try {
+            $checkContactsTable = $db->query("SHOW TABLES LIKE 'contacts'");
+            if ($checkContactsTable->rowCount() > 0) {
+                $stmt = $db->prepare("SELECT COUNT(*) as total FROM contacts");
+                $stmt->execute();
+                $totalContacts = $stmt->fetch()["total"];
+                
+                $stmt = $db->prepare("SELECT COUNT(*) as total FROM contacts WHERE is_read = 0");
+                $stmt->execute();
+                $unreadContacts = $stmt->fetch()["total"];
+            }
+        } catch (Exception $e) {
+            error_log("⚠️ Could not get contacts count: " . $e->getMessage());
+        }
+
         // Get recent orders
         $stmt = $db->prepare("
             SELECT o.*, u.name as customer_name, u.email as customer_email
@@ -279,6 +303,8 @@ function getDashboardStats($db) {
                 "totalOrders" => (int)$totalOrders,
                 "totalRevenue" => (float)$totalRevenue,
                 "totalProducts" => (int)$totalProducts,
+                "totalContacts" => (int)$totalContacts,
+                "unreadContacts" => (int)$unreadContacts,
                 "dateRange" => $dateRange,
                 "startDate" => $startDate,
                 "endDate" => $endDate
@@ -297,6 +323,8 @@ function getDashboardStats($db) {
                 "totalOrders" => 0,
                 "totalRevenue" => 0,
                 "totalProducts" => 0,
+                "totalContacts" => 0,
+                "unreadContacts" => 0,
                 "dateRange" => "all",
                 "startDate" => null,
                 "endDate" => null
@@ -614,5 +642,113 @@ function getReports($db) {
             ]
         ]);
     }
+}
+
+/**
+ * Upload multiple product images
+ */
+function uploadMultipleImages() {
+    error_log("🔍 uploadMultipleImages called");
+    error_log("🔍 FILES: " . json_encode(array_keys($_FILES)));
+    
+    // Check if images are uploaded
+    if (!isset($_FILES['images'])) {
+        error_log("❌ No images file provided");
+        sendError('No images provided. Please upload at least one image.', [], 400);
+        return;
+    }
+    
+    $files = $_FILES['images'];
+    $uploadedImages = [];
+    $errors = [];
+    
+    // Handle both single file and multiple files
+    $fileCount = is_array($files['name']) ? count($files['name']) : 1;
+    
+    error_log("🔍 Processing $fileCount image(s)");
+    
+    for ($i = 0; $i < $fileCount; $i++) {
+        // Handle single file upload (not an array)
+        if (!is_array($files['name'])) {
+            $file = [
+                'name' => $files['name'],
+                'type' => $files['type'],
+                'tmp_name' => $files['tmp_name'],
+                'error' => $files['error'],
+                'size' => $files['size']
+            ];
+        } else {
+            // Handle multiple file uploads
+            $file = [
+                'name' => $files['name'][$i],
+                'type' => $files['type'][$i],
+                'tmp_name' => $files['tmp_name'][$i],
+                'error' => $files['error'][$i],
+                'size' => $files['size'][$i]
+            ];
+        }
+        
+        // Check for upload errors
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            $errorMsg = 'Upload error for ' . $file['name'] . ': ';
+            switch ($file['error']) {
+                case UPLOAD_ERR_INI_SIZE:
+                case UPLOAD_ERR_FORM_SIZE:
+                    $errorMsg .= 'File too large';
+                    break;
+                case UPLOAD_ERR_PARTIAL:
+                    $errorMsg .= 'File upload was incomplete';
+                    break;
+                case UPLOAD_ERR_NO_FILE:
+                    $errorMsg .= 'No file was uploaded';
+                    break;
+                default:
+                    $errorMsg .= 'Unknown upload error';
+            }
+            $errors[] = $errorMsg;
+            error_log("❌ " . $errorMsg);
+            continue;
+        }
+        
+        // Validate image
+        $validationErrors = validateImageUpload($file);
+        if (!empty($validationErrors)) {
+            $errors[] = $file['name'] . ': ' . implode(', ', $validationErrors);
+            error_log("❌ Validation failed for " . $file['name'] . ": " . implode(', ', $validationErrors));
+            continue;
+        }
+        
+        // Upload image to products directory
+        $imagePath = uploadImage($file, 'products');
+        
+        if ($imagePath) {
+            // Convert to production URL
+            $fullUrl = getImageUrl($imagePath);
+            $uploadedImages[] = [
+                'url' => $fullUrl,
+                'path' => $imagePath,
+                'name' => $file['name']
+            ];
+            error_log("✅ Image uploaded successfully: $imagePath -> $fullUrl");
+        } else {
+            $errors[] = $file['name'] . ': Failed to upload image';
+            error_log("❌ Failed to upload image: " . $file['name']);
+        }
+    }
+    
+    if (empty($uploadedImages)) {
+        sendError('Failed to upload images', [
+            'errors' => $errors,
+            'message' => count($errors) > 0 ? implode('; ', $errors) : 'No images were uploaded successfully'
+        ], 400);
+        return;
+    }
+    
+    // Return success response with uploaded images
+    sendSuccess('Images uploaded successfully', [
+        'images' => $uploadedImages,
+        'count' => count($uploadedImages),
+        'errors' => $errors
+    ], 201);
 }
 ?>

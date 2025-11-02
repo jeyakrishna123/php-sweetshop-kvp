@@ -126,11 +126,24 @@ function getActiveBanners($db) {
         $stmt->execute();
         $banners = $stmt->fetchAll();
 
-        // Convert image URLs to production URLs
+        // Convert image URLs to production URLs - Only convert if not null/empty
         foreach ($banners as &$banner) {
-            $banner['imageUrl'] = getImageUrl($banner['imageUrl']);
-            $banner['mobileImageUrl'] = getImageUrl($banner['mobileImageUrl']);
-            $banner['desktopImageUrl'] = getImageUrl($banner['desktopImageUrl']);
+            // Only convert non-empty image URLs to production URLs
+            if (!empty($banner['imageUrl'])) {
+                $banner['imageUrl'] = getImageUrl($banner['imageUrl']);
+            } else {
+                $banner['imageUrl'] = null; // Ensure null for empty values
+            }
+            if (!empty($banner['mobileImageUrl'])) {
+                $banner['mobileImageUrl'] = getImageUrl($banner['mobileImageUrl']);
+            } else {
+                $banner['mobileImageUrl'] = null;
+            }
+            if (!empty($banner['desktopImageUrl'])) {
+                $banner['desktopImageUrl'] = getImageUrl($banner['desktopImageUrl']);
+            } else {
+                $banner['desktopImageUrl'] = null;
+            }
         }
 
         sendSuccess('Active banners retrieved successfully', ['banners' => $banners]);
@@ -158,6 +171,26 @@ function getAllBanners($db) {
     $stmt->execute();
     $banners = $stmt->fetchAll();
 
+        // Convert image URLs to production URLs - Only convert if not null/empty
+        foreach ($banners as &$banner) {
+            // Only convert non-empty image URLs to production URLs
+            if (!empty($banner['imageUrl'])) {
+                $banner['imageUrl'] = getImageUrl($banner['imageUrl']);
+            } else {
+                $banner['imageUrl'] = null; // Ensure null for empty values
+            }
+            if (!empty($banner['mobileImageUrl'])) {
+                $banner['mobileImageUrl'] = getImageUrl($banner['mobileImageUrl']);
+            } else {
+                $banner['mobileImageUrl'] = null;
+            }
+            if (!empty($banner['desktopImageUrl'])) {
+                $banner['desktopImageUrl'] = getImageUrl($banner['desktopImageUrl']);
+            } else {
+                $banner['desktopImageUrl'] = null;
+            }
+        }
+
     sendSuccess('All banners retrieved successfully', [
         'banners' => $banners,
         'count' => count($banners)
@@ -181,6 +214,23 @@ function getBannerById($db, $bannerId) {
     if (!$banner) {
         sendError('Banner not found', [], 404);
     }
+    
+        // Convert image URLs to production URLs - Only convert if not null/empty
+        if (!empty($banner['image_url'])) {
+            $banner['image_url'] = getImageUrl($banner['image_url']);
+        } else {
+            $banner['image_url'] = null;
+        }
+        if (!empty($banner['mobile_image_url'])) {
+            $banner['mobile_image_url'] = getImageUrl($banner['mobile_image_url']);
+        } else {
+            $banner['mobile_image_url'] = null;
+        }
+        if (!empty($banner['desktop_image_url'])) {
+            $banner['desktop_image_url'] = getImageUrl($banner['desktop_image_url']);
+        } else {
+            $banner['desktop_image_url'] = null;
+        }
 
     sendSuccess('Banner retrieved successfully', ['banner' => $banner]);
 }
@@ -222,7 +272,8 @@ function createBanner($db) {
         $filepath = $uploadDir . $filename;
 
         if (move_uploaded_file($_FILES['mobileImage']['tmp_name'], $filepath)) {
-            $mobileImageUrl = '/uploads/banners/' . $filename;
+            // Use relative path that will be converted to full URL by getImageUrl
+            $mobileImageUrl = '/backend/uploads/banners/' . $filename;
             error_log("✅ Mobile image uploaded: $mobileImageUrl");
         }
     }
@@ -239,7 +290,8 @@ function createBanner($db) {
         $filepath = $uploadDir . $filename;
 
         if (move_uploaded_file($_FILES['desktopImage']['tmp_name'], $filepath)) {
-            $desktopImageUrl = '/uploads/banners/' . $filename;
+            // Use relative path that will be converted to full URL by getImageUrl
+            $desktopImageUrl = '/backend/uploads/banners/' . $filename;
             error_log("✅ Desktop image uploaded: $desktopImageUrl");
         }
     }
@@ -272,6 +324,23 @@ function createBanner($db) {
         ");
         $stmt->execute([$bannerId]);
         $banner = $stmt->fetch();
+        
+        // Convert image URLs to production URLs - Only convert if not null/empty
+        if (!empty($banner['imageUrl'])) {
+            $banner['imageUrl'] = getImageUrl($banner['imageUrl']);
+        } else {
+            $banner['imageUrl'] = null;
+        }
+        if (!empty($banner['mobileImageUrl'])) {
+            $banner['mobileImageUrl'] = getImageUrl($banner['mobileImageUrl']);
+        } else {
+            $banner['mobileImageUrl'] = null;
+        }
+        if (!empty($banner['desktopImageUrl'])) {
+            $banner['desktopImageUrl'] = getImageUrl($banner['desktopImageUrl']);
+        } else {
+            $banner['desktopImageUrl'] = null;
+        }
 
         sendSuccess('Banner created successfully', ['banner' => $banner], 201);
     } else {
@@ -353,10 +422,33 @@ function updateBanner($db, $bannerId) {
     $stmt = $db->prepare($sql);
 
     if ($stmt->execute($params)) {
-        // Get updated banner
-        $stmt = $db->prepare("SELECT * FROM banners WHERE id = ?");
+        // Get updated banner with camelCase fields
+        $stmt = $db->prepare("
+            SELECT id as _id, title, subtitle, image_url as imageUrl, mobile_image_url as mobileImageUrl,
+                   desktop_image_url as desktopImageUrl, link as linkUrl, button_text as buttonText,
+                   is_active as isActive, sort_order as displayOrder, start_date as startDate,
+                   end_date as endDate, created_at as createdAt, updated_at as updatedAt
+            FROM banners WHERE id = ?
+        ");
         $stmt->execute([$bannerId]);
         $banner = $stmt->fetch();
+        
+        // Convert image URLs to production URLs - Only convert if not null/empty
+        if (!empty($banner['imageUrl'])) {
+            $banner['imageUrl'] = getImageUrl($banner['imageUrl']);
+        } else {
+            $banner['imageUrl'] = null;
+        }
+        if (!empty($banner['mobileImageUrl'])) {
+            $banner['mobileImageUrl'] = getImageUrl($banner['mobileImageUrl']);
+        } else {
+            $banner['mobileImageUrl'] = null;
+        }
+        if (!empty($banner['desktopImageUrl'])) {
+            $banner['desktopImageUrl'] = getImageUrl($banner['desktopImageUrl']);
+        } else {
+            $banner['desktopImageUrl'] = null;
+        }
 
         sendSuccess('Banner updated successfully', ['banner' => $banner]);
     } else {

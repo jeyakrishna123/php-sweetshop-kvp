@@ -1,0 +1,38 @@
+FAVICON.ICO NOTE
+================
+
+⚠️ IMPORTANT: You need to create a favicon.ico file for your website.
+
+WHAT IS IT?
+-----------
+- Browser tab icon (small icon shown in browser tabs)
+- Improves branding and user experience
+- Required for PWA (Progressive Web App) functionality
+
+HOW TO CREATE IT:
+-----------------
+1. Use your sk-bakers-logo.png file
+2. Convert PNG to ICO format using:
+   - https://favicon.io/ (Recommended - free, easy)
+   - https://convertio.co/png-ico/ (Alternative)
+   - https://realfavicongenerator.net/ (Advanced options)
+
+3. Save as: favicon.ico
+4. Upload to root directory (same location as .htaccess)
+
+RECOMMENDED SIZES:
+------------------
+- 16x16 (standard)
+- 32x32 (standard)
+- 48x48 (optional)
+- You can create multi-size favicon using favicon.io
+
+UPLOAD LOCATION:
+----------------
+hostinger_upload/favicon.ico (root directory)
+
+NOTE:
+-----
+This is optional but recommended for professional appearance.
+The website will work without it, but browsers will show a default icon.
+

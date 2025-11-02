@@ -1,0 +1,25 @@
+# robots.txt for SK Bakers - Production
+# https://skbakers.com/robots.txt
+
+User-agent: *
+Allow: /
+Disallow: /backend/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /setup_hostinger_database.php
+Disallow: /*.env
+Disallow: /*.log
+Disallow: /*.sql
+Disallow: /backend/uploads/temp/
+
+# Allow important pages
+Allow: /
+Allow: /frontend/
+Allow: /frontend/assets/
+
+# Sitemap location
+Sitemap: https://skbakers.com/sitemap.xml
+
+# Crawl delay (optional - adjust as needed)
+Crawl-delay: 1
+

@@ -171,6 +171,10 @@ function createOrder($db) {
         foreach ($data['orderItems'] as $item) {
             // Get product image if not provided in order item
             $productImage = $item['image'] ?? null;
+            // Convert to production URL if exists
+            if ($productImage) {
+                $productImage = getImageUrl($productImage);
+            }
 
             if (empty($productImage)) {
                 error_log("⚠️ CREATE ORDER - Image missing for item, fetching from product: " . $item['product']);
@@ -461,12 +465,19 @@ function getAllOrders($db) {
                 }
             }
 
+            // Convert image URLs to production URLs
+            if ($productImage) {
+                $productImage = getImageUrl($productImage);
+            }
+
             // Set product_image field
             $item['product_image'] = $productImage;
 
             // Also update the item.image if it's a placeholder
             if (empty($item['image']) || strpos($item['image'], 'placeholder') !== false) {
                 $item['image'] = $productImage;
+            } else if (!empty($item['image'])) {
+                $item['image'] = getImageUrl($item['image']);
             }
 
             // Remove raw images field (not needed in response)

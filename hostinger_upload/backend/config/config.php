@@ -84,14 +84,20 @@ if (!file_exists($logsDir)) {
     mkdir($logsDir, 0755, true);
 }
 
-// Force HTTPS in production (only for non-API requests)
+// Force HTTPS in production (only for non-API requests and non-backend requests)
+// Note: This is handled by .htaccess, but kept as backup
 if (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] !== 'on') {
-    // Don't redirect API calls to prevent loops
     $requestUri = $_SERVER['REQUEST_URI'] ?? '';
-    if (strpos($requestUri, '/api/') !== 0) {
-        $redirectURL = 'https://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
-        header("Location: $redirectURL", true, 301);
-        exit();
+    // Don't redirect API calls, backend calls, or assets
+    if (strpos($requestUri, '/api/') !== 0 && 
+        strpos($requestUri, '/backend/') !== 0 &&
+        !preg_match('/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|json)$/i', $requestUri)) {
+        // Only redirect frontend pages, let .htaccess handle the rest
+        if (strpos($requestUri, '/frontend/') === false && strpos($requestUri, '/assets/') === false) {
+            $redirectURL = 'https://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+            header("Location: $redirectURL", true, 301);
+            exit();
+        }
     }
 }
 ?>

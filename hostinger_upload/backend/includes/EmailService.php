@@ -14,55 +14,121 @@ class EmailService {
     
     public function __construct() {
         // Load configuration with proper SMTP settings for Hostinger
-        $this->smtpHost = defined('SMTP_HOST') ? SMTP_HOST : 'smtp.hostinger.com';
-        $this->smtpPort = defined('SMTP_PORT') ? SMTP_PORT : 587;
-        $this->smtpUsername = defined('SMTP_USERNAME') ? SMTP_USERNAME : 'noreply@skbakers.com';
-        $this->smtpPassword = defined('SMTP_PASSWORD') ? SMTP_PASSWORD : '';
-        $this->fromEmail = defined('FROM_EMAIL') ? FROM_EMAIL : 'noreply@skbakers.com';
-        $this->fromName = defined('FROM_NAME') ? FROM_NAME : 'SK Bakers';
-    }
-    
-    /**
-     * Send email using PHPMailer
-     */
-    public function sendEmail($to, $subject, $message, $isHtml = true) {
+        // All operations are safe and cannot throw exceptions
         try {
-            // Try PHPMailer first, then fallback to basic mail
-            if (class_exists('PHPMailer\PHPMailer\PHPMailer')) {
-                return $this->sendEmailWithPHPMailer($to, $subject, $message, $isHtml);
-            } else {
-                return $this->sendBasicEmail($to, $subject, $message, $isHtml);
-            }
-        } catch (Exception $e) {
-            error_log("Email sending failed: " . $e->getMessage());
-            // Try basic mail as fallback
-            return $this->sendBasicEmail($to, $subject, $message, $isHtml);
+            $this->smtpHost = defined('SMTP_HOST') && SMTP_HOST ? SMTP_HOST : 'smtp.hostinger.com';
+            $this->smtpPort = defined('SMTP_PORT') && SMTP_PORT ? SMTP_PORT : 587;
+            $this->smtpUsername = defined('SMTP_USERNAME') && SMTP_USERNAME ? SMTP_USERNAME : 'noreply@skbakers.com';
+            $this->smtpPassword = defined('SMTP_PASSWORD') ? SMTP_PASSWORD : '';
+            $this->fromEmail = defined('FROM_EMAIL') && FROM_EMAIL ? FROM_EMAIL : 'noreply@skbakers.com';
+            $this->fromName = defined('FROM_NAME') && FROM_NAME ? FROM_NAME : 'SK Bakers';
+        } catch (Throwable $e) {
+            // This should never happen, but ensure we have valid defaults
+            error_log("❌ EmailService constructor error (unexpected): " . $e->getMessage());
+            $this->smtpHost = 'smtp.hostinger.com';
+            $this->smtpPort = 587;
+            $this->smtpUsername = 'noreply@skbakers.com';
+            $this->smtpPassword = '';
+            $this->fromEmail = 'noreply@skbakers.com';
+            $this->fromName = 'SK Bakers';
         }
     }
     
     /**
+     * Send email using PHPMailer
+     * NEVER throws exceptions - always returns boolean
+     */
+    public function sendEmail($to, $subject, $message, $isHtml = true) {
+        // Validate inputs
+        if (empty($to) || empty($subject)) {
+            error_log("❌ EmailService - Invalid parameters: to='" . ($to ?? 'NULL') . "', subject='" . ($subject ?? 'NULL') . "'");
+            return false;
+        }
+        
+        // Suppress all errors and warnings to prevent breaking API response
+        $oldErrorLevel = error_reporting(E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR);
+        $displayErrors = ini_get('display_errors');
+        ini_set('display_errors', '0');
+        
+        try {
+            // Try PHPMailer first, then fallback to basic mail
+            if (class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+                $result = $this->sendEmailWithPHPMailer($to, $subject, $message, $isHtml);
+            } else {
+                error_log("⚠️ EmailService - PHPMailer not available, using basic mail()");
+                $result = $this->sendBasicEmail($to, $subject, $message, $isHtml);
+            }
+        } catch (Throwable $e) {
+            // Catch ALL errors including fatal errors
+            error_log("❌ EmailService - sendEmail() exception: " . $e->getMessage());
+            error_log("❌ EmailService - Exception trace: " . $e->getTraceAsString());
+            
+            // Try basic mail as fallback
+            try {
+                $result = $this->sendBasicEmail($to, $subject, $message, $isHtml);
+            } catch (Throwable $fallbackError) {
+                error_log("❌ EmailService - Fallback also failed: " . $fallbackError->getMessage());
+                $result = false;
+            }
+        } finally {
+            // Restore error reporting
+            error_reporting($oldErrorLevel);
+            ini_set('display_errors', $displayErrors);
+        }
+        
+        return $result ?? false;
+    }
+    
+    /**
      * Send email using PHPMailer (if available)
+     * NEVER throws exceptions - always returns boolean
      */
     public function sendEmailWithPHPMailer($to, $subject, $message, $isHtml = true) {
         try {
-            // Check if PHPMailer is available
+            // Check if PHPMailer is available - use fully qualified check
             if (!class_exists('PHPMailer\PHPMailer\PHPMailer')) {
-                // Fallback to basic mail() function
+                error_log("⚠️ EmailService - PHPMailer class not found, using fallback");
                 return $this->sendBasicEmail($to, $subject, $message, $isHtml);
             }
             
-            $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+            // Suppress PHPMailer errors to prevent breaking JSON response
+            // Use variable to store constant value safely - default to 'tls' string
+            $encryptionStartTLS = 'tls'; // Default to 'tls' string instead of constant
+            
+            // Try to get constant safely using ReflectionClass, but don't fail if it doesn't exist
+            try {
+                $reflectionClass = new ReflectionClass('PHPMailer\PHPMailer\PHPMailer');
+                if ($reflectionClass->hasConstant('ENCRYPTION_STARTTLS')) {
+                    $encryptionStartTLS = $reflectionClass->getConstant('ENCRYPTION_STARTTLS');
+                }
+            } catch (Throwable $constError) {
+                // Use string fallback if anything fails
+                $encryptionStartTLS = 'tls';
+                error_log("⚠️ EmailService - Could not get PHPMailer constant, using 'tls' string");
+            }
+            
+            $mail = new PHPMailer\PHPMailer\PHPMailer(false); // false = don't throw exceptions
             
             // Server settings
             $mail->isSMTP();
             $mail->Host = $this->smtpHost;
-            $mail->SMTPAuth = true;
+            $mail->SMTPAuth = !empty($this->smtpUsername) && !empty($this->smtpPassword);
             $mail->Username = $this->smtpUsername;
             $mail->Password = $this->smtpPassword;
-            $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->SMTPSecure = $encryptionStartTLS; // Use variable instead of direct constant
             $mail->Port = $this->smtpPort;
             $mail->SMTPDebug = 0; // Set to 2 for debugging
             $mail->Timeout = 30;
+            $mail->CharSet = 'UTF-8';
+            
+            // Suppress SMTP errors
+            $mail->SMTPOptions = array(
+                'ssl' => array(
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                    'allow_self_signed' => true
+                )
+            );
             
             // Recipients
             $mail->setFrom($this->fromEmail, $this->fromName);
@@ -73,52 +139,100 @@ class EmailService {
             $mail->Subject = $subject;
             $mail->Body = $message;
             
-            $mail->send();
-            return true;
+            // Try to send (won't throw exception since we passed false to constructor)
+            if ($mail->send()) {
+                error_log("✅ EmailService - Email sent successfully via PHPMailer to: $to");
+                return true;
+            } else {
+                $errorMsg = $mail->ErrorInfo ?? 'Unknown error';
+                error_log("❌ EmailService - PHPMailer send failed: $errorMsg");
+                
+                // In development, simulate success if SMTP fails
+                if (isset($_SERVER['HTTP_HOST']) && 
+                    (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false || 
+                     strpos($_SERVER['HTTP_HOST'], '127.0.0.1') !== false)) {
+                    error_log("⚠️ EmailService - Development environment, simulating email success");
+                    return true;
+                }
+                
+                return false;
+            }
             
-        } catch (Exception $e) {
-            error_log("Email sending failed: " . $e->getMessage());
+        } catch (Throwable $e) {
+            error_log("❌ EmailService - PHPMailer exception: " . $e->getMessage());
+            error_log("❌ EmailService - Exception trace: " . $e->getTraceAsString());
             
-            // In development, simulate success if SMTP fails
-            if (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false || strpos($_SERVER['HTTP_HOST'], '127.0.0.1') !== false) {
-                error_log("Development environment - simulating email success");
+            // In development, simulate success
+            if (isset($_SERVER['HTTP_HOST']) && 
+                (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false || 
+                 strpos($_SERVER['HTTP_HOST'], '127.0.0.1') !== false)) {
+                error_log("⚠️ EmailService - Development environment, simulating email success after exception");
                 return true;
             }
             
-            return false;
+            // Try fallback
+            return $this->sendBasicEmail($to, $subject, $message, $isHtml);
         }
     }
     
     /**
      * Fallback to basic mail() function
+     * NEVER throws exceptions - always returns boolean
      */
     private function sendBasicEmail($to, $subject, $message, $isHtml = true) {
-        // Enhanced headers for better delivery
-        $headers = "MIME-Version: 1.0\r\n";
-        $headers .= "From: {$this->fromName} <{$this->fromEmail}>\r\n";
-        $headers .= "Reply-To: {$this->fromEmail}\r\n";
-        $headers .= "X-Mailer: PHP/" . phpversion() . "\r\n";
-        $headers .= "X-Priority: 3\r\n";
-        $headers .= "Return-Path: {$this->fromEmail}\r\n";
-        
-        if ($isHtml) {
-            $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-        } else {
-            $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
+        try {
+            // Enhanced headers for better delivery
+            $headers = "MIME-Version: 1.0\r\n";
+            $headers .= "From: {$this->fromName} <{$this->fromEmail}>\r\n";
+            $headers .= "Reply-To: {$this->fromEmail}\r\n";
+            $headers .= "X-Mailer: PHP/" . phpversion() . "\r\n";
+            $headers .= "X-Priority: 3\r\n";
+            $headers .= "Return-Path: {$this->fromEmail}\r\n";
+            
+            if ($isHtml) {
+                $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+            } else {
+                $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
+            }
+            
+            // Log email attempt
+            error_log("📧 EmailService - Attempting to send email via mail() to: $to");
+            
+            // Suppress mail() errors
+            $result = @mail($to, $subject, $message, $headers);
+            
+            if ($result) {
+                error_log("✅ EmailService - Email sent successfully via mail() to: $to");
+            } else {
+                // Check last error
+                $lastError = error_get_last();
+                $errorMsg = $lastError ? $lastError['message'] : 'Unknown mail() error';
+                error_log("❌ EmailService - mail() failed to send to: $to - Error: $errorMsg");
+                
+                // In development, simulate success
+                if (isset($_SERVER['HTTP_HOST']) && 
+                    (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false || 
+                     strpos($_SERVER['HTTP_HOST'], '127.0.0.1') !== false)) {
+                    error_log("⚠️ EmailService - Development environment, simulating email success");
+                    return true;
+                }
+            }
+            
+            return $result;
+            
+        } catch (Throwable $e) {
+            error_log("❌ EmailService - sendBasicEmail() exception: " . $e->getMessage());
+            
+            // In development, simulate success
+            if (isset($_SERVER['HTTP_HOST']) && 
+                (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false || 
+                 strpos($_SERVER['HTTP_HOST'], '127.0.0.1') !== false)) {
+                error_log("⚠️ EmailService - Development environment, simulating email success after exception");
+                return true;
+            }
+            
+            return false;
         }
-        
-        // Log email attempt
-        error_log("Attempting to send email to: $to with subject: $subject");
-        
-        $result = @mail($to, $subject, $message, $headers);
-        
-        if ($result) {
-            error_log("Email sent successfully to: $to");
-        } else {
-            error_log("Email failed to send to: $to");
-        }
-        
-        return $result;
     }
     
     /**

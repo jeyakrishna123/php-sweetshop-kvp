@@ -6,6 +6,10 @@
 
 require_once __DIR__ . '/config/config.php';
 
+// Initialize global error handler FIRST
+require_once __DIR__ . '/includes/ErrorHandler.php';
+ErrorHandler::init();
+
 // Start session AFTER config is loaded
 session_start();
 require_once __DIR__ . '/includes/helpers.php';

@@ -147,7 +147,7 @@ const ForgotPasswordModal = ({ isOpen, onClose, onSuccess }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, otp, newPassword }),
+        body: JSON.stringify({ email, otp, new_password: newPassword }),
       });
 
       const data = await response.json();

@@ -102,10 +102,10 @@ function getRequestBody() {
         }
     }
     
-    // Log for debugging
-    error_log("getRequestBody() - Raw input: " . $input);
-    error_log("getRequestBody() - Parsed data: " . json_encode($data));
-    error_log("getRequestBody() - POST data: " . json_encode($_POST));
+    // Log for debugging (only in development or when debug mode is enabled)
+    // Removed verbose logging in production to prevent log file bloat
+    // Uncomment below for debugging if needed:
+    // error_log("getRequestBody() - Parsed data keys: " . json_encode(array_keys($data ?? [])));
     
     return $data ?? [];
 }
@@ -471,4 +471,80 @@ function sendOrderStatusEmail($customerEmail, $customerName, $orderId, $newStatu
     </html>";
 
     return sendEmail($customerEmail, $subject, $body, true);
+}
+
+/**
+ * Get image URL - Convert relative paths to absolute production URLs
+ */
+function getImageUrl($imagePath) {
+    if (empty($imagePath)) {
+        return null; // Return null instead of empty string
+    }
+    
+    // If already an absolute URL, return as is
+    if (preg_match('/^https?:\/\//', $imagePath)) {
+        return $imagePath;
+    }
+    
+    // Handle old paths like /uploads/banners/ -> convert to /backend/uploads/banners/
+    if (strpos($imagePath, '/uploads/') === 0) {
+        $imagePath = '/backend' . $imagePath;
+    }
+    
+    // If starts with /, it's a root-relative path
+    if (strpos($imagePath, '/') === 0) {
+        return defined('BASE_URL') ? BASE_URL . $imagePath : 'https://skbakers.com' . $imagePath;
+    }
+    
+    // Otherwise, prepend uploads directory
+    $baseUrl = defined('IMAGE_BASE_URL') ? IMAGE_BASE_URL : 'https://skbakers.com/backend/uploads';
+    return $baseUrl . '/' . ltrim($imagePath, '/');
+}
+
+/**
+ * Normalize image URL/path - Convert full URLs to relative paths for storage
+ * This ensures images are stored as relative paths and converted back to full URLs when retrieved
+ */
+function normalizeImagePath($imagePath) {
+    if (empty($imagePath)) {
+        return null;
+    }
+    
+    // If it's already a relative path (starts with /uploads/ or /backend/uploads/), return as is
+    if (strpos($imagePath, '/uploads/') === 0) {
+        return $imagePath; // Return as /uploads/... format
+    }
+    
+    if (strpos($imagePath, '/backend/uploads/') === 0) {
+        // Convert /backend/uploads/ to /uploads/ for storage
+        return str_replace('/backend/uploads/', '/uploads/', $imagePath);
+    }
+    
+    // If it's a full URL, extract the relative path
+    $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+    $imageBaseUrl = defined('IMAGE_BASE_URL') ? IMAGE_BASE_URL : 'https://skbakers.com/backend/uploads';
+    
+    // Remove base URL if present
+    if (strpos($imagePath, $baseUrl) === 0) {
+        $relativePath = substr($imagePath, strlen($baseUrl));
+        // Convert /backend/uploads/ to /uploads/ for storage
+        if (strpos($relativePath, '/backend/uploads/') === 0) {
+            return str_replace('/backend/uploads/', '/uploads/', $relativePath);
+        }
+        return $relativePath;
+    }
+    
+    // Remove image base URL if present
+    if (strpos($imagePath, $imageBaseUrl) === 0) {
+        $relativePath = substr($imagePath, strlen($imageBaseUrl));
+        return '/uploads/products' . $relativePath;
+    }
+    
+    // If it doesn't start with /, assume it's a filename or path relative to uploads
+    if (strpos($imagePath, '/') !== 0) {
+        return '/uploads/products/' . ltrim($imagePath, '/');
+    }
+    
+    // Return as is if we can't normalize it
+    return $imagePath;
 }

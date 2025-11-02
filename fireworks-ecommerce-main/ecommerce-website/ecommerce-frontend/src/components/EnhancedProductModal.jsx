@@ -178,7 +178,32 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
       const productCategory = product.category || product.categoryName || product.cakeFlavor || "";
       if (productCategory) {
         setSelectedMainCategory(productCategory);
+        
+        // Set the menu filter to match the product's category if it exists in mainCategories
+        // Use case-insensitive matching to handle variations
+        const matchingCategory = mainCategories.find(cat => 
+          cat.name.toLowerCase() === productCategory.toLowerCase()
+        );
+        
+        if (matchingCategory) {
+          // Use the exact name from mainCategories to ensure consistency
+          setSelectedMenuFilter(matchingCategory.name);
+          console.log('✅ EnhancedProductModal: Set menu filter to:', matchingCategory.name, 'for product category:', productCategory);
+        } else {
+          // Try to find partial matches or keep current filter if product has category
+          // Don't reset to "all" - keep the product's category as the filter
+          console.log('⚠️ EnhancedProductModal: Category not found in mainCategories, using product category:', productCategory);
+          setSelectedMenuFilter(productCategory); // Use the product's category directly
+        }
+      } else {
+        // Only reset to "all" if there's no category at all
+        console.log('⚠️ EnhancedProductModal: No category found in product, keeping filter as "all"');
+        setSelectedMenuFilter("all");
       }
+      
+      // Reset dropdown visibility states (but NOT the selected filter value)
+      setShowMenuFilter(false);
+      setShowMenuDropdown(false);
     } else {
       // CREATE MODE: Reset form to empty values
       console.log('➕ EnhancedProductModal: Resetting form for new product creation');
@@ -208,6 +233,9 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
       });
       setSelectedMainCategory("");
       setSelectedSubCategory("");
+      setSelectedMenuFilter("all");
+      setShowMenuFilter(false);
+      setShowMenuDropdown(false);
       setErrors({});
     }
   }, [product]);
@@ -283,10 +311,10 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
     }
   };
 
-  // Fetch menu items when component mounts
+  // Fetch menu items when component mounts and when editing
   useEffect(() => {
     fetchMenuItems();
-  }, []);
+  }, [product]);
 
   // Calculate price and discount
   useEffect(() => {
@@ -437,25 +465,89 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
     
     setIsLoading(true);
     try {
-      // Process images - convert base64 to URLs or use as-is
+      // Process images - upload files first, then combine with URLs
       let processedImages = [];
       if (form.images && form.images.length > 0) {
-        processedImages = form.images.map(img => {
-          // If it's a base64 data URL, use it directly
-          if (typeof img === 'string' && img.startsWith('data:')) {
+        // Separate file uploads from URLs/existing images
+        const filesToUpload = form.images.filter(img => 
+          img && typeof img === 'object' && img.file && img.file instanceof File
+        );
+        const existingImages = form.images.filter(img => 
+          !(img && typeof img === 'object' && img.file && img.file instanceof File)
+        );
+        
+        // Upload files if any
+        if (filesToUpload.length > 0) {
+          try {
+            console.log('📤 EnhancedProductModal: Uploading', filesToUpload.length, 'image files...');
+            const fileObjects = filesToUpload.map(img => img.file);
+            const uploadResponse = await productAPI.uploadImages(fileObjects);
+            console.log('📤 EnhancedProductModal: Upload response:', uploadResponse);
+            
+            if (uploadResponse.success && uploadResponse.images) {
+              // Extract URLs from upload response
+              const uploadedUrls = uploadResponse.images.map(img => {
+                // Response format: { url: 'https://...', path: '/uploads/...', name: '...' }
+                // Use url (full URL) for consistency - backend will normalize it
+                if (typeof img === 'string') {
+                  return img; // Already a URL string
+                } else if (img && typeof img === 'object') {
+                  return img.url || img.fullUrl || img.imageUrl || img.path || '';
+                }
+                return '';
+              }).filter(url => url); // Remove empty URLs
+              
+              processedImages = [...processedImages, ...uploadedUrls];
+              console.log('✅ EnhancedProductModal: Uploaded images:', uploadedUrls);
+              showToast(`${uploadedUrls.length} image(s) uploaded successfully`, 'success');
+            } else {
+              console.error('❌ EnhancedProductModal: Upload failed:', uploadResponse.message);
+              showToast(uploadResponse.message || 'Failed to upload some images', 'error');
+            }
+          } catch (uploadError) {
+            console.error('❌ EnhancedProductModal: Image upload error:', uploadError);
+            showToast(uploadError.message || 'Failed to upload images', 'error');
+            // Continue with existing images even if upload fails
+          }
+        }
+        
+        // Process existing images (URLs, base64, or strings)
+        const existingImageUrls = existingImages.map(img => {
+          // If it's a string URL, use it directly
+          if (typeof img === 'string') {
+            // Check if it's base64
+            if (img.startsWith('data:')) {
+              return img; // Keep base64 for now (backend should handle it)
+            }
+            // Check if it's already a full URL
+            if (img.startsWith('http://') || img.startsWith('https://')) {
+              return img;
+            }
+            // Relative path - return as is (backend will handle conversion)
             return img;
           }
           // If it's an object with url property, use the url
           if (typeof img === 'object' && img.url) {
             return img.url;
           }
-          // If it's an object with preview property, use the preview
-          if (typeof img === 'object' && img.preview) {
+          // If it's an object with preview property and it's a URL (not base64)
+          if (typeof img === 'object' && img.preview && !img.preview.startsWith('data:')) {
             return img.preview;
           }
-          // Fallback to the image itself
+          // Fallback
           return img;
-        });
+        }).filter(url => url); // Remove empty values
+        
+        processedImages = [...processedImages, ...existingImageUrls];
+        
+        console.log('📝 EnhancedProductModal: Final processed images:', processedImages);
+      }
+      
+      // Validate that we have at least one image
+      if (processedImages.length === 0) {
+        showToast('Please add at least one product image', 'error');
+        setIsLoading(false);
+        return;
       }
       
       // Convert camelCase to snake_case for backend
@@ -467,8 +559,8 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
         original_price: parseFloat(form.originalPrice), // Backend uses snake_case
         discount_percentage: parseFloat(form.discountPercentage) || 0, // Backend uses snake_case
         stock: parseInt(form.stock),
-        images: processedImages,
-        thumbnail: processedImages[0] || null,
+        images: processedImages, // Array of URLs (full URLs will be normalized by backend)
+        thumbnail: processedImages[0] || null, // First image as thumbnail
         sub_category: form.subCategory || '', // Backend uses snake_case
         menu_option: form.menuOption || '', // Backend uses snake_case
         cake_flavor: form.cakeFlavor || '', // Backend uses snake_case
@@ -649,7 +741,7 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
                 </button>
                 
                 {showMenuFilter && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto" style={{ zIndex: 10050 }}>
                     <button
                       type="button"
                       onClick={() => handleMenuFilterSelect("all")}
@@ -708,7 +800,7 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
                 </button>
                 
                 {showMenuDropdown && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto" style={{ zIndex: 10050 }}>
                     <button
                       type="button"
                       onClick={() => handleMenuOptionSelect("")}

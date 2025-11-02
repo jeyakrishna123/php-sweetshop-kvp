@@ -1,0 +1,57 @@
+# Production .gitignore
+# Files that should NOT be uploaded to production (if using Git)
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Log files
+*.log
+logs/
+backend/logs/*.log
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Database files
+*.sql
+*.sqlite
+*.db
+
+# IDE files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Backup files
+*.bak
+*.backup
+*_backup.*
+
+# Node modules (if any)
+node_modules/
+npm-debug.log
+
+# Cache files
+*.cache
+.cache/
+
+# Uploaded files (keep structure, ignore content)
+backend/uploads/*/*
+!backend/uploads/*/.gitkeep
+
+# Sensitive configuration
+config.local.php
+database.local.php
+

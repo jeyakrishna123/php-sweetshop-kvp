@@ -35,36 +35,85 @@
     // Function to fix OTP inputs when modal opens
     function observeOtpModal() {
         // Watch for changes in the DOM that might indicate OTP modal opening
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.type === 'childList') {
-                    // Check if OTP inputs are now visible
-                    const otpInputs = document.querySelectorAll('input[inputmode="numeric"], input[pattern="[0-9]*"], input[maxlength="1"]');
-                    if (otpInputs.length > 0) {
-                        console.log('OTP modal detected, fixing inputs...');
-                        fixOtpInputTypes();
-                    }
-                }
-            });
-        });
+        let observer = null;
         
-        // Start observing only if document.body exists
-        if (document.body) {
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true
-            });
-        } else {
-            // Wait for body to be available
-            document.addEventListener('DOMContentLoaded', function() {
-                if (document.body) {
-                    observer.observe(document.body, {
-                        childList: true,
-                        subtree: true
+        function createObserver() {
+            try {
+                observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.type === 'childList') {
+                            // Check if OTP inputs are now visible
+                            const otpInputs = document.querySelectorAll('input[inputmode="numeric"], input[pattern="[0-9]*"], input[maxlength="1"]');
+                            if (otpInputs.length > 0) {
+                                fixOtpInputTypes();
+                            }
+                        }
                     });
-                }
-            });
+                });
+                return true;
+            } catch (e) {
+                console.warn('OTP Input Fix: Could not create observer:', e.message);
+                return false;
+            }
         }
+        
+        // Start observing only if document.body exists and is a valid Node
+        function startObserving() {
+            try {
+                // Ensure observer is created
+                if (!observer && !createObserver()) {
+                    return false;
+                }
+                
+                // Check if body exists and is a valid Node
+                const body = document.body;
+                if (!body) {
+                    return false;
+                }
+                
+                // Additional Node validation
+                if (typeof Node !== 'undefined' && !(body instanceof Node)) {
+                    return false;
+                }
+                
+                // Check if nodeType exists (older browser compatibility)
+                if (body.nodeType === undefined) {
+                    return false;
+                }
+                
+                // Now safely observe
+                observer.observe(body, {
+                    childList: true,
+                    subtree: true
+                });
+                return true;
+            } catch (e) {
+                console.warn('OTP Input Fix: Could not start observer:', e.message);
+                return false;
+            }
+        }
+        
+        // Try to start observing - only after DOM is ready
+        function attemptObservation() {
+            if (document.body && document.body.nodeType) {
+                if (!startObserving()) {
+                    // Retry after a short delay
+                    setTimeout(attemptObservation, 200);
+                }
+            } else {
+                // Body not ready yet, wait
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', function() {
+                        setTimeout(attemptObservation, 100);
+                    });
+                } else {
+                    setTimeout(attemptObservation, 100);
+                }
+            }
+        }
+        
+        // Start attempting observation
+        attemptObservation();
     }
     
     // Function to force fix all numeric inputs

@@ -81,8 +81,33 @@ try {
  * Get all contacts (Admin only)
  */
 function getAllContacts($db) {
-    $authUser = AuthMiddleware::authenticate();
-    AuthMiddleware::requireAdmin($authUser);
+    try {
+        $authUser = AuthMiddleware::authenticate();
+        AuthMiddleware::requireAdmin($authUser);
+    } catch (Exception $e) {
+        error_log("❌ getAllContacts Auth Error: " . $e->getMessage());
+        sendError('Authentication required', [], 401);
+        return;
+    }
+
+    // Check if table exists
+    try {
+        $checkTable = $db->query("SHOW TABLES LIKE 'contacts'");
+        if ($checkTable->rowCount() === 0) {
+            sendSuccess('Contacts retrieved successfully', [
+                'contacts' => [],
+                'count' => 0
+            ]);
+            return;
+        }
+    } catch (Exception $e) {
+        error_log("⚠️ Could not check contacts table: " . $e->getMessage());
+        sendSuccess('Contacts retrieved successfully', [
+            'contacts' => [],
+            'count' => 0
+        ]);
+        return;
+    }
 
     $stmt = $db->prepare("
         SELECT
@@ -139,11 +164,42 @@ function getContact($db, $contactId) {
  * Create new contact (Public endpoint)
  */
 function createContact($db) {
+    // Check if contacts table exists, create if needed
+    try {
+        $checkTable = $db->query("SHOW TABLES LIKE 'contacts'");
+        if ($checkTable->rowCount() === 0) {
+            // Create table if it doesn't exist
+            $createTable = "
+                CREATE TABLE IF NOT EXISTS contacts (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    full_name VARCHAR(255) NOT NULL,
+                    email VARCHAR(255) NOT NULL,
+                    phone VARCHAR(20),
+                    subject VARCHAR(255) NOT NULL,
+                    message TEXT NOT NULL,
+                    status ENUM('new', 'responded', 'closed') DEFAULT 'new',
+                    is_read TINYINT(1) DEFAULT 0,
+                    admin_notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_status (status),
+                    INDEX idx_is_read (is_read),
+                    INDEX idx_created (created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ";
+            $db->exec($createTable);
+            error_log("✅ Contacts table created automatically");
+        }
+    } catch (Exception $e) {
+        error_log("⚠️ Could not check/create contacts table: " . $e->getMessage());
+    }
+
     $data = getRequestBody();
 
     $errors = validateRequired($data, ['fullName', 'email', 'subject', 'message']);
     if (!empty($errors)) {
         sendError('Validation failed', $errors, 400);
+        return;
     }
 
     $fullName = sanitizeInput($data['fullName']);
@@ -155,36 +211,46 @@ function createContact($db) {
     // Validate email
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         sendError('Invalid email address', [], 400);
+        return;
     }
 
     // Validate message length
     if (strlen($message) > 2000) {
         sendError('Message cannot exceed 2000 characters', [], 400);
+        return;
     }
 
     // Insert contact
-    $stmt = $db->prepare("
-        INSERT INTO contacts (full_name, email, phone, subject, message, status, is_read)
-        VALUES (?, ?, ?, ?, ?, 'new', 0)
-    ");
+    try {
+        $stmt = $db->prepare("
+            INSERT INTO contacts (full_name, email, phone, subject, message, status, is_read)
+            VALUES (?, ?, ?, ?, ?, 'new', 0)
+        ");
 
-    if ($stmt->execute([$fullName, $email, $phone, $subject, $message])) {
-        $contactId = $db->lastInsertId();
+        if ($stmt->execute([$fullName, $email, $phone, $subject, $message])) {
+            $contactId = $db->lastInsertId();
+            error_log("✅ Contact form submitted successfully - ID: $contactId");
 
-        sendSuccess('Contact form submitted successfully', [
-            'contact' => [
-                'id' => $contactId,
-                'fullName' => $fullName,
-                'email' => $email,
-                'phone' => $phone,
-                'subject' => $subject,
-                'message' => $message,
-                'status' => 'new',
-                'isRead' => false
-            ]
-        ], 201);
-    } else {
-        sendError('Failed to submit contact form', [], 500);
+            sendSuccess('Contact form submitted successfully', [
+                'contact' => [
+                    'id' => $contactId,
+                    'fullName' => $fullName,
+                    'email' => $email,
+                    'phone' => $phone,
+                    'subject' => $subject,
+                    'message' => $message,
+                    'status' => 'new',
+                    'isRead' => false
+                ]
+            ], 201);
+        } else {
+            $errorInfo = $stmt->errorInfo();
+            error_log("❌ Failed to insert contact: " . json_encode($errorInfo));
+            sendError('Failed to submit contact form', [], 500);
+        }
+    } catch (PDOException $e) {
+        error_log("❌ Contact insert error: " . $e->getMessage());
+        sendError('Database error: ' . $e->getMessage(), [], 500);
     }
 }
 

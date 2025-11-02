@@ -60,6 +60,13 @@ try {
             }
             break;
 
+        case 'new':
+            // /api/products/new
+            if ($method === 'GET') {
+                getNewProducts($db);
+            }
+            break;
+
         case 'reactivate':
             // /api/products/reactivate/{id} - Management feature
             if ($method === 'POST') {
@@ -133,7 +140,8 @@ try {
  * Get all products with pagination and filters
  */
 function getAllProducts($db) {
-    $pagination = getPaginationParams();
+    try {
+        $pagination = getPaginationParams();
     $page = $pagination['page'];
     $limit = $pagination['limit'];
     $offset = $pagination['offset'];
@@ -262,18 +270,63 @@ function getAllProducts($db) {
     error_log("🔍 GET ALL PRODUCTS - Found " . count($products) . " products");
     error_log("🔍 GET ALL PRODUCTS - Total count: $total");
 
-    // Decode JSON fields
+    // Decode JSON fields and convert image URLs to production URLs
     foreach ($products as &$product) {
         $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
-        $product['product_types'] = $product['product_types'] ? json_decode($product['product_types'], true) : null;
-        $product['specifications'] = $product['specifications'] ? json_decode($product['specifications'], true) : null;
-        $product['tags'] = $product['tags'] ? json_decode($product['tags'], true) : null;
-        $product['weight_options'] = $product['weight_options'] ? json_decode($product['weight_options'], true) : null;
+        // Convert image URLs to production URLs
+        if (is_array($product['images'])) {
+            $product['images'] = array_map(function($img) {
+                if (is_string($img)) {
+                    return getImageUrl($img);
+                }
+                return $img;
+            }, $product['images']);
+        }
+        // Convert thumbnail to production URL
+        if (!empty($product['thumbnail'])) {
+            $product['thumbnail'] = getImageUrl($product['thumbnail']);
+        }
+        $product['product_types'] = $product['product_types'] ?? null ? json_decode($product['product_types'], true) : null;
+        $product['specifications'] = $product['specifications'] ?? null ? json_decode($product['specifications'], true) : null;
+        $product['tags'] = $product['tags'] ?? null ? json_decode($product['tags'], true) : null;
+        $product['weight_options'] = $product['weight_options'] ?? null ? json_decode($product['weight_options'], true) : null;
+        
+        // Add category field for frontend compatibility
+        $product['category'] = $product['category_name'] ?? null;
     }
 
     // Return real products from database
     $response = createPaginationResponse($products, $total, $page, $limit);
     sendSuccess('Products retrieved successfully', $response);
+    } catch (PDOException $e) {
+        error_log("❌ GET ALL PRODUCTS - PDO Exception: " . $e->getMessage());
+        error_log("❌ GET ALL PRODUCTS - Error Info: " . json_encode($e->errorInfo ?? []));
+        if (!headers_sent()) {
+            sendSuccess('Products retrieved successfully', [
+                'products' => [],
+                'pagination' => [
+                    'page' => 1,
+                    'limit' => 20,
+                    'total' => 0,
+                    'pages' => 0
+                ]
+            ]);
+        }
+    } catch (Exception $e) {
+        error_log("❌ GET ALL PRODUCTS - General Exception: " . $e->getMessage());
+        error_log("❌ GET ALL PRODUCTS - Trace: " . $e->getTraceAsString());
+        if (!headers_sent()) {
+            sendSuccess('Products retrieved successfully', [
+                'products' => [],
+                'pagination' => [
+                    'page' => 1,
+                    'limit' => 20,
+                    'total' => 0,
+                    'pages' => 0
+                ]
+            ]);
+        }
+    }
 }
 
 /**
@@ -306,10 +359,26 @@ function getProductById($db, $id) {
 
     // Decode JSON fields - handle null values properly
     $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
+    // Convert image URLs to production URLs
+    if (is_array($product['images'])) {
+        $product['images'] = array_map(function($img) {
+            if (is_string($img)) {
+                return getImageUrl($img);
+            }
+            return $img;
+        }, $product['images']);
+    }
+    // Convert thumbnail to production URL
+    if (!empty($product['thumbnail'])) {
+        $product['thumbnail'] = getImageUrl($product['thumbnail']);
+    }
     $product['product_types'] = $product['product_types'] ? json_decode($product['product_types'], true) : null;
     $product['specifications'] = $product['specifications'] ? json_decode($product['specifications'], true) : [];
     $product['tags'] = $product['tags'] ? json_decode($product['tags'], true) : [];
     $product['weight_options'] = $product['weight_options'] ? json_decode($product['weight_options'], true) : [];
+    
+    // Add category field for frontend compatibility
+    $product['category'] = $product['category_name'] ?? null;
 
     // Get reviews
     $stmt = $db->prepare("
@@ -336,11 +405,14 @@ function getFeaturedProducts($db) {
     $limit = isset($_GET['limit']) ? min(intval($_GET['limit']), 20) : 8;
 
     $stmt = $db->prepare("
-        SELECT id, name, slug, description, price, original_price, discount_percentage,
-               category, images, thumbnail, average_rating, num_reviews, sold_count
-        FROM products
-        WHERE featured = 1 AND is_active = 1
-        ORDER BY created_at DESC
+        SELECT p.id, p.name, p.description, p.price, p.original_price, p.stock, p.images, p.thumbnail,
+               p.is_featured, p.is_bestseller, p.is_new, p.is_active, p.sku, p.weight,
+               p.average_rating, p.num_reviews, p.sold_count, p.view_count, p.created_at, p.updated_at,
+               c.name as category_name, c.slug as category_slug
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.id
+        WHERE p.is_featured = 1 AND p.is_active = 1
+        ORDER BY p.created_at DESC
         LIMIT ?
     ");
     $stmt->execute([$limit]);
@@ -348,6 +420,21 @@ function getFeaturedProducts($db) {
 
     foreach ($products as &$product) {
         $product['images'] = json_decode($product['images'], true);
+        // Convert image URLs to production URLs
+        if (is_array($product['images'])) {
+            $product['images'] = array_map(function($img) {
+                if (is_string($img)) {
+                    return getImageUrl($img);
+                }
+                return $img;
+            }, $product['images']);
+        }
+        // Convert thumbnail to production URL
+        if (!empty($product['thumbnail'])) {
+            $product['thumbnail'] = getImageUrl($product['thumbnail']);
+        }
+        // Add category field for frontend compatibility
+        $product['category'] = $product['category_name'] ?? null;
     }
 
     sendSuccess('Featured products retrieved successfully', ['products' => $products]);
@@ -375,15 +462,108 @@ function getBestsellers($db) {
         $stmt->execute([$pagination['limit'], $pagination['offset']]);
         $products = $stmt->fetchAll();
 
-        // Decode JSON fields
+        // Get total count for pagination
+        $countStmt = $db->prepare("
+            SELECT COUNT(*) as total FROM products p
+            WHERE p.is_bestseller = 1 AND p.is_active = 1
+        ");
+        $countStmt->execute();
+        $total = $countStmt->fetch()['total'];
+
+        // Decode JSON fields and convert image URLs
         foreach ($products as &$product) {
             $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
+            // Convert image URLs to production URLs
+            if (is_array($product['images'])) {
+                $product['images'] = array_map(function($img) {
+                    if (is_string($img)) {
+                        return getImageUrl($img);
+                    }
+                    return $img;
+                }, $product['images']);
+            }
+            // Convert thumbnail to production URL
+            if (!empty($product['thumbnail'])) {
+                $product['thumbnail'] = getImageUrl($product['thumbnail']);
+            }
+            $product['product_types'] = $product['product_types'] ?? null ? json_decode($product['product_types'], true) : null;
+            $product['specifications'] = $product['specifications'] ?? null ? json_decode($product['specifications'], true) : null;
+            $product['tags'] = $product['tags'] ?? null ? json_decode($product['tags'], true) : null;
+            $product['weight_options'] = $product['weight_options'] ?? null ? json_decode($product['weight_options'], true) : null;
+            
+            // Add category field for frontend compatibility
+            $product['category'] = $product['category_name'] ?? null;
         }
 
-        sendSuccess('Bestsellers retrieved successfully', ['products' => $products]);
+        $response = createPaginationResponse($products, $total, $pagination['page'], $pagination['limit']);
+        sendSuccess('Bestsellers retrieved successfully', $response);
         
     } catch (PDOException $e) {
         error_log("❌ getBestsellers Error: " . $e->getMessage());
+        sendError('Database error: ' . $e->getMessage(), [], 500);
+    }
+}
+
+/**
+ * Get new products
+ */
+function getNewProducts($db) {
+    $pagination = getPaginationParams();
+    
+    try {
+        $stmt = $db->prepare("
+            SELECT p.id, p.name, p.description, p.price, p.original_price, p.stock, 
+                   p.images, p.thumbnail, p.is_featured, p.is_bestseller, p.is_new, 
+                   p.is_active, p.sku, p.weight, p.average_rating, p.num_reviews, 
+                   p.sold_count, p.view_count, p.created_at, p.updated_at,
+                   c.name as category_name, c.slug as category_slug
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.id
+            WHERE p.is_new = 1 AND p.is_active = 1
+            ORDER BY p.created_at DESC
+            LIMIT ? OFFSET ?
+        ");
+        $stmt->execute([$pagination['limit'], $pagination['offset']]);
+        $products = $stmt->fetchAll();
+
+        // Get total count for pagination
+        $countStmt = $db->prepare("
+            SELECT COUNT(*) as total FROM products p
+            WHERE p.is_new = 1 AND p.is_active = 1
+        ");
+        $countStmt->execute();
+        $total = $countStmt->fetch()['total'];
+
+        // Decode JSON fields and convert image URLs
+        foreach ($products as &$product) {
+            $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
+            // Convert image URLs to production URLs
+            if (is_array($product['images'])) {
+                $product['images'] = array_map(function($img) {
+                    if (is_string($img)) {
+                        return getImageUrl($img);
+                    }
+                    return $img;
+                }, $product['images']);
+            }
+            // Convert thumbnail to production URL
+            if (!empty($product['thumbnail'])) {
+                $product['thumbnail'] = getImageUrl($product['thumbnail']);
+            }
+            $product['product_types'] = $product['product_types'] ?? null ? json_decode($product['product_types'], true) : null;
+            $product['specifications'] = $product['specifications'] ?? null ? json_decode($product['specifications'], true) : null;
+            $product['tags'] = $product['tags'] ?? null ? json_decode($product['tags'], true) : null;
+            $product['weight_options'] = $product['weight_options'] ?? null ? json_decode($product['weight_options'], true) : null;
+            
+            // Add category field for frontend compatibility
+            $product['category'] = $product['category_name'] ?? null;
+        }
+
+        $response = createPaginationResponse($products, $total, $pagination['page'], $pagination['limit']);
+        sendSuccess('New products retrieved successfully', $response);
+        
+    } catch (PDOException $e) {
+        error_log("❌ getNewProducts Error: " . $e->getMessage());
         sendError('Database error: ' . $e->getMessage(), [], 500);
     }
 }
@@ -401,24 +581,51 @@ function searchProducts($db) {
     $pagination = getPaginationParams();
 
     $stmt = $db->prepare("
-        SELECT id, name, slug, description, price, original_price, discount_percentage,
-               category, images, thumbnail, average_rating, num_reviews, sold_count
-        FROM products
-        WHERE is_active = 1
-        AND (name LIKE ? OR description LIKE ? OR tags LIKE ?)
-        ORDER BY average_rating DESC, sold_count DESC
+        SELECT p.id, p.name, p.description, p.price, p.original_price, p.stock, p.images, p.thumbnail,
+               p.is_featured, p.is_bestseller, p.is_new, p.is_active, p.sku, p.weight,
+               p.average_rating, p.num_reviews, p.sold_count, p.view_count, p.created_at, p.updated_at,
+               c.name as category_name, c.slug as category_slug
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.id
+        WHERE p.is_active = 1
+        AND (p.name LIKE ? OR p.description LIKE ? OR p.tags LIKE ?)
+        ORDER BY p.average_rating DESC, p.sold_count DESC
         LIMIT ? OFFSET ?
     ");
 
     $searchTerm = "%$query%";
     $stmt->execute([$searchTerm, $searchTerm, $searchTerm, $pagination['limit'], $pagination['offset']]);
     $products = $stmt->fetchAll();
+    
+    // Get total count for pagination
+    $countStmt = $db->prepare("
+        SELECT COUNT(*) as total FROM products p
+        WHERE p.is_active = 1
+        AND (p.name LIKE ? OR p.description LIKE ? OR p.tags LIKE ?)
+    ");
+    $countStmt->execute([$searchTerm, $searchTerm, $searchTerm]);
+    $total = $countStmt->fetch()['total'];
 
     foreach ($products as &$product) {
-        $product['images'] = json_decode($product['images'], true);
+        $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
+        // Convert image URLs to production URLs
+        if (is_array($product['images'])) {
+            $product['images'] = array_map(function($img) {
+                if (is_string($img)) {
+                    return getImageUrl($img);
+                }
+                return $img;
+            }, $product['images']);
+        }
+        // Convert thumbnail to production URL
+        if (!empty($product['thumbnail'])) {
+            $product['thumbnail'] = getImageUrl($product['thumbnail']);
+        }
     }
 
-    sendSuccess('Search results', ['products' => $products, 'query' => $query]);
+    $response = createPaginationResponse($products, $total, $pagination['page'], $pagination['limit']);
+    $response['query'] = $query;
+    sendSuccess('Search results', $response);
 }
 
 /**
@@ -427,22 +634,59 @@ function searchProducts($db) {
 function getProductsByCategory($db, $category) {
     $pagination = getPaginationParams();
 
+    // Get category ID from category name or slug
+    $catStmt = $db->prepare("SELECT id FROM categories WHERE name = ? OR slug = ?");
+    $catStmt->execute([$category, $category]);
+    $categoryData = $catStmt->fetch();
+    
+    if (!$categoryData) {
+        sendSuccess('Products retrieved successfully', [
+            'products' => [],
+            'pagination' => createPaginationResponse([], 0, $pagination['page'], $pagination['limit'])
+        ]);
+        return;
+    }
+    
+    $categoryId = $categoryData['id'];
+
     $stmt = $db->prepare("
-        SELECT id, name, slug, description, price, original_price, discount_percentage,
-               category, images, thumbnail, average_rating, num_reviews, sold_count
-        FROM products
-        WHERE category = ? AND is_active = 1
-        ORDER BY created_at DESC
+        SELECT p.id, p.name, p.description, p.price, p.original_price, p.stock, p.images, p.thumbnail,
+               p.is_featured, p.is_bestseller, p.is_new, p.is_active, p.sku, p.weight,
+               p.average_rating, p.num_reviews, p.sold_count, p.view_count, p.created_at, p.updated_at,
+               c.name as category_name, c.slug as category_slug
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.id
+        WHERE p.category_id = ? AND p.is_active = 1
+        ORDER BY p.created_at DESC
         LIMIT ? OFFSET ?
     ");
-    $stmt->execute([$category, $pagination['limit'], $pagination['offset']]);
+    $stmt->execute([$categoryId, $pagination['limit'], $pagination['offset']]);
     $products = $stmt->fetchAll();
+    
+    // Get total count for pagination
+    $countStmt = $db->prepare("SELECT COUNT(*) as total FROM products WHERE category_id = ? AND is_active = 1");
+    $countStmt->execute([$categoryId]);
+    $total = $countStmt->fetch()['total'];
 
     foreach ($products as &$product) {
         $product['images'] = json_decode($product['images'], true);
+        // Convert image URLs to production URLs
+        if (is_array($product['images'])) {
+            $product['images'] = array_map(function($img) {
+                if (is_string($img)) {
+                    return getImageUrl($img);
+                }
+                return $img;
+            }, $product['images']);
+        }
+        // Convert thumbnail to production URL
+        if (!empty($product['thumbnail'])) {
+            $product['thumbnail'] = getImageUrl($product['thumbnail']);
+        }
     }
 
-    sendSuccess('Products retrieved successfully', ['products' => $products]);
+    $response = createPaginationResponse($products, $total, $pagination['page'], $pagination['limit']);
+    sendSuccess('Products retrieved successfully', $response);
 }
 
 /**
@@ -451,22 +695,50 @@ function getProductsByCategory($db, $category) {
 function getProductsByFlavor($db, $flavor) {
     $pagination = getPaginationParams();
 
+    // Search in tags or product name for flavor
     $stmt = $db->prepare("
-        SELECT id, name, slug, description, price, original_price, discount_percentage,
-               category, images, thumbnail, average_rating, num_reviews, sold_count
-        FROM products
-        WHERE cake_flavor = ? AND is_active = 1
-        ORDER BY created_at DESC
+        SELECT p.id, p.name, p.description, p.price, p.original_price, p.stock, p.images, p.thumbnail,
+               p.is_featured, p.is_bestseller, p.is_new, p.is_active, p.sku, p.weight,
+               p.average_rating, p.num_reviews, p.sold_count, p.view_count, p.created_at, p.updated_at,
+               c.name as category_name, c.slug as category_slug
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.id
+        WHERE p.is_active = 1
+        AND (p.name LIKE ? OR p.description LIKE ? OR p.tags LIKE ?)
+        ORDER BY p.created_at DESC
         LIMIT ? OFFSET ?
     ");
-    $stmt->execute([$flavor, $pagination['limit'], $pagination['offset']]);
+    $flavorTerm = '%' . $flavor . '%';
+    $stmt->execute([$flavorTerm, $flavorTerm, $flavorTerm, $pagination['limit'], $pagination['offset']]);
     $products = $stmt->fetchAll();
+    
+    // Get total count for pagination
+    $countStmt = $db->prepare("
+        SELECT COUNT(*) as total FROM products 
+        WHERE is_active = 1 AND (name LIKE ? OR description LIKE ? OR tags LIKE ?)
+    ");
+    $countStmt->execute([$flavorTerm, $flavorTerm, $flavorTerm]);
+    $total = $countStmt->fetch()['total'];
 
     foreach ($products as &$product) {
         $product['images'] = json_decode($product['images'], true);
+        // Convert image URLs to production URLs
+        if (is_array($product['images'])) {
+            $product['images'] = array_map(function($img) {
+                if (is_string($img)) {
+                    return getImageUrl($img);
+                }
+                return $img;
+            }, $product['images']);
+        }
+        // Convert thumbnail to production URL
+        if (!empty($product['thumbnail'])) {
+            $product['thumbnail'] = getImageUrl($product['thumbnail']);
+        }
     }
 
-    sendSuccess('Products retrieved successfully', ['products' => $products]);
+    $response = createPaginationResponse($products, $total, $pagination['page'], $pagination['limit']);
+    sendSuccess('Products retrieved successfully', $response);
 }
 
 /**
@@ -475,31 +747,59 @@ function getProductsByFlavor($db, $flavor) {
 function getProductsByType($db, $type) {
     $pagination = getPaginationParams();
 
-    $where = 'is_active = 1 AND JSON_CONTAINS(product_types, ?)';
-    $params = [json_encode($type)];
-
+    // Handle special type: newItems
     if ($type === 'newItems') {
-        $where .= ' OR is_new = 1';
+        $where = 'p.is_active = 1 AND p.is_new = 1';
+        $params = [];
+    } else {
+        $where = 'p.is_active = 1 AND (p.product_types LIKE ? OR JSON_CONTAINS(p.product_types, ?))';
+        $typeJson = json_encode($type);
+        $params = ['%' . $type . '%', $typeJson];
     }
 
     $stmt = $db->prepare("
-        SELECT id, name, slug, description, price, original_price, discount_percentage,
-               category, images, thumbnail, average_rating, num_reviews, sold_count
-        FROM products
+        SELECT p.id, p.name, p.description, p.price, p.original_price, p.stock, p.images, p.thumbnail,
+               p.is_featured, p.is_bestseller, p.is_new, p.is_active, p.sku, p.weight,
+               p.average_rating, p.num_reviews, p.sold_count, p.view_count, p.created_at, p.updated_at,
+               c.name as category_name, c.slug as category_slug
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.id
         WHERE $where
-        ORDER BY created_at DESC
+        ORDER BY p.created_at DESC
         LIMIT ? OFFSET ?
     ");
     $params[] = $pagination['limit'];
     $params[] = $pagination['offset'];
     $stmt->execute($params);
     $products = $stmt->fetchAll();
+    
+    // Get total count for pagination
+    $countStmt = $db->prepare("SELECT COUNT(*) as total FROM products p WHERE $where");
+    $countParams = $params;
+    array_pop($countParams); // Remove limit
+    array_pop($countParams); // Remove offset
+    $countStmt->execute($countParams);
+    $total = $countStmt->fetch()['total'];
 
     foreach ($products as &$product) {
         $product['images'] = json_decode($product['images'], true);
+        // Convert image URLs to production URLs
+        if (is_array($product['images'])) {
+            $product['images'] = array_map(function($img) {
+                if (is_string($img)) {
+                    return getImageUrl($img);
+                }
+                return $img;
+            }, $product['images']);
+        }
+        // Convert thumbnail to production URL
+        if (!empty($product['thumbnail'])) {
+            $product['thumbnail'] = getImageUrl($product['thumbnail']);
+        }
     }
 
-    sendSuccess('Products retrieved successfully', ['products' => $products]);
+    $response = createPaginationResponse($products, $total, $pagination['page'], $pagination['limit']);
+    sendSuccess('Products retrieved successfully', $response);
 }
 
 /**
@@ -508,112 +808,138 @@ function getProductsByType($db, $type) {
 function createProduct($db) {
     // Enhanced Management Logic: Check admin authentication
     try {
-        AuthMiddleware::requireAdmin();
-    } catch (Exception $e) {
-        sendError('Admin access required', [], 403);
-        return;
-    }
-
-    // Get raw input for debugging
-    $rawInput = file_get_contents('php://input');
-    error_log("🔍 CREATE PRODUCT - Raw input length: " . strlen($rawInput));
-    error_log("🔍 CREATE PRODUCT - Raw input (first 500 chars): " . substr($rawInput, 0, 500));
-
-    $data = getRequestBody();
-    
-    // Check for duplicate creation within last 5 seconds
-    if (isset($data['name'])) {
-        $checkStmt = $db->prepare("
-            SELECT id, name, created_at 
-            FROM products 
-            WHERE name = ? AND created_at > DATE_SUB(NOW(), INTERVAL 5 SECOND)
-            ORDER BY created_at DESC 
-            LIMIT 1
-        ");
-        $checkStmt->execute([$data['name']]);
-        $recentProduct = $checkStmt->fetch();
-        
-        if ($recentProduct) {
-            error_log("⚠️ CREATE PRODUCT - Duplicate creation prevented for: " . $data['name']);
-            error_log("⚠️ CREATE PRODUCT - Recent product ID: " . $recentProduct['id'] . " created at: " . $recentProduct['created_at']);
-            sendError('Product creation in progress. Please wait a moment before creating again.', [
-                'duplicate_id' => $recentProduct['id'],
-                'created_at' => $recentProduct['created_at']
-            ], 429);
+        $authUser = AuthMiddleware::requireAdmin();
+        if (!$authUser) {
+            sendError('Admin access required', [], 403);
             return;
         }
+    } catch (Exception $e) {
+        error_log("❌ CREATE PRODUCT - Auth error: " . $e->getMessage());
+        // If sendError was already called by requireAdmin, don't send again
+        if (!headers_sent()) {
+            sendError('Admin access required', [], 403);
+        }
+        return;
     }
     
-    // Add request tracking
-    $requestId = uniqid('req_', true);
-    error_log("🔍 CREATE PRODUCT - Request ID: " . $requestId . " for product: " . ($data['name'] ?? 'UNKNOWN'));
-
-    // DEBUG: Log incoming data
-    error_log("🔍 CREATE PRODUCT - Decoded data keys: " . json_encode(array_keys($data)));
-    error_log("🔍 CREATE PRODUCT - Name: " . ($data['name'] ?? 'NOT SET'));
-    error_log("🔍 CREATE PRODUCT - Category: " . ($data['category'] ?? 'NOT SET'));
-    error_log("🔍 CREATE PRODUCT - Price: " . ($data['price'] ?? 'NOT SET'));
-    error_log("🔍 CREATE PRODUCT - Stock: " . ($data['stock'] ?? 'NOT SET'));
-    error_log("🔍 CREATE PRODUCT - Images: " . (isset($data['images']) ? count($data['images']) . ' images' : 'NOT SET'));
-
-    // Management Logic: Validate admin permissions
-    if (!isset($data['name']) || empty($data['name'])) {
-        error_log("❌ CREATE PRODUCT - Name validation failed");
-        sendError('Product name is required for management', [], 400);
-        return;
-    }
-
-    // Validate required fields - thumbnail is optional, will use first image
-    $errors = validateRequired($data, ['name', 'price', 'category', 'stock']);
-    if (!empty($errors)) {
-        error_log("❌ CREATE PRODUCT - Validation errors: " . json_encode($errors));
-        error_log("❌ CREATE PRODUCT - Missing fields: " . implode(', ', array_keys($errors)));
-        sendError('Validation failed', $errors, 400);
-        return;
-    }
-
-    error_log("✅ CREATE PRODUCT - Validation passed");
-
-    // Validate images
-    if (!isset($data['images']) || empty($data['images'])) {
-        sendError('At least one product image is required', [], 400);
-        return;
-    }
-
-    $slug = generateSlug($data['name']);
-    $images = isset($data['images']) ? json_encode($data['images']) : json_encode([]);
-    $productTypes = isset($data['productTypes']) ? json_encode($data['productTypes']) : null;
-    $specifications = isset($data['specifications']) ? json_encode($data['specifications']) : null;
-    $tags = isset($data['tags']) ? json_encode($data['tags']) : null;
-    $weightOptions = isset($data['weightOptions']) ? json_encode($data['weightOptions']) : null;
-
-    // Use first image as thumbnail if thumbnail not provided
-    $thumbnail = isset($data['thumbnail']) ? $data['thumbnail'] : (isset($data['images'][0]) ? $data['images'][0] : null);
-
-    $stmt = $db->prepare("
-        INSERT INTO products (
-            name, description, price, original_price, category_id, stock, images, thumbnail,
-            is_featured, is_bestseller, is_new, is_active, sku, weight
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ");
-
-    // Map frontend camelCase to database snake_case
-    // Both isFeatured and isBestseller should mark product as featured
-    $featured = ($data['isFeatured'] ?? 0) || ($data['isBestseller'] ?? 0) ? 1 : ($data['featured'] ?? 0);
-    $isNew = $data['isNew'] ?? 0;
-    $hasWeightOptions = $data['hasWeightOptions'] ?? 0;
-    $isActive = $data['isActive'] ?? 1; // Default to active (1) if not specified
-
-    // Get category_id from category name
-    $categoryId = null;
-    if (isset($data['category'])) {
-        $catStmt = $db->prepare("SELECT id FROM categories WHERE name = ? OR slug = ?");
-        $catStmt->execute([$data['category'], $data['category']]);
-        $category = $catStmt->fetch();
-        $categoryId = $category ? $category['id'] : null;
-    }
-
     try {
+        // Get raw input for debugging
+        $rawInput = file_get_contents('php://input');
+        error_log("🔍 CREATE PRODUCT - Raw input length: " . strlen($rawInput));
+        error_log("🔍 CREATE PRODUCT - Raw input (first 500 chars): " . substr($rawInput, 0, 500));
+
+        $data = getRequestBody();
+        
+        // Check for duplicate creation within last 5 seconds
+        if (isset($data['name'])) {
+            $checkStmt = $db->prepare("
+                SELECT id, name, created_at 
+                FROM products 
+                WHERE name = ? AND created_at > DATE_SUB(NOW(), INTERVAL 5 SECOND)
+                ORDER BY created_at DESC 
+                LIMIT 1
+            ");
+            $checkStmt->execute([$data['name']]);
+            $recentProduct = $checkStmt->fetch();
+            
+            if ($recentProduct) {
+                error_log("⚠️ CREATE PRODUCT - Duplicate creation prevented for: " . $data['name']);
+                error_log("⚠️ CREATE PRODUCT - Recent product ID: " . $recentProduct['id'] . " created at: " . $recentProduct['created_at']);
+                sendError('Product creation in progress. Please wait a moment before creating again.', [
+                    'duplicate_id' => $recentProduct['id'],
+                    'created_at' => $recentProduct['created_at']
+                ], 429);
+                return;
+            }
+        }
+        
+        // Add request tracking
+        $requestId = uniqid('req_', true);
+        error_log("🔍 CREATE PRODUCT - Request ID: " . $requestId . " for product: " . ($data['name'] ?? 'UNKNOWN'));
+
+        // DEBUG: Log incoming data
+        error_log("🔍 CREATE PRODUCT - Decoded data keys: " . json_encode(array_keys($data)));
+        error_log("🔍 CREATE PRODUCT - Name: " . ($data['name'] ?? 'NOT SET'));
+        error_log("🔍 CREATE PRODUCT - Category: " . ($data['category'] ?? 'NOT SET'));
+        error_log("🔍 CREATE PRODUCT - Price: " . ($data['price'] ?? 'NOT SET'));
+        error_log("🔍 CREATE PRODUCT - Stock: " . ($data['stock'] ?? 'NOT SET'));
+        error_log("🔍 CREATE PRODUCT - Images: " . (isset($data['images']) ? count($data['images']) . ' images' : 'NOT SET'));
+
+        // Management Logic: Validate admin permissions
+        if (!isset($data['name']) || empty($data['name'])) {
+            error_log("❌ CREATE PRODUCT - Name validation failed");
+            sendError('Product name is required for management', [], 400);
+            return;
+        }
+
+        // Validate required fields - thumbnail is optional, will use first image
+        $errors = validateRequired($data, ['name', 'price', 'category', 'stock']);
+        if (!empty($errors)) {
+            error_log("❌ CREATE PRODUCT - Validation errors: " . json_encode($errors));
+            error_log("❌ CREATE PRODUCT - Missing fields: " . implode(', ', array_keys($errors)));
+            sendError('Validation failed', $errors, 400);
+            return;
+        }
+
+        error_log("✅ CREATE PRODUCT - Validation passed");
+
+        // Validate images
+        if (!isset($data['images']) || empty($data['images'])) {
+            sendError('At least one product image is required', [], 400);
+            return;
+        }
+
+        $slug = generateSlug($data['name']);
+        
+        // Normalize image URLs to relative paths for storage
+        $imagesArray = isset($data['images']) ? $data['images'] : [];
+        $normalizedImages = [];
+        if (is_array($imagesArray)) {
+            foreach ($imagesArray as $img) {
+                // Handle both string URLs and object with url property
+                $imageUrl = is_string($img) ? $img : (isset($img['url']) ? $img['url'] : $img);
+                if (!empty($imageUrl)) {
+                    $normalizedPath = normalizeImagePath($imageUrl);
+                    if ($normalizedPath) {
+                        $normalizedImages[] = $normalizedPath;
+                    }
+                }
+            }
+        }
+        $images = json_encode($normalizedImages);
+        
+        $productTypes = isset($data['productTypes']) ? json_encode($data['productTypes']) : null;
+        $specifications = isset($data['specifications']) ? json_encode($data['specifications']) : null;
+        $tags = isset($data['tags']) ? json_encode($data['tags']) : null;
+        $weightOptions = isset($data['weightOptions']) ? json_encode($data['weightOptions']) : null;
+
+        // Use first image as thumbnail if thumbnail not provided
+        $thumbnailRaw = isset($data['thumbnail']) ? $data['thumbnail'] : (isset($normalizedImages[0]) ? $normalizedImages[0] : null);
+        $thumbnail = $thumbnailRaw ? normalizeImagePath($thumbnailRaw) : null;
+
+        $stmt = $db->prepare("
+            INSERT INTO products (
+                name, description, price, original_price, category_id, stock, images, thumbnail,
+                is_featured, is_bestseller, is_new, is_active, sku, weight
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        // Map frontend camelCase to database snake_case
+        // Both isFeatured and isBestseller should mark product as featured
+        $featured = ($data['isFeatured'] ?? 0) || ($data['isBestseller'] ?? 0) ? 1 : ($data['featured'] ?? 0);
+        $isNew = $data['isNew'] ?? 0;
+        $hasWeightOptions = $data['hasWeightOptions'] ?? 0;
+        $isActive = $data['isActive'] ?? 1; // Default to active (1) if not specified
+
+        // Get category_id from category name
+        $categoryId = null;
+        if (isset($data['category'])) {
+            $catStmt = $db->prepare("SELECT id FROM categories WHERE name = ? OR slug = ?");
+            $catStmt->execute([$data['category'], $data['category']]);
+            $category = $catStmt->fetch();
+            $categoryId = $category ? $category['id'] : null;
+        }
+
         $result = $stmt->execute([
             sanitizeInput($data['name']),
             sanitizeInput($data['description'] ?? ''),
@@ -634,7 +960,47 @@ function createProduct($db) {
         if ($result) {
             $productId = $db->lastInsertId();
             error_log("✅ CREATE PRODUCT - Product created successfully with ID: " . $productId);
-            sendSuccess('Product created successfully', ['id' => $productId], 201);
+            
+            // Fetch the created product with all fields and converted image URLs
+            $fetchStmt = $db->prepare("
+                SELECT p.id, p.name, p.description, p.price, p.original_price, p.stock, p.images, p.thumbnail,
+                       p.is_featured, p.is_bestseller, p.is_new, p.is_active, p.sku, p.weight,
+                       p.average_rating, p.num_reviews, p.sold_count, p.view_count, p.created_at, p.updated_at,
+                       c.name as category_name, c.slug as category_slug
+                FROM products p
+                LEFT JOIN categories c ON p.category_id = c.id
+                WHERE p.id = ?
+            ");
+            $fetchStmt->execute([$productId]);
+            $createdProduct = $fetchStmt->fetch();
+            
+            if ($createdProduct) {
+                // Decode JSON fields and convert image URLs to production URLs
+                $createdProduct['images'] = $createdProduct['images'] ? json_decode($createdProduct['images'], true) : [];
+                if (is_array($createdProduct['images'])) {
+                    $createdProduct['images'] = array_map(function($img) {
+                        if (is_string($img)) {
+                            return getImageUrl($img);
+                        }
+                        return $img;
+                    }, $createdProduct['images']);
+                }
+                if (!empty($createdProduct['thumbnail'])) {
+                    $createdProduct['thumbnail'] = getImageUrl($createdProduct['thumbnail']);
+                }
+                $createdProduct['product_types'] = $createdProduct['product_types'] ?? null ? json_decode($createdProduct['product_types'], true) : null;
+                $createdProduct['specifications'] = $createdProduct['specifications'] ?? null ? json_decode($createdProduct['specifications'], true) : null;
+                $createdProduct['tags'] = $createdProduct['tags'] ?? null ? json_decode($createdProduct['tags'], true) : null;
+                $createdProduct['weight_options'] = $createdProduct['weight_options'] ?? null ? json_decode($createdProduct['weight_options'], true) : null;
+                
+                // Add category field for frontend compatibility
+                $createdProduct['category'] = $createdProduct['category_name'] ?? null;
+                
+                sendSuccess('Product created successfully', ['product' => $createdProduct, 'id' => $productId], 201);
+            } else {
+                // Fallback if fetch fails
+                sendSuccess('Product created successfully', ['id' => $productId], 201);
+            }
         } else {
             $errorInfo = $stmt->errorInfo();
             error_log("❌ CREATE PRODUCT - Execute failed: " . json_encode($errorInfo));
@@ -643,10 +1009,19 @@ function createProduct($db) {
     } catch (PDOException $e) {
         error_log("❌ CREATE PRODUCT - PDO Exception: " . $e->getMessage());
         error_log("❌ CREATE PRODUCT - Error Code: " . $e->getCode());
-        sendError('Database error: ' . $e->getMessage(), [
-            'code' => $e->getCode(),
-            'hint' => 'Check if all required fields match database schema'
-        ], 500);
+        error_log("❌ CREATE PRODUCT - Error Info: " . json_encode($e->errorInfo ?? []));
+        if (!headers_sent()) {
+            sendError('Database error: ' . $e->getMessage(), [
+                'code' => $e->getCode(),
+                'hint' => 'Check if all required fields match database schema'
+            ], 500);
+        }
+    } catch (Exception $e) {
+        error_log("❌ CREATE PRODUCT - General Exception: " . $e->getMessage());
+        error_log("❌ CREATE PRODUCT - Trace: " . $e->getTraceAsString());
+        if (!headers_sent()) {
+            sendError('Failed to create product: ' . $e->getMessage(), [], 500);
+        }
     }
 }
 
@@ -656,82 +1031,184 @@ function createProduct($db) {
 function updateProduct($db, $id) {
     // Enhanced Management Logic: Check admin authentication
     try {
-        AuthMiddleware::requireAdmin();
-    } catch (Exception $e) {
-        sendError('Admin access required for product management', [], 403);
-        return;
-    }
-
-    $data = getRequestBody();
-    
-    // Management Logic: Validate product exists before updating
-    $checkStmt = $db->prepare("SELECT id, name FROM products WHERE id = ?");
-    $checkStmt->execute([$id]);
-    $existingProduct = $checkStmt->fetch();
-    
-    if (!$existingProduct) {
-        sendError('Product not found for management', [], 404);
-        return;
-    }
-
-    // Build update query dynamically based on provided fields
-    $fields = [];
-    $params = [];
-
-    $allowedFields = [
-        'name', 'description', 'price', 'original_price', 'discount_percentage',
-        'category', 'sub_category', 'menu_option', 'cake_flavor', 'is_new', 'brand', 'stock', 'thumbnail',
-        'sku', 'weight', 'has_weight_options', 'is_active'
-    ];
-
-    foreach ($allowedFields as $field) {
-        if (isset($data[$field])) {
-            $fields[] = "$field = ?";
-            $params[] = sanitizeInput($data[$field]);
+        $authUser = AuthMiddleware::requireAdmin();
+        if (!$authUser) {
+            sendError('Admin access required for product management', [], 403);
+            return;
         }
+    } catch (Exception $e) {
+        error_log("❌ UPDATE PRODUCT - Auth error: " . $e->getMessage());
+        if (!headers_sent()) {
+            sendError('Admin access required for product management', [], 403);
+        }
+        return;
     }
+    
+    try {
+        $data = getRequestBody();
+        
+        // Management Logic: Validate product exists before updating
+        $checkStmt = $db->prepare("SELECT id, name FROM products WHERE id = ?");
+        $checkStmt->execute([$id]);
+        $existingProduct = $checkStmt->fetch();
+        
+        if (!$existingProduct) {
+            sendError('Product not found for management', [], 404);
+            return;
+        }
 
-    // Handle featured field - both isFeatured and isBestseller should set featured = 1
-    if (isset($data['isFeatured']) || isset($data['isBestseller']) || isset($data['featured'])) {
-        $featured = ($data['isFeatured'] ?? 0) || ($data['isBestseller'] ?? 0) ? 1 : ($data['featured'] ?? 0);
-        $fields[] = "featured = ?";
-        $params[] = $featured;
-    }
+        // Build update query dynamically based on provided fields
+        $fields = [];
+        $params = [];
 
-    // Handle JSON fields
-    if (isset($data['images'])) {
-        $fields[] = "images = ?";
-        $params[] = json_encode($data['images']);
-    }
-    if (isset($data['productTypes'])) {
-        $fields[] = "product_types = ?";
-        $params[] = json_encode($data['productTypes']);
-    }
-    if (isset($data['specifications'])) {
-        $fields[] = "specifications = ?";
-        $params[] = json_encode($data['specifications']);
-    }
-    if (isset($data['tags'])) {
-        $fields[] = "tags = ?";
-        $params[] = json_encode($data['tags']);
-    }
-    if (isset($data['weightOptions'])) {
-        $fields[] = "weight_options = ?";
-        $params[] = json_encode($data['weightOptions']);
-    }
+        $allowedFields = [
+            'name', 'description', 'price', 'original_price',
+            'stock', 'thumbnail', 'sku', 'weight', 'is_active'
+        ];
 
-    if (empty($fields)) {
-        sendError('No fields to update', [], 400);
-    }
+        foreach ($allowedFields as $field) {
+            if (isset($data[$field])) {
+                $value = sanitizeInput($data[$field]);
+                // Normalize thumbnail if it's being updated
+                if ($field === 'thumbnail' && !empty($value)) {
+                    $value = normalizeImagePath($value);
+                }
+                $fields[] = "$field = ?";
+                $params[] = $value;
+            }
+        }
 
-    $params[] = $id;
-    $sql = "UPDATE products SET " . implode(', ', $fields) . " WHERE id = ?";
+        // Handle featured field - both isFeatured and isBestseller should set is_featured = 1
+        if (isset($data['isFeatured']) || isset($data['isBestseller'])) {
+            $isFeatured = ($data['isFeatured'] ?? 0) || ($data['isBestseller'] ?? 0) ? 1 : 0;
+            $fields[] = "is_featured = ?";
+            $params[] = $isFeatured;
+        }
+        
+        // Handle isBestseller field
+        if (isset($data['isBestseller'])) {
+            $fields[] = "is_bestseller = ?";
+            $params[] = $data['isBestseller'] ? 1 : 0;
+        }
+        
+        // Handle isNew field
+        if (isset($data['isNew'])) {
+            $fields[] = "is_new = ?";
+            $params[] = $data['isNew'] ? 1 : 0;
+        }
+        
+        // Handle category_id from category name
+        if (isset($data['category'])) {
+            $catStmt = $db->prepare("SELECT id FROM categories WHERE name = ? OR slug = ?");
+            $catStmt->execute([$data['category'], $data['category']]);
+            $category = $catStmt->fetch();
+            if ($category) {
+                $fields[] = "category_id = ?";
+                $params[] = $category['id'];
+            }
+        }
 
-    $stmt = $db->prepare($sql);
-    if ($stmt->execute($params)) {
-        sendSuccess('Product updated successfully');
-    } else {
-        sendError('Failed to update product', [], 500);
+        // Handle JSON fields - normalize image URLs
+        if (isset($data['images'])) {
+            $imagesArray = $data['images'];
+            $normalizedImages = [];
+            if (is_array($imagesArray)) {
+                foreach ($imagesArray as $img) {
+                    // Handle both string URLs and object with url property
+                    $imageUrl = is_string($img) ? $img : (isset($img['url']) ? $img['url'] : $img);
+                    if (!empty($imageUrl)) {
+                        $normalizedPath = normalizeImagePath($imageUrl);
+                        if ($normalizedPath) {
+                            $normalizedImages[] = $normalizedPath;
+                        }
+                    }
+                }
+            }
+            $fields[] = "images = ?";
+            $params[] = json_encode($normalizedImages);
+        }
+        if (isset($data['productTypes'])) {
+            $fields[] = "product_types = ?";
+            $params[] = json_encode($data['productTypes']);
+        }
+        if (isset($data['specifications'])) {
+            $fields[] = "specifications = ?";
+            $params[] = json_encode($data['specifications']);
+        }
+        if (isset($data['tags'])) {
+            $fields[] = "tags = ?";
+            $params[] = json_encode($data['tags']);
+        }
+        if (isset($data['weightOptions'])) {
+            $fields[] = "weight_options = ?";
+            $params[] = json_encode($data['weightOptions']);
+        }
+
+        if (empty($fields)) {
+            sendError('No fields to update', [], 400);
+            return;
+        }
+
+        $params[] = $id;
+        $sql = "UPDATE products SET " . implode(', ', $fields) . " WHERE id = ?";
+
+        $stmt = $db->prepare($sql);
+        if ($stmt->execute($params)) {
+            // Fetch updated product with all fields
+            $updatedStmt = $db->prepare("
+                SELECT p.id, p.name, p.description, p.price, p.original_price, p.stock, p.images, p.thumbnail,
+                       p.is_featured, p.is_bestseller, p.is_new, p.is_active, p.sku, p.weight,
+                       p.average_rating, p.num_reviews, p.sold_count, p.view_count, p.created_at, p.updated_at,
+                       c.name as category_name, c.slug as category_slug
+                FROM products p
+                LEFT JOIN categories c ON p.category_id = c.id
+                WHERE p.id = ?
+            ");
+            $updatedStmt->execute([$id]);
+            $updatedProduct = $updatedStmt->fetch();
+            
+            if ($updatedProduct) {
+                // Decode JSON fields and convert image URLs
+                $updatedProduct['images'] = $updatedProduct['images'] ? json_decode($updatedProduct['images'], true) : [];
+                if (is_array($updatedProduct['images'])) {
+                    $updatedProduct['images'] = array_map(function($img) {
+                        if (is_string($img)) {
+                            return getImageUrl($img);
+                        }
+                        return $img;
+                    }, $updatedProduct['images']);
+                }
+                if (!empty($updatedProduct['thumbnail'])) {
+                    $updatedProduct['thumbnail'] = getImageUrl($updatedProduct['thumbnail']);
+                }
+                $updatedProduct['product_types'] = $updatedProduct['product_types'] ?? null ? json_decode($updatedProduct['product_types'], true) : null;
+                $updatedProduct['specifications'] = $updatedProduct['specifications'] ?? null ? json_decode($updatedProduct['specifications'], true) : null;
+                $updatedProduct['tags'] = $updatedProduct['tags'] ?? null ? json_decode($updatedProduct['tags'], true) : null;
+                $updatedProduct['weight_options'] = $updatedProduct['weight_options'] ?? null ? json_decode($updatedProduct['weight_options'], true) : null;
+                
+                // Add category field for frontend compatibility
+                $updatedProduct['category'] = $updatedProduct['category_name'] ?? null;
+            }
+            
+            sendSuccess('Product updated successfully', ['product' => $updatedProduct]);
+        } else {
+            $errorInfo = $stmt->errorInfo();
+            error_log("❌ UPDATE PRODUCT - Execute failed: " . json_encode($errorInfo));
+            if (!headers_sent()) {
+                sendError('Failed to update product: ' . ($errorInfo[2] ?? 'Unknown error'), [], 500);
+            }
+        }
+    } catch (PDOException $e) {
+        error_log("❌ UPDATE PRODUCT - PDO Exception: " . $e->getMessage());
+        error_log("❌ UPDATE PRODUCT - Error Info: " . json_encode($e->errorInfo ?? []));
+        if (!headers_sent()) {
+            sendError('Database error: ' . $e->getMessage(), [], 500);
+        }
+    } catch (Exception $e) {
+        error_log("❌ UPDATE PRODUCT - General Exception: " . $e->getMessage());
+        if (!headers_sent()) {
+            sendError('Failed to update product: ' . $e->getMessage(), [], 500);
+        }
     }
 }
 
@@ -741,33 +1218,57 @@ function updateProduct($db, $id) {
 function deleteProduct($db, $id) {
     // Enhanced Management Logic: Check admin authentication
     try {
-        AuthMiddleware::requireAdmin();
+        $authUser = AuthMiddleware::requireAdmin();
+        if (!$authUser) {
+            sendError('Admin access required for product management', [], 403);
+            return;
+        }
     } catch (Exception $e) {
-        sendError('Admin access required for product management', [], 403);
+        error_log("❌ DELETE PRODUCT - Auth error: " . $e->getMessage());
+        if (!headers_sent()) {
+            sendError('Admin access required for product management', [], 403);
+        }
         return;
     }
+    
+    try {
+        // Management Logic: Check if product exists before deletion
+        $checkStmt = $db->prepare("SELECT id, name FROM products WHERE id = ?");
+        $checkStmt->execute([$id]);
+        $product = $checkStmt->fetch();
 
-    // Management Logic: Check if product exists before deletion
-    $checkStmt = $db->prepare("SELECT id, name FROM products WHERE id = ?");
-    $checkStmt->execute([$id]);
-    $product = $checkStmt->fetch();
+        if (!$product) {
+            sendError('Product not found', [], 404);
+            return;
+        }
 
-    if (!$product) {
-        sendError('Product not found', [], 404);
-        return;
-    }
+        // HARD DELETE - Permanently remove from database
+        $stmt = $db->prepare("DELETE FROM products WHERE id = ?");
 
-    // HARD DELETE - Permanently remove from database
-    $stmt = $db->prepare("DELETE FROM products WHERE id = ?");
-
-    if ($stmt->execute([$id])) {
-        sendSuccess('Product deleted successfully', [
-            'id' => $id,
-            'name' => $product['name'],
-            'status' => 'deleted'
-        ]);
-    } else {
-        sendError('Failed to delete product', [], 500);
+        if ($stmt->execute([$id])) {
+            sendSuccess('Product deleted successfully', [
+                'id' => $id,
+                'name' => $product['name'],
+                'status' => 'deleted'
+            ]);
+        } else {
+            $errorInfo = $stmt->errorInfo();
+            error_log("❌ DELETE PRODUCT - Execute failed: " . json_encode($errorInfo));
+            if (!headers_sent()) {
+                sendError('Failed to delete product: ' . ($errorInfo[2] ?? 'Unknown error'), [], 500);
+            }
+        }
+    } catch (PDOException $e) {
+        error_log("❌ DELETE PRODUCT - PDO Exception: " . $e->getMessage());
+        error_log("❌ DELETE PRODUCT - Error Info: " . json_encode($e->errorInfo ?? []));
+        if (!headers_sent()) {
+            sendError('Database error: ' . $e->getMessage(), [], 500);
+        }
+    } catch (Exception $e) {
+        error_log("❌ DELETE PRODUCT - General Exception: " . $e->getMessage());
+        if (!headers_sent()) {
+            sendError('Failed to delete product: ' . $e->getMessage(), [], 500);
+        }
     }
 }
 

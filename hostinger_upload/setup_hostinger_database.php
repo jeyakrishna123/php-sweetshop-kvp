@@ -2,6 +2,11 @@
 /**
  * Database Setup Script for Hostinger
  * This script will create all necessary tables for SK Bakers
+ * 
+ * ⚠️ IMPORTANT: Run this file ONCE when setting up the database for the first time
+ * After running, you can DELETE this file for security
+ * 
+ * Usage: Upload to Hostinger and access via: https://skbakers.com/setup_hostinger_database.php
  */
 
 // Database configuration for Hostinger
@@ -14,7 +19,7 @@ try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    echo "✅ Connected to Hostinger database successfully!\n\n";
+    echo "✅ Connected to Hostinger database successfully!<br><br>";
     
     // Create users table
     $sql = "CREATE TABLE IF NOT EXISTS users (
@@ -46,7 +51,7 @@ try {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )";
     $pdo->exec($sql);
-    echo "✅ Users table created\n";
+    echo "✅ Users table created<br>";
     
     // Add missing columns to existing users table if they don't exist
     $columnsToAdd = [
@@ -71,12 +76,12 @@ try {
         try {
             $stmt = $pdo->prepare("ALTER TABLE users ADD COLUMN $column $definition");
             $stmt->execute();
-            echo "✅ Added column '$column' to users table\n";
+            echo "✅ Added column '$column' to users table<br>";
         } catch (PDOException $e) {
             if (strpos($e->getMessage(), 'Duplicate column name') !== false) {
-                echo "✅ Column '$column' already exists\n";
+                echo "✅ Column '$column' already exists<br>";
             } else {
-                echo "⚠️ Could not add column '$column': " . $e->getMessage() . "\n";
+                echo "⚠️ Could not add column '$column': " . $e->getMessage() . "<br>";
             }
         }
     }
@@ -92,7 +97,7 @@ try {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )";
     $pdo->exec($sql);
-    echo "✅ Categories table created\n";
+    echo "✅ Categories table created<br>";
     
     // Create products table
     $sql = "CREATE TABLE IF NOT EXISTS products (
@@ -124,7 +129,7 @@ try {
         FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
     )";
     $pdo->exec($sql);
-    echo "✅ Products table created\n";
+    echo "✅ Products table created<br>";
     
     // Create orders table
     $sql = "CREATE TABLE IF NOT EXISTS orders (
@@ -152,13 +157,14 @@ try {
         admin_notes TEXT,
         shipping_carrier VARCHAR(100),
         shipping_tracking_url VARCHAR(500),
+        payment_method VARCHAR(50) DEFAULT 'cash_on_delivery',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
         FOREIGN KEY (cancelled_by) REFERENCES users(id) ON DELETE SET NULL
     )";
     $pdo->exec($sql);
-    echo "✅ Orders table created\n";
+    echo "✅ Orders table created<br>";
     
     // Create order_items table
     $sql = "CREATE TABLE IF NOT EXISTS order_items (
@@ -178,7 +184,7 @@ try {
         FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
     )";
     $pdo->exec($sql);
-    echo "✅ Order items table created\n";
+    echo "✅ Order items table created<br>";
     
     // Create cart table
     $sql = "CREATE TABLE IF NOT EXISTS cart (
@@ -193,7 +199,7 @@ try {
         UNIQUE KEY unique_user_product (user_id, product_id)
     )";
     $pdo->exec($sql);
-    echo "✅ Cart table created\n";
+    echo "✅ Cart table created<br>";
     
     // Create wishlist table
     $sql = "CREATE TABLE IF NOT EXISTS wishlist (
@@ -206,19 +212,24 @@ try {
         UNIQUE KEY unique_user_product (user_id, product_id)
     )";
     $pdo->exec($sql);
-    echo "✅ Wishlist table created\n";
+    echo "✅ Wishlist table created<br>";
     
-    // Create password_reset_tokens table
+    // Create password_reset_tokens table (used for both password reset and signup OTP)
     $sql = "CREATE TABLE IF NOT EXISTS password_reset_tokens (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
         email VARCHAR(255) NOT NULL,
         token VARCHAR(255) NOT NULL,
-        expires_at TIMESTAMP NOT NULL,
+        expires_at DATETIME NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         used TINYINT(1) DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )";
+        INDEX idx_email_token (email, token),
+        INDEX idx_expires (expires_at),
+        INDEX idx_user_id (user_id),
+        INDEX idx_created (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
     $pdo->exec($sql);
-    echo "✅ Password reset tokens table created\n";
+    echo "✅ Password reset tokens table created<br>";
     
     // Create contacts table
     $sql = "CREATE TABLE IF NOT EXISTS contacts (
@@ -232,7 +243,7 @@ try {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )";
     $pdo->exec($sql);
-    echo "✅ Contacts table created\n";
+    echo "✅ Contacts table created<br>";
     
     // Create offer_popups table
     $sql = "CREATE TABLE IF NOT EXISTS offer_popups (
@@ -246,7 +257,7 @@ try {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )";
     $pdo->exec($sql);
-    echo "✅ Offer popups table created\n";
+    echo "✅ Offer popups table created<br>";
     
     // Create banners table
     $sql = "CREATE TABLE IF NOT EXISTS banners (
@@ -266,7 +277,7 @@ try {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )";
     $pdo->exec($sql);
-    echo "✅ Banners table created\n";
+    echo "✅ Banners table created<br>";
     
     // Create shipping_addresses table
     $sql = "CREATE TABLE IF NOT EXISTS shipping_addresses (
@@ -283,7 +294,7 @@ try {
         FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
     )";
     $pdo->exec($sql);
-    echo "✅ Shipping addresses table created\n";
+    echo "✅ Shipping addresses table created<br>";
     
     // Create payment_info table
     $sql = "CREATE TABLE IF NOT EXISTS payment_info (
@@ -298,7 +309,7 @@ try {
         FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
     )";
     $pdo->exec($sql);
-    echo "✅ Payment info table created\n";
+    echo "✅ Payment info table created<br>";
     
     // Create order_status_history table
     $sql = "CREATE TABLE IF NOT EXISTS order_status_history (
@@ -312,7 +323,7 @@ try {
         FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
     )";
     $pdo->exec($sql);
-    echo "✅ Order status history table created\n";
+    echo "✅ Order status history table created<br>";
     
     // Create addresses table (for user addresses)
     $sql = "CREATE TABLE IF NOT EXISTS addresses (
@@ -330,7 +341,7 @@ try {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )";
     $pdo->exec($sql);
-    echo "✅ Addresses table created\n";
+    echo "✅ Addresses table created<br>";
     
     // Create user_addresses table (alternative structure)
     $sql = "CREATE TABLE IF NOT EXISTS user_addresses (
@@ -351,36 +362,7 @@ try {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )";
     $pdo->exec($sql);
-    echo "✅ User addresses table created\n";
-    
-    // Create order_status_history table
-    $sql = "CREATE TABLE IF NOT EXISTS order_status_history (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        order_id INT NOT NULL,
-        status VARCHAR(50) NOT NULL,
-        note TEXT,
-        updated_by INT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
-        FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
-    )";
-    $pdo->exec($sql);
-    echo "✅ Order status history table created\n";
-    
-    // Create admin user
-    $adminEmail = 'admin@skbakers.com';
-    $adminPassword = password_hash('admin123', PASSWORD_DEFAULT);
-    
-    $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
-    $stmt->execute([$adminEmail]);
-    
-    if (!$stmt->fetch()) {
-        $stmt = $pdo->prepare("INSERT INTO users (name, email, password, role, is_active, is_email_verified) VALUES (?, ?, ?, 'admin', 1, 1)");
-        $stmt->execute(['Admin User', $adminEmail, $adminPassword]);
-        echo "✅ Admin user created (Email: admin@skbakers.com, Password: admin123)\n";
-    } else {
-        echo "✅ Admin user already exists\n";
-    }
+    echo "✅ User addresses table created<br>";
     
     // Create reviews table
     $sql = "CREATE TABLE IF NOT EXISTS reviews (
@@ -398,7 +380,7 @@ try {
         FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
     )";
     $pdo->exec($sql);
-    echo "✅ Reviews table created\n";
+    echo "✅ Reviews table created<br>";
     
     // Create coupons table
     $sql = "CREATE TABLE IF NOT EXISTS coupons (
@@ -419,7 +401,7 @@ try {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )";
     $pdo->exec($sql);
-    echo "✅ Coupons table created\n";
+    echo "✅ Coupons table created<br>";
     
     // Create newsletter_subscribers table
     $sql = "CREATE TABLE IF NOT EXISTS newsletter_subscribers (
@@ -431,7 +413,7 @@ try {
         unsubscribed_at TIMESTAMP NULL
     )";
     $pdo->exec($sql);
-    echo "✅ Newsletter subscribers table created\n";
+    echo "✅ Newsletter subscribers table created<br>";
     
     // Create site_settings table
     $sql = "CREATE TABLE IF NOT EXISTS site_settings (
@@ -444,7 +426,7 @@ try {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )";
     $pdo->exec($sql);
-    echo "✅ Site settings table created\n";
+    echo "✅ Site settings table created<br>";
     
     // Create notifications table
     $sql = "CREATE TABLE IF NOT EXISTS notifications (
@@ -458,7 +440,7 @@ try {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )";
     $pdo->exec($sql);
-    echo "✅ Notifications table created\n";
+    echo "✅ Notifications table created<br>";
     
     // Create analytics_events table
     $sql = "CREATE TABLE IF NOT EXISTS analytics_events (
@@ -476,7 +458,22 @@ try {
         FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL
     )";
     $pdo->exec($sql);
-    echo "✅ Analytics events table created\n";
+    echo "✅ Analytics events table created<br>";
+    
+    // Create admin user
+    $adminEmail = 'admin@skbakers.com';
+    $adminPassword = password_hash('admin123', PASSWORD_DEFAULT);
+    
+    $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+    $stmt->execute([$adminEmail]);
+    
+    if (!$stmt->fetch()) {
+        $stmt = $pdo->prepare("INSERT INTO users (name, email, password, role, is_active, is_email_verified) VALUES (?, ?, ?, 'admin', 1, 1)");
+        $stmt->execute(['Admin User', $adminEmail, $adminPassword]);
+        echo "✅ Admin user created (Email: admin@skbakers.com, Password: admin123)<br>";
+    } else {
+        echo "✅ Admin user already exists<br>";
+    }
     
     // Insert default site settings
     $defaultSettings = [
@@ -498,14 +495,17 @@ try {
     foreach ($defaultSettings as $setting) {
         $settingsStmt->execute($setting);
     }
-    echo "✅ Default site settings inserted\n";
+    echo "✅ Default site settings inserted<br>";
     
-    echo "\n🎉 Database setup completed successfully!\n";
-    echo "📧 Admin Login: admin@skbakers.com / admin123\n";
-    echo "🔗 Your database is ready for SK Bakers!\n";
+    echo "<br><h2>🎉 Database setup completed successfully!</h2>";
+    echo "<p>📧 <strong>Admin Login:</strong> admin@skbakers.com / admin123</p>";
+    echo "<p>🔗 <strong>Your database is ready for SK Bakers!</strong></p>";
+    echo "<p style='color: red;'><strong>⚠️ IMPORTANT:</strong> Delete this file after setup for security!</p>";
     
 } catch (PDOException $e) {
-    echo "❌ Database setup failed: " . $e->getMessage() . "\n";
-    echo "🔧 Please check your database credentials in this script.\n";
+    echo "<h2>❌ Database setup failed</h2>";
+    echo "<p>Error: " . htmlspecialchars($e->getMessage()) . "</p>";
+    echo "<p>🔧 Please check your database credentials in this script.</p>";
 }
 ?>
+
