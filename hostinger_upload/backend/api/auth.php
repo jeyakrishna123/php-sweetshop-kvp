@@ -4,9 +4,49 @@
  * Handles all authentication-related endpoints with complete OTP verification
  */
 
-require_once __DIR__ . "/../config/database.php";
-require_once __DIR__ . "/../config/config.php";
-require_once __DIR__ . "/../includes/helpers.php";
+// Start output buffering early to catch any warnings/errors
+if (!ob_get_level()) {
+    @ob_start();
+}
+
+// Suppress warnings but log errors for debugging
+@error_reporting(E_ALL);
+@ini_set('display_errors', '0');
+@ini_set('log_errors', '1');
+
+// CRITICAL: Set JSON header immediately to prevent any output issues
+@header('Content-Type: application/json; charset=utf-8');
+
+// Load required files with error handling
+try {
+    require_once __DIR__ . "/../config/database.php";
+} catch (Throwable $e) {
+    error_log("❌ AUTH API - Failed to load database.php: " . $e->getMessage());
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'message' => 'Server configuration error']);
+    exit;
+}
+
+try {
+    require_once __DIR__ . "/../config/config.php";
+} catch (Throwable $e) {
+    error_log("❌ AUTH API - Failed to load config.php: " . $e->getMessage());
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'message' => 'Server configuration error']);
+    exit;
+}
+
+try {
+    require_once __DIR__ . "/../includes/helpers.php";
+} catch (Throwable $e) {
+    error_log("❌ AUTH API - Failed to load helpers.php: " . $e->getMessage());
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'message' => 'Server configuration error']);
+    exit;
+}
 
 // Load EmailService with error handling
 $emailServiceLoaded = false;
@@ -26,40 +66,117 @@ try {
     error_log("⚠️ AUTH API - Failed to load EmailService: " . $e->getMessage());
 }
 
-require_once __DIR__ . "/../middleware/cors.php";
-require_once __DIR__ . "/../middleware/auth.php";
+try {
+    require_once __DIR__ . "/../middleware/cors.php";
+} catch (Throwable $e) {
+    error_log("❌ AUTH API - Failed to load cors.php: " . $e->getMessage());
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'message' => 'Server configuration error']);
+    exit;
+}
 
-// Handle CORS
-CorsMiddleware::handle();
+try {
+    require_once __DIR__ . "/../middleware/auth.php";
+} catch (Throwable $e) {
+    error_log("❌ AUTH API - Failed to load auth.php middleware: " . $e->getMessage());
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'message' => 'Server configuration error']);
+    exit;
+}
+
+// Handle CORS with error handling
+try {
+    if (class_exists('CorsMiddleware')) {
+        CorsMiddleware::handle();
+    } else {
+        error_log("⚠️ AUTH API - CorsMiddleware class not found, setting basic CORS headers");
+        // Basic CORS headers as fallback
+        header('Access-Control-Allow-Origin: *');
+        header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization');
+        if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+            http_response_code(200);
+            exit;
+        }
+    }
+} catch (Throwable $e) {
+    error_log("⚠️ AUTH API - CORS error (non-fatal): " . $e->getMessage());
+    // Set basic CORS headers as fallback
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+}
 
 // Get request method and endpoint
-$method = $_SERVER["REQUEST_METHOD"];
+$method = $_SERVER["REQUEST_METHOD"] ?? 'GET';
 
 // Get endpoint from URL path or query parameter
-$requestUri = $_SERVER['REQUEST_URI'];
+$requestUri = $_SERVER['REQUEST_URI'] ?? '/';
 $path = parse_url($requestUri, PHP_URL_PATH);
-$pathParts = explode('/', trim($path, '/'));
+if ($path === false || $path === null) {
+    $path = $requestUri;
+}
+$pathParts = array_values(array_filter(explode('/', trim($path, '/'))));
 
-// Handle both /api/auth/register and /api/auth?endpoint=register
+// Handle multiple path formats:
+// 1. /api/auth/forgot-password (pathParts: ['api', 'auth', 'forgot-password'])
+// 2. /api/forgot-password (pathParts: ['api', 'forgot-password']) - from index.php routing
+// 3. ?endpoint=forgot-password
+
 $endpoint = "";
-if (isset($pathParts[2]) && $pathParts[2] !== '') {
-    // Direct path: /api/auth/register
+
+// Check if we're routed from index.php (when resource='forgot-password', pathParts might be ['api', 'forgot-password'])
+if (isset($pathParts[1]) && in_array($pathParts[1], ['forgot-password', 'reset-password', 'verify-otp', 'register', 'login'])) {
+    $endpoint = $pathParts[1];
+    error_log("🔍 AUTH API - Endpoint from pathParts[1]: '$endpoint'");
+} 
+// Standard /api/auth/endpoint format
+elseif (isset($pathParts[2]) && !empty($pathParts[2])) {
     $endpoint = $pathParts[2];
-} else {
-    // Query parameter: /api/auth?endpoint=register
-    $endpoint = $_GET["endpoint"] ?? "";
+    error_log("🔍 AUTH API - Endpoint from pathParts[2]: '$endpoint'");
+}
+// Query parameter fallback
+elseif (isset($_GET["endpoint"]) && !empty($_GET["endpoint"])) {
+    $endpoint = $_GET["endpoint"];
+    error_log("🔍 AUTH API - Endpoint from GET parameter: '$endpoint'");
+}
+// POST parameter fallback
+elseif (isset($_POST["endpoint"]) && !empty($_POST["endpoint"])) {
+    $endpoint = $_POST["endpoint"];
+    error_log("🔍 AUTH API - Endpoint from POST parameter: '$endpoint'");
 }
 
 // Log the request for debugging
-error_log("🔍 AUTH API - Method: $method, Endpoint: '$endpoint', Path: " . json_encode($pathParts));
+error_log("🔍 AUTH API - Method: $method, Endpoint: '$endpoint', Path: " . json_encode($pathParts) . ", Full URI: $requestUri");
 
 // Initialize database connection with error handling
+$db = null;
 try {
     $db = Database::getInstance()->getConnection();
+    if (!$db || !is_object($db)) {
+        error_log("❌ AUTH API - Database connection returned null or invalid object");
+        sendError("Database connection failed", ["error" => "Database connection is invalid"], 500);
+        exit;
+    }
     error_log("✅ AUTH API - Database connection successful");
 } catch (Exception $e) {
     error_log("❌ AUTH API - Database connection failed: " . $e->getMessage());
-    sendError("Database connection failed", ["error" => $e->getMessage()], 500);
+    error_log("❌ AUTH API - Database error trace: " . $e->getTraceAsString());
+    sendError("Database connection failed", ["error" => "Unable to connect to database"], 500);
+    exit;
+} catch (Throwable $e) {
+    error_log("❌ AUTH API - Database connection fatal error: " . $e->getMessage());
+    error_log("❌ AUTH API - Database fatal error file: " . $e->getFile() . ", Line: " . $e->getLine());
+    sendError("Database connection failed", ["error" => "Database initialization error"], 500);
+    exit;
+}
+
+// Ensure we have valid endpoint
+if (empty($endpoint)) {
+    error_log("❌ AUTH API - No endpoint specified. Method: $method, Path parts: " . json_encode($pathParts));
+    sendError("Invalid endpoint", [], 404);
     exit;
 }
 
@@ -83,24 +200,80 @@ switch ($endpoint) {
 
     case "forgot-password":
         if ($method === "POST") {
-            // Wrap in error handler to catch any fatal errors
+            // Clean any previous output
+            if (ob_get_level()) {
+                @ob_clean();
+            }
+            
+            // Wrap in MULTIPLE layers of error handling
             try {
-                forgotPassword($db);
-            } catch (Throwable $e) {
-                // Final safety net - catch anything that wasn't caught
-                error_log("❌ FORGOT PASSWORD - Top-level error handler caught: " . $e->getMessage());
-                error_log("❌ FORGOT PASSWORD - Top-level error file: " . $e->getFile() . ", Line: " . $e->getLine());
-                error_log("❌ FORGOT PASSWORD - Top-level error trace: " . $e->getTraceAsString());
+                // Verify database is available
+                if (!$db || !is_object($db)) {
+                    error_log("❌ FORGOT PASSWORD - Database is null at entry point");
+                    if (ob_get_level()) {
+                        @ob_clean();
+                    }
+                    http_response_code(500);
+                    header('Content-Type: application/json');
+                    echo json_encode([
+                        'success' => false,
+                        'message' => 'Database connection unavailable. Please try again.',
+                        'error_code' => 'DB_NULL'
+                    ]);
+                    exit;
+                }
                 
-                // Clean output
+                forgotPassword($db);
+            } catch (Error $e) {
+                // Catch PHP 7+ Error class
+                error_log("❌ FORGOT PASSWORD - PHP Error caught: " . $e->getMessage());
+                error_log("❌ FORGOT PASSWORD - Error file: " . $e->getFile() . ", Line: " . $e->getLine());
+                error_log("❌ FORGOT PASSWORD - Error trace: " . $e->getTraceAsString());
+                
                 if (ob_get_level()) {
-                    ob_clean();
+                    @ob_clean();
+                }
+                
+                http_response_code(500);
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'An error occurred. Please try again.',
+                    'error_code' => 'PHP_ERROR'
+                ]);
+                exit;
+            } catch (Exception $e) {
+                // Catch general exceptions
+                error_log("❌ FORGOT PASSWORD - Exception caught: " . $e->getMessage());
+                error_log("❌ FORGOT PASSWORD - Exception file: " . $e->getFile() . ", Line: " . $e->getLine());
+                error_log("❌ FORGOT PASSWORD - Exception trace: " . $e->getTraceAsString());
+                
+                if (ob_get_level()) {
+                    @ob_clean();
                 }
                 
                 sendError("An error occurred processing your request. Please try again.", [
                     "message" => "We're experiencing technical difficulties. Please try again in a moment.",
-                    "error_code" => "TOP_LEVEL_ERROR"
+                    "error_code" => "EXCEPTION"
                 ], 500);
+            } catch (Throwable $e) {
+                // Final safety net - catch ANYTHING
+                error_log("❌ FORGOT PASSWORD - Throwable caught: " . $e->getMessage());
+                error_log("❌ FORGOT PASSWORD - Throwable file: " . $e->getFile() . ", Line: " . $e->getLine());
+                error_log("❌ FORGOT PASSWORD - Throwable trace: " . $e->getTraceAsString());
+                
+                if (ob_get_level()) {
+                    @ob_clean();
+                }
+                
+                http_response_code(500);
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'An unexpected error occurred. Please try again.',
+                    'error_code' => 'THROWABLE'
+                ]);
+                exit;
             }
         } else {
             sendError("Method not allowed", [], 405);
@@ -545,15 +718,31 @@ function forgotPassword($db) {
         $data = null;
         try {
             $data = getRequestBody();
+            if ($data === null) {
+                $data = [];
+            }
         } catch (Exception $e) {
             error_log("❌ FORGOT PASSWORD - Failed to get request body: " . $e->getMessage());
+            error_log("❌ FORGOT PASSWORD - Exception trace: " . $e->getTraceAsString());
+            sendError("Invalid request. Please try again.", [], 400);
+            return;
+        } catch (Throwable $e) {
+            error_log("❌ FORGOT PASSWORD - Fatal error getting request body: " . $e->getMessage());
+            error_log("❌ FORGOT PASSWORD - Fatal error file: " . $e->getFile() . ", Line: " . $e->getLine());
             sendError("Invalid request. Please try again.", [], 400);
             return;
         }
         
-        if (empty($data)) {
-            error_log("❌ FORGOT PASSWORD - No data received");
+        if (empty($data) || !is_array($data)) {
+            error_log("❌ FORGOT PASSWORD - No data received or invalid format. Data type: " . gettype($data));
             sendError("Please provide your email address", [], 400);
+            return;
+        }
+
+        // Check if email field exists
+        if (!isset($data["email"])) {
+            error_log("❌ FORGOT PASSWORD - Email field missing. Data keys: " . json_encode(array_keys($data)));
+            sendError("Please provide your email address", ["email" => "Email is required"], 400);
             return;
         }
 
@@ -564,7 +753,15 @@ function forgotPassword($db) {
             return;
         }
 
-        $email = sanitizeInput(trim($data["email"]));
+        // Safely get and sanitize email
+        $emailRaw = isset($data["email"]) ? $data["email"] : '';
+        if (!is_string($emailRaw)) {
+            error_log("❌ FORGOT PASSWORD - Email is not a string. Type: " . gettype($emailRaw));
+            sendError("Invalid email format", ["email" => "Please enter a valid email address"], 400);
+            return;
+        }
+        
+        $email = sanitizeInput(trim($emailRaw));
         
         // Validate email format
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -602,16 +799,22 @@ function forgotPassword($db) {
 
         if (!$user || !is_array($user)) {
             // Security: Don't reveal if email exists - same message for security
-            error_log("⚠️ FORGOT PASSWORD - User not found for email: $email (not revealing existence)");
-            sendError("If an account exists with this email, an OTP will be sent.", [], 200);
+            // But make it clear that IF email exists, OTP would be sent
+            error_log("⚠️ FORGOT PASSWORD - User not found for email: $email (security: not revealing existence)");
+            sendSuccess("If an account exists with this email address, you will receive an OTP shortly.", [
+                "message" => "Please check your email inbox. If you don't receive an email within a few minutes, the email address may not be registered with us.",
+                "email_sent" => false,
+                "email" => $email
+            ], 200);
             return;
         }
         
         // Verify user array has required fields BEFORE accessing them
-        if (!isset($user['id']) || empty($user['id']) || !isset($user['name']) || empty($user['name'])) {
-            error_log("❌ FORGOT PASSWORD - User data incomplete for email: $email");
+        // Only require id - name can be empty and we'll use email as fallback
+        if (!isset($user['id']) || empty($user['id'])) {
+            error_log("❌ FORGOT PASSWORD - User ID missing for email: $email");
             error_log("❌ FORGOT PASSWORD - User data: " . json_encode($user));
-            sendError("User data incomplete. Please contact support.", [], 500);
+            sendError("User account data is incomplete. Please contact support.", [], 500);
             return;
         }
         
@@ -737,7 +940,15 @@ function forgotPassword($db) {
                 
                 // Try basic PHP mail() as fallback
                 $subject = "Password Reset OTP - SK Bakers";
-                $userName = isset($user) && is_array($user) && isset($user["name"]) ? htmlspecialchars($user["name"], ENT_QUOTES, 'UTF-8') : "User";
+                // Get user name safely - use email as fallback if name is empty
+                $userName = "User";
+                if (isset($user) && is_array($user)) {
+                    if (isset($user["name"]) && !empty(trim($user["name"]))) {
+                        $userName = htmlspecialchars(trim($user["name"]), ENT_QUOTES, 'UTF-8');
+                    } elseif (isset($user["email"]) && !empty($user["email"])) {
+                        $userName = htmlspecialchars($user["email"], ENT_QUOTES, 'UTF-8');
+                    }
+                }
                 $message = "
                     <h2>Password Reset Request</h2>
                     <p>Hello " . $userName . ",</p>
@@ -780,11 +991,14 @@ function forgotPassword($db) {
             if (isset($emailService) && is_object($emailService)) {
                 $subject = "Password Reset OTP - SK Bakers";
                 // Safely get user name with multiple fallbacks
+                // Don't require name - use email as fallback if name is empty or null
                 $userName = "User";
-                if (isset($user) && is_array($user) && isset($user["name"]) && !empty($user["name"])) {
-                    $userName = htmlspecialchars($user["name"], ENT_QUOTES, 'UTF-8');
-                } elseif (isset($user) && is_array($user) && isset($user["email"])) {
-                    $userName = htmlspecialchars($user["email"], ENT_QUOTES, 'UTF-8');
+                if (isset($user) && is_array($user)) {
+                    if (isset($user["name"]) && !empty(trim($user["name"]))) {
+                        $userName = htmlspecialchars(trim($user["name"]), ENT_QUOTES, 'UTF-8');
+                    } elseif (isset($user["email"]) && !empty($user["email"])) {
+                        $userName = htmlspecialchars($user["email"], ENT_QUOTES, 'UTF-8');
+                    }
                 }
                 
                 $message = "
@@ -1033,14 +1247,17 @@ function verifyOtp($db) {
         // Verify OTP from database
         try {
             $verifyStmt = $db->prepare("
-                SELECT id, user_id, token, expires_at, created_at
+                SELECT id, user_id, token, expires_at, created_at, used
                 FROM password_reset_tokens 
                 WHERE email = ? AND token = ? AND expires_at > NOW() AND used = 0
                 ORDER BY created_at DESC 
                 LIMIT 1
             ");
             $verifyStmt->execute([$email, $otp]);
-            $token = $verifyStmt->fetch();
+            $token = $verifyStmt->fetch(PDO::FETCH_ASSOC); // Explicitly use FETCH_ASSOC for safety
+            if ($token === false) {
+                $token = null; // Normalize false to null
+            }
         } catch (PDOException $e) {
             error_log("❌ VERIFY OTP - Database query error: " . $e->getMessage());
             sendError("Database error. Please try again.", [], 500);
@@ -1199,7 +1416,10 @@ function resetPassword($db) {
                 LIMIT 1
             ");
             $verifyStmt->execute([$email, $otp]);
-            $token = $verifyStmt->fetch();
+            $token = $verifyStmt->fetch(PDO::FETCH_ASSOC); // Explicitly use FETCH_ASSOC for safety
+            if ($token === false) {
+                $token = null; // Normalize false to null
+            }
         } catch (PDOException $e) {
             error_log("❌ RESET PASSWORD - Database query error: " . $e->getMessage());
             sendError("Database error. Please try again.", [], 500);
@@ -1229,7 +1449,10 @@ function resetPassword($db) {
         try {
             $userCheck = $db->prepare("SELECT id, email, is_active FROM users WHERE id = ? AND email = ?");
             $userCheck->execute([$userId, $email]);
-            $user = $userCheck->fetch();
+            $user = $userCheck->fetch(PDO::FETCH_ASSOC); // Explicitly use FETCH_ASSOC for safety
+            if ($user === false) {
+                $user = null; // Normalize false to null
+            }
             
             if (!$user) {
                 error_log("❌ RESET PASSWORD - User not found: ID=$userId, Email=$email");

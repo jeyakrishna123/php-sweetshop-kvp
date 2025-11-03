@@ -78,6 +78,16 @@ function sanitizeInput($data) {
     if (is_array($data)) {
         return array_map('sanitizeInput', $data);
     }
+    
+    // Handle null, empty, or non-string values
+    if ($data === null || $data === '') {
+        return '';
+    }
+    
+    if (!is_string($data)) {
+        return $data; // Return as-is for non-string values
+    }
+    
     return htmlspecialchars(strip_tags(trim($data)), ENT_QUOTES, 'UTF-8');
 }
 
@@ -318,6 +328,95 @@ function uploadImage($file, $directory = 'products') {
 }
 
 /**
+ * Convert base64 image to file and upload
+ * Returns relative path on success, false on failure
+ */
+function uploadBase64Image($base64String, $directory = 'products') {
+    if (empty($base64String)) {
+        return false;
+    }
+    
+    // Check if it's a base64 data URI
+    if (preg_match('/^data:image\/(\w+);base64,(.+)$/', $base64String, $matches)) {
+        $imageType = strtolower($matches[1]); // jpeg, png, webp, gif
+        $base64Data = $matches[2];
+    } else {
+        // Assume it's raw base64 without data URI prefix
+        // Try to detect image type from the base64 data
+        $decoded = base64_decode($base64String, true);
+        if ($decoded === false) {
+            error_log("❌ uploadBase64Image - Invalid base64 string");
+            return false;
+        }
+        
+        // Detect MIME type from binary data
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_buffer($finfo, $decoded);
+        finfo_close($finfo);
+        
+        // Map MIME type to extension
+        $mimeMap = [
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            'image/gif' => 'gif'
+        ];
+        
+        $imageType = $mimeMap[$mimeType] ?? 'jpg'; // Default to jpg
+        $base64Data = $base64String;
+    }
+    
+    // Validate image type
+    $allowedTypes = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    if (!in_array($imageType, $allowedTypes)) {
+        error_log("❌ uploadBase64Image - Invalid image type: " . $imageType);
+        return false;
+    }
+    
+    // Decode base64 data
+    $imageData = base64_decode($base64Data, true);
+    if ($imageData === false) {
+        error_log("❌ uploadBase64Image - Failed to decode base64");
+        return false;
+    }
+    
+    // Validate it's actually an image
+    $tempFile = tmpfile();
+    $tempPath = stream_get_meta_data($tempFile)['uri'];
+    file_put_contents($tempPath, $imageData);
+    
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $detectedMime = finfo_file($finfo, $tempPath);
+    finfo_close($finfo);
+    fclose($tempFile);
+    
+    if (!in_array($detectedMime, ALLOWED_IMAGE_TYPES)) {
+        error_log("❌ uploadBase64Image - Detected invalid MIME type: " . $detectedMime);
+        return false;
+    }
+    
+    // Create upload directory if it doesn't exist
+    $uploadDir = UPLOAD_DIR . $directory . '/';
+    if (!file_exists($uploadDir)) {
+        mkdir($uploadDir, 0755, true);
+    }
+    
+    // Generate unique filename
+    $extension = ($imageType === 'jpeg') ? 'jpg' : $imageType;
+    $filename = uniqid() . '_' . time() . '.' . $extension;
+    $filepath = $uploadDir . $filename;
+    
+    // Save image to file
+    if (file_put_contents($filepath, $imageData)) {
+        error_log("✅ uploadBase64Image - Saved base64 image to: /uploads/" . $directory . "/" . $filename);
+        return '/uploads/' . $directory . '/' . $filename;
+    } else {
+        error_log("❌ uploadBase64Image - Failed to save file: " . $filepath);
+        return false;
+    }
+}
+
+/**
  * Delete file
  */
 function deleteFile($filepath) {
@@ -505,9 +604,35 @@ function getImageUrl($imagePath) {
  * Normalize image URL/path - Convert full URLs to relative paths for storage
  * This ensures images are stored as relative paths and converted back to full URLs when retrieved
  */
-function normalizeImagePath($imagePath) {
+function normalizeImagePath($imagePath, $directory = 'products') {
     if (empty($imagePath)) {
         return null;
+    }
+    
+    // CRITICAL: Check if it's a base64 image string
+    // Base64 images start with "data:image/" or are long base64 strings (at least 100 chars, typical for images)
+    $isBase64 = false;
+    if (strpos($imagePath, 'data:image/') === 0) {
+        $isBase64 = true;
+    } else if (strlen($imagePath) > 100 && preg_match('/^[A-Za-z0-9+\/]+=*$/', $imagePath)) {
+        // Only treat as base64 if it's a long string (images are typically >100 chars when base64 encoded)
+        // and matches base64 pattern, but doesn't look like a file path or URL
+        if (strpos($imagePath, '/') === false && strpos($imagePath, '\\') === false && strpos($imagePath, 'http') === false) {
+            $isBase64 = true;
+        }
+    }
+    
+    if ($isBase64) {
+        error_log("🔍 normalizeImagePath - Detected base64 image, converting to file...");
+        // Convert base64 to file
+        $uploadedPath = uploadBase64Image($imagePath, $directory);
+        if ($uploadedPath) {
+            error_log("✅ normalizeImagePath - Base64 converted to: " . $uploadedPath);
+            return $uploadedPath;
+        } else {
+            error_log("❌ normalizeImagePath - Failed to convert base64 image");
+            return null;
+        }
     }
     
     // If it's already a relative path (starts with /uploads/ or /backend/uploads/), return as is

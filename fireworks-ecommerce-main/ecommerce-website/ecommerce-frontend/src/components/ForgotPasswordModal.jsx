@@ -80,11 +80,23 @@ const ForgotPasswordModal = ({ isOpen, onClose, onSuccess }) => {
 
       const data = await response.json();
 
-      if (response.ok) {
-        setOtpSent(true);
-        setStep(2);
-        setSuccess('OTP sent to your email address');
-        setCountdown(60); // 60 seconds countdown
+      if (response.ok && data.success) {
+        // Check if OTP was actually sent (not just a generic success message)
+        if (data.data?.otp_sent === true || data.data?.email_sent === true) {
+          setOtpSent(true);
+          setStep(2);
+          setSuccess(data.data?.message || data.message || 'OTP sent to your email address');
+          setCountdown(60); // 60 seconds countdown
+        } else if (data.data?.email_sent === false) {
+          // Email doesn't exist or couldn't be sent
+          setError(data.data?.message || data.message || 'Unable to send OTP. Please verify your email address.');
+        } else {
+          // Default success case
+          setOtpSent(true);
+          setStep(2);
+          setSuccess(data.message || 'OTP sent to your email address');
+          setCountdown(60);
+        }
       } else {
         setError(data.message || 'Failed to send OTP');
       }

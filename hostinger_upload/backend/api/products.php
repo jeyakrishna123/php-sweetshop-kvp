@@ -250,11 +250,33 @@ function getAllProducts($db) {
     error_log("🔍 GET ALL PRODUCTS - Is Admin: " . ($isAdmin ? 'YES' : 'NO'));
     error_log("🔍 GET ALL PRODUCTS - Filters: " . json_encode($_GET));
 
-    $stmt = $db->prepare("
-        SELECT p.id, p.name, p.description, p.price, p.original_price, p.stock, p.images, p.thumbnail,
+    // Check if sub_category and menu_option columns exist in products table
+    $hasSubCategory = false;
+    $hasMenuOption = false;
+    try {
+        $colCheck = $db->query("SHOW COLUMNS FROM products LIKE 'sub_category'");
+        $hasSubCategory = $colCheck && $colCheck->rowCount() > 0;
+        $colCheck2 = $db->query("SHOW COLUMNS FROM products LIKE 'menu_option'");
+        $hasMenuOption = $colCheck2 && $colCheck2->rowCount() > 0;
+    } catch (Exception $e) {
+        // Columns don't exist, continue without them
+    }
+    
+    // Build SELECT clause based on available columns
+    $selectFields = "p.id, p.name, p.description, p.price, p.original_price, p.stock, p.images, p.thumbnail,
                p.is_featured, p.is_bestseller, p.is_new, p.is_active, p.sku, p.weight,
                p.average_rating, p.num_reviews, p.sold_count, p.view_count, p.created_at, p.updated_at,
-               c.name as category_name, c.slug as category_slug
+               c.name as category_name, c.slug as category_slug";
+    
+    if ($hasSubCategory) {
+        $selectFields .= ", p.sub_category";
+    }
+    if ($hasMenuOption) {
+        $selectFields .= ", p.menu_option";
+    }
+
+    $stmt = $db->prepare("
+        SELECT $selectFields
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.id
         WHERE $whereClause
@@ -340,21 +362,63 @@ function getProductById($db, $id) {
         $isAdmin = true;
     }
 
-    // Build query based on user role
+    // Check if sub_category, menu_option, and menu_category columns exist
+    $hasSubCategory = false;
+    $hasMenuOption = false;
+    $hasMenuCategory = false;
+    try {
+        $colCheck = $db->query("SHOW COLUMNS FROM products LIKE 'sub_category'");
+        $hasSubCategory = $colCheck && $colCheck->rowCount() > 0;
+        $colCheck2 = $db->query("SHOW COLUMNS FROM products LIKE 'menu_option'");
+        $hasMenuOption = $colCheck2 && $colCheck2->rowCount() > 0;
+        $colCheck3 = $db->query("SHOW COLUMNS FROM products LIKE 'menu_category'");
+        $hasMenuCategory = $colCheck3 && $colCheck3->rowCount() > 0;
+    } catch (Exception $e) {
+        // Columns don't exist, continue without them
+    }
+    
+    // Build SELECT query with conditional columns
+    $selectFields = "p.id, p.name, p.description, p.price, p.original_price, p.category_id, p.stock, p.images, p.thumbnail,
+                     p.is_featured, p.is_bestseller, p.is_new, p.is_active, p.sku, p.weight,
+                     p.average_rating, p.num_reviews, p.sold_count, p.view_count, p.created_at, p.updated_at,
+                     c.name as category_name, c.slug as category_slug";
+    
+    if ($hasSubCategory) {
+        $selectFields .= ", p.sub_category";
+    }
+    if ($hasMenuOption) {
+        $selectFields .= ", p.menu_option";
+    }
+    if ($hasMenuCategory) {
+        $selectFields .= ", p.menu_category";
+    }
+    
+    // Build query with JOIN to get category name - CRITICAL for edit modal
     if ($isAdmin) {
         // Admin can view any product (active or inactive)
-        $stmt = $db->prepare("SELECT * FROM products WHERE id = ?");
+        $stmt = $db->prepare("
+            SELECT $selectFields
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.id
+            WHERE p.id = ?
+        ");
         $stmt->execute([$id]);
     } else {
         // Public users only see active products
-        $stmt = $db->prepare("SELECT * FROM products WHERE id = ? AND is_active = 1");
+        $stmt = $db->prepare("
+            SELECT $selectFields
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.id
+            WHERE p.id = ? AND p.is_active = 1
+        ");
         $stmt->execute([$id]);
     }
 
-    $product = $stmt->fetch();
+    $product = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$product) {
         sendError('Product not found', [], 404);
+        return;
     }
 
     // Decode JSON fields - handle null values properly
@@ -372,13 +436,35 @@ function getProductById($db, $id) {
     if (!empty($product['thumbnail'])) {
         $product['thumbnail'] = getImageUrl($product['thumbnail']);
     }
-    $product['product_types'] = $product['product_types'] ? json_decode($product['product_types'], true) : null;
-    $product['specifications'] = $product['specifications'] ? json_decode($product['specifications'], true) : [];
-    $product['tags'] = $product['tags'] ? json_decode($product['tags'], true) : [];
-    $product['weight_options'] = $product['weight_options'] ? json_decode($product['weight_options'], true) : [];
+    $product['product_types'] = isset($product['product_types']) && $product['product_types'] ? json_decode($product['product_types'], true) : null;
+    $product['specifications'] = isset($product['specifications']) && $product['specifications'] ? json_decode($product['specifications'], true) : [];
+    $product['tags'] = isset($product['tags']) && $product['tags'] ? json_decode($product['tags'], true) : [];
+    $product['weight_options'] = isset($product['weight_options']) && $product['weight_options'] ? json_decode($product['weight_options'], true) : [];
     
-    // Add category field for frontend compatibility
+    // CRITICAL: Add category field for frontend compatibility - use category_name from JOIN
     $product['category'] = $product['category_name'] ?? null;
+    
+    // Check if sub_category, menu_option, and menu_category columns exist and include them
+    // These fields might not exist in all database schemas
+    if (isset($product['sub_category'])) {
+        $product['subCategory'] = $product['sub_category'];
+    }
+    if (isset($product['menu_option'])) {
+        $product['menuOption'] = $product['menu_option'];
+    }
+    if (isset($product['menu_category'])) {
+        $product['menuCategory'] = $product['menu_category'];
+        // Also set selectedMenuFilter for frontend compatibility
+        $product['selectedMenuFilter'] = $product['menu_category'] ? $product['menu_category'] : 'all';
+    }
+    
+    // Ensure _id field exists for frontend compatibility (React expects _id)
+    if (isset($product['id']) && !isset($product['_id'])) {
+        $product['_id'] = strval($product['id']); // Convert to string if needed
+    }
+    
+    error_log("🔍 GET PRODUCT BY ID - Category: " . ($product['category'] ?? 'NULL') . ", Category Name: " . ($product['category_name'] ?? 'NULL'));
+    error_log("🔍 GET PRODUCT BY ID - SubCategory: " . ($product['subCategory'] ?? 'NULL') . ", MenuOption: " . ($product['menuOption'] ?? 'NULL') . ", MenuCategory: " . ($product['menuCategory'] ?? 'NULL'));
 
     // Get reviews
     $stmt = $db->prepare("
@@ -830,26 +916,64 @@ function createProduct($db) {
 
         $data = getRequestBody();
         
-        // Check for duplicate creation within last 5 seconds
-        if (isset($data['name'])) {
+        // CRITICAL: Prevent duplicate product creation within 5 seconds
+        // This prevents accidental double submissions while allowing legitimate products with same name
+        if (isset($data['name']) && !empty($data['name'])) {
+            $productName = sanitizeInput($data['name']);
             $checkStmt = $db->prepare("
                 SELECT id, name, created_at 
                 FROM products 
-                WHERE name = ? AND created_at > DATE_SUB(NOW(), INTERVAL 5 SECOND)
+                WHERE name = ? 
+                AND created_at > DATE_SUB(NOW(), INTERVAL 5 SECOND)
                 ORDER BY created_at DESC 
                 LIMIT 1
             ");
-            $checkStmt->execute([$data['name']]);
-            $recentProduct = $checkStmt->fetch();
+            $checkStmt->execute([$productName]);
+            $recentProduct = $checkStmt->fetch(PDO::FETCH_ASSOC);
             
             if ($recentProduct) {
-                error_log("⚠️ CREATE PRODUCT - Duplicate creation prevented for: " . $data['name']);
-                error_log("⚠️ CREATE PRODUCT - Recent product ID: " . $recentProduct['id'] . " created at: " . $recentProduct['created_at']);
-                sendError('Product creation in progress. Please wait a moment before creating again.', [
-                    'duplicate_id' => $recentProduct['id'],
-                    'created_at' => $recentProduct['created_at']
-                ], 429);
-                return;
+                $timeDiff = time() - strtotime($recentProduct['created_at']);
+                error_log("⚠️ CREATE PRODUCT - Duplicate detected: Product '" . $productName . "' was created " . $timeDiff . " seconds ago (ID: " . $recentProduct['id'] . ")");
+                
+                // Fetch the existing product with all fields
+                $existingStmt = $db->prepare("
+                    SELECT p.id, p.name, p.description, p.price, p.original_price, p.stock, p.images, p.thumbnail,
+                           p.is_featured, p.is_bestseller, p.is_new, p.is_active, p.sku, p.weight,
+                           p.average_rating, p.num_reviews, p.sold_count, p.view_count, p.created_at, p.updated_at,
+                           c.name as category_name, c.slug as category_slug, p.category_id
+                    FROM products p
+                    LEFT JOIN categories c ON p.category_id = c.id
+                    WHERE p.id = ?
+                ");
+                $existingStmt->execute([$recentProduct['id']]);
+                $existingProduct = $existingStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($existingProduct) {
+                    // Process the product like getProductById does
+                    $existingProduct['images'] = $existingProduct['images'] ? json_decode($existingProduct['images'], true) : [];
+                    if (is_array($existingProduct['images'])) {
+                        $existingProduct['images'] = array_map(function($img) {
+                            if (is_string($img)) {
+                                return getImageUrl($img);
+                            }
+                            return $img;
+                        }, $existingProduct['images']);
+                    }
+                    if (!empty($existingProduct['thumbnail'])) {
+                        $existingProduct['thumbnail'] = getImageUrl($existingProduct['thumbnail']);
+                    }
+                    $existingProduct['category'] = $existingProduct['category_name'] ?? null;
+                    $existingProduct['_id'] = strval($existingProduct['id']);
+                    
+                    error_log("✅ CREATE PRODUCT - Returning existing product instead of creating duplicate");
+                    sendSuccess('Product already exists (duplicate prevented)', [
+                        'product' => $existingProduct,
+                        'id' => $recentProduct['id'],
+                        'duplicate_prevented' => true,
+                        'message' => 'This product was created very recently. Returning existing product.'
+                    ], 200);
+                    return;
+                }
             }
         }
         
@@ -884,28 +1008,46 @@ function createProduct($db) {
         error_log("✅ CREATE PRODUCT - Validation passed");
 
         // Validate images
-        if (!isset($data['images']) || empty($data['images'])) {
+        if (!isset($data['images']) || empty($data['images']) || !is_array($data['images']) || count($data['images']) === 0) {
+            error_log("❌ CREATE PRODUCT - No images provided or images array is empty");
             sendError('At least one product image is required', [], 400);
             return;
         }
 
-        $slug = generateSlug($data['name']);
-        
         // Normalize image URLs to relative paths for storage
+        // CRITICAL: Handle base64 images by converting them to files
         $imagesArray = isset($data['images']) ? $data['images'] : [];
         $normalizedImages = [];
         if (is_array($imagesArray)) {
             foreach ($imagesArray as $img) {
                 // Handle both string URLs and object with url property
-                $imageUrl = is_string($img) ? $img : (isset($img['url']) ? $img['url'] : $img);
+                $imageUrl = '';
+                if (is_string($img)) {
+                    $imageUrl = $img;
+                } else if (is_array($img) || is_object($img)) {
+                    $imageUrl = $img['url'] ?? $img['preview'] ?? $img['imageUrl'] ?? '';
+                }
+                
                 if (!empty($imageUrl)) {
-                    $normalizedPath = normalizeImagePath($imageUrl);
+                    // normalizeImagePath now handles base64 conversion automatically
+                    $normalizedPath = normalizeImagePath($imageUrl, 'products');
                     if ($normalizedPath) {
                         $normalizedImages[] = $normalizedPath;
+                        error_log("✅ CREATE PRODUCT - Image normalized: " . substr($imageUrl, 0, 50) . "... -> " . $normalizedPath);
+                    } else {
+                        error_log("⚠️ CREATE PRODUCT - Image normalization failed for: " . substr($imageUrl, 0, 50) . "...");
                     }
                 }
             }
         }
+        
+        // Validate that we have at least one normalized image
+        if (empty($normalizedImages)) {
+            error_log("❌ CREATE PRODUCT - All images failed normalization. Original images: " . json_encode($imagesArray));
+            sendError('Failed to process product images. Please ensure images are valid URLs, uploaded files, or valid base64 data.', [], 400);
+            return;
+        }
+        
         $images = json_encode($normalizedImages);
         
         $productTypes = isset($data['productTypes']) ? json_encode($data['productTypes']) : null;
@@ -917,11 +1059,42 @@ function createProduct($db) {
         $thumbnailRaw = isset($data['thumbnail']) ? $data['thumbnail'] : (isset($normalizedImages[0]) ? $normalizedImages[0] : null);
         $thumbnail = $thumbnailRaw ? normalizeImagePath($thumbnailRaw) : null;
 
+        // Check if sub_category and menu_option columns exist before including them in INSERT
+        $hasSubCategory = false;
+        $hasMenuOption = false;
+        $hasMenuCategory = false;
+        try {
+            $colCheck = $db->query("SHOW COLUMNS FROM products LIKE 'sub_category'");
+            $hasSubCategory = $colCheck && $colCheck->rowCount() > 0;
+            $colCheck2 = $db->query("SHOW COLUMNS FROM products LIKE 'menu_option'");
+            $hasMenuOption = $colCheck2 && $colCheck2->rowCount() > 0;
+            $colCheck3 = $db->query("SHOW COLUMNS FROM products LIKE 'menu_category'");
+            $hasMenuCategory = $colCheck3 && $colCheck3->rowCount() > 0;
+        } catch (Exception $e) {
+            // Columns don't exist, continue without them
+        }
+        
+        // Build INSERT statement dynamically based on available columns
+        $insertFields = "name, description, price, original_price, category_id, stock, images, thumbnail,
+                is_featured, is_bestseller, is_new, is_active, sku, weight";
+        $insertPlaceholders = "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?";
+        $insertValues = [];
+        
+        if ($hasSubCategory) {
+            $insertFields .= ", sub_category";
+            $insertPlaceholders .= ", ?";
+        }
+        if ($hasMenuOption) {
+            $insertFields .= ", menu_option";
+            $insertPlaceholders .= ", ?";
+        }
+        if ($hasMenuCategory) {
+            $insertFields .= ", menu_category";
+            $insertPlaceholders .= ", ?";
+        }
+        
         $stmt = $db->prepare("
-            INSERT INTO products (
-                name, description, price, original_price, category_id, stock, images, thumbnail,
-                is_featured, is_bestseller, is_new, is_active, sku, weight
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO products ($insertFields) VALUES ($insertPlaceholders)
         ");
 
         // Map frontend camelCase to database snake_case
@@ -933,20 +1106,49 @@ function createProduct($db) {
 
         // Get category_id from category name
         $categoryId = null;
-        if (isset($data['category'])) {
-            $catStmt = $db->prepare("SELECT id FROM categories WHERE name = ? OR slug = ?");
-            $catStmt->execute([$data['category'], $data['category']]);
-            $category = $catStmt->fetch();
-            $categoryId = $category ? $category['id'] : null;
+        if (isset($data['category']) && !empty($data['category'])) {
+            try {
+                $catStmt = $db->prepare("SELECT id FROM categories WHERE name = ? OR slug = ? LIMIT 1");
+                $catStmt->execute([$data['category'], $data['category']]);
+                $category = $catStmt->fetch(PDO::FETCH_ASSOC);
+                if ($category && isset($category['id'])) {
+                    $categoryId = $category['id'];
+                    error_log("✅ CREATE PRODUCT - Category found: " . $data['category'] . " -> ID: " . $categoryId);
+                } else {
+                    error_log("⚠️ CREATE PRODUCT - Category not found: " . $data['category'] . ". Will create with category_id = NULL");
+                    // Don't fail - allow products without category_id (might be a new category)
+                }
+            } catch (PDOException $e) {
+                error_log("❌ CREATE PRODUCT - Error fetching category: " . $e->getMessage());
+                // Continue without category_id
+            }
+        } else {
+            error_log("⚠️ CREATE PRODUCT - No category provided");
         }
 
-        $result = $stmt->execute([
+        // Ensure price and stock are numeric
+        $price = is_numeric($data['price']) ? floatval($data['price']) : 0;
+        $originalPrice = isset($data['originalPrice']) && is_numeric($data['originalPrice']) ? floatval($data['originalPrice']) : (isset($data['original_price']) && is_numeric($data['original_price']) ? floatval($data['original_price']) : null);
+        $stock = is_numeric($data['stock']) ? intval($data['stock']) : 0;
+        $weight = isset($data['weight']) && is_numeric($data['weight']) ? floatval($data['weight']) : null;
+        
+        // Validate price is greater than 0
+        if ($price <= 0) {
+            error_log("❌ CREATE PRODUCT - Invalid price: " . $price);
+            sendError('Product price must be greater than 0', ['price' => 'Invalid price'], 400);
+            return;
+        }
+        
+        error_log("🔍 CREATE PRODUCT - Final values - Name: " . $data['name'] . ", Price: " . $price . ", Stock: " . $stock . ", Category ID: " . ($categoryId ?? 'NULL') . ", Images: " . count($normalizedImages));
+        
+        // Build execute parameters array
+        $executeParams = [
             sanitizeInput($data['name']),
             sanitizeInput($data['description'] ?? ''),
-            $data['price'],
-            $data['originalPrice'] ?? $data['original_price'] ?? null,
+            $price,
+            $originalPrice,
             $categoryId,
-            $data['stock'],
+            $stock,
             $images,
             $thumbnail,
             $featured,
@@ -954,25 +1156,81 @@ function createProduct($db) {
             $isNew,
             $isActive,
             $data['sku'] ?? null,
-            $data['weight'] ?? null
-        ]);
+            $weight
+        ];
+        
+        // Add sub_category if column exists
+        if ($hasSubCategory) {
+            $subCategoryValue = $data['subCategory'] ?? $data['sub_category'] ?? null;
+            // Convert empty string to null
+            $subCategoryValue = ($subCategoryValue === '' || $subCategoryValue === null) ? null : sanitizeInput($subCategoryValue);
+            $executeParams[] = $subCategoryValue;
+            error_log("🔍 CREATE PRODUCT - SubCategory value: " . ($subCategoryValue ?? 'NULL'));
+        }
+        
+        // Add menu_option if column exists
+        if ($hasMenuOption) {
+            $menuOptionValue = $data['menuOption'] ?? $data['menu_option'] ?? null;
+            // Convert empty string to null
+            $menuOptionValue = ($menuOptionValue === '' || $menuOptionValue === null) ? null : sanitizeInput($menuOptionValue);
+            $executeParams[] = $menuOptionValue;
+            error_log("🔍 CREATE PRODUCT - MenuOption value: " . ($menuOptionValue ?? 'NULL'));
+        }
+        
+        // Add menu_category if column exists
+        // menu_category should be the same as the main category (category field)
+        // This column is used for filtering, but should match category for consistency
+        if ($hasMenuCategory) {
+            // menu_category = category (they should be the same)
+            $menuCategory = $data['category'] ?? $data['menuCategory'] ?? $data['selectedMenuFilter'] ?? null;
+            // Only set if it's not "all" or empty
+            $menuCategory = ($menuCategory && $menuCategory !== 'all' && $menuCategory !== '') ? sanitizeInput($menuCategory) : null;
+            $executeParams[] = $menuCategory;
+            error_log("🔍 CREATE PRODUCT - MenuCategory value: " . ($menuCategory ?? 'NULL') . " (same as category: " . ($data['category'] ?? 'NULL') . ")");
+        }
+        
+        error_log("🔍 CREATE PRODUCT - Fields being inserted: " . $insertFields);
+        error_log("🔍 CREATE PRODUCT - HasSubCategory column: " . ($hasSubCategory ? 'YES' : 'NO'));
+        error_log("🔍 CREATE PRODUCT - HasMenuOption column: " . ($hasMenuOption ? 'YES' : 'NO'));
+        error_log("🔍 CREATE PRODUCT - HasMenuCategory column: " . ($hasMenuCategory ? 'YES' : 'NO'));
+        error_log("🔍 CREATE PRODUCT - Received data - subCategory: " . ($data['subCategory'] ?? $data['sub_category'] ?? 'NOT PROVIDED'));
+        error_log("🔍 CREATE PRODUCT - Received data - menuOption: " . ($data['menuOption'] ?? $data['menu_option'] ?? 'NOT PROVIDED'));
+        error_log("🔍 CREATE PRODUCT - Received data - selectedMenuFilter: " . ($data['selectedMenuFilter'] ?? $data['menuCategory'] ?? 'NOT PROVIDED'));
+        error_log("🔍 CREATE PRODUCT - Final values - SubCategory: " . (isset($executeParams[14]) ? $executeParams[14] : 'N/A'));
+        error_log("🔍 CREATE PRODUCT - Final values - MenuOption: " . (isset($executeParams[15]) ? $executeParams[15] : 'N/A'));
+        error_log("🔍 CREATE PRODUCT - Final values - MenuCategory: " . (isset($executeParams[16]) ? $executeParams[16] : 'N/A'));
+        
+        $result = $stmt->execute($executeParams);
 
         if ($result) {
             $productId = $db->lastInsertId();
             error_log("✅ CREATE PRODUCT - Product created successfully with ID: " . $productId);
             
-            // Fetch the created product with all fields and converted image URLs
-            $fetchStmt = $db->prepare("
-                SELECT p.id, p.name, p.description, p.price, p.original_price, p.stock, p.images, p.thumbnail,
+            // Build SELECT query for created product with conditional columns
+            $selectFieldsCreated = "p.id, p.name, p.description, p.price, p.original_price, p.stock, p.images, p.thumbnail,
                        p.is_featured, p.is_bestseller, p.is_new, p.is_active, p.sku, p.weight,
                        p.average_rating, p.num_reviews, p.sold_count, p.view_count, p.created_at, p.updated_at,
-                       c.name as category_name, c.slug as category_slug
+                       c.name as category_name, c.slug as category_slug, p.category_id";
+            
+            if ($hasSubCategory) {
+                $selectFieldsCreated .= ", p.sub_category";
+            }
+            if ($hasMenuOption) {
+                $selectFieldsCreated .= ", p.menu_option";
+            }
+            if ($hasMenuCategory) {
+                $selectFieldsCreated .= ", p.menu_category";
+            }
+            
+            // Fetch the created product with all fields and converted image URLs
+            $fetchStmt = $db->prepare("
+                SELECT $selectFieldsCreated
                 FROM products p
                 LEFT JOIN categories c ON p.category_id = c.id
                 WHERE p.id = ?
             ");
             $fetchStmt->execute([$productId]);
-            $createdProduct = $fetchStmt->fetch();
+            $createdProduct = $fetchStmt->fetch(PDO::FETCH_ASSOC);
             
             if ($createdProduct) {
                 // Decode JSON fields and convert image URLs to production URLs
@@ -988,39 +1246,105 @@ function createProduct($db) {
                 if (!empty($createdProduct['thumbnail'])) {
                     $createdProduct['thumbnail'] = getImageUrl($createdProduct['thumbnail']);
                 }
-                $createdProduct['product_types'] = $createdProduct['product_types'] ?? null ? json_decode($createdProduct['product_types'], true) : null;
-                $createdProduct['specifications'] = $createdProduct['specifications'] ?? null ? json_decode($createdProduct['specifications'], true) : null;
-                $createdProduct['tags'] = $createdProduct['tags'] ?? null ? json_decode($createdProduct['tags'], true) : null;
-                $createdProduct['weight_options'] = $createdProduct['weight_options'] ?? null ? json_decode($createdProduct['weight_options'], true) : null;
+                $createdProduct['product_types'] = isset($createdProduct['product_types']) && $createdProduct['product_types'] ? json_decode($createdProduct['product_types'], true) : null;
+                $createdProduct['specifications'] = isset($createdProduct['specifications']) && $createdProduct['specifications'] ? json_decode($createdProduct['specifications'], true) : null;
+                $createdProduct['tags'] = isset($createdProduct['tags']) && $createdProduct['tags'] ? json_decode($createdProduct['tags'], true) : null;
+                $createdProduct['weight_options'] = isset($createdProduct['weight_options']) && $createdProduct['weight_options'] ? json_decode($createdProduct['weight_options'], true) : null;
                 
-                // Add category field for frontend compatibility
+                // CRITICAL: Add category field for frontend compatibility
                 $createdProduct['category'] = $createdProduct['category_name'] ?? null;
+                
+                // Add sub_category, menu_option, and menu_category if they exist
+                if (isset($createdProduct['sub_category'])) {
+                    $createdProduct['subCategory'] = $createdProduct['sub_category'];
+                }
+                if (isset($createdProduct['menu_option'])) {
+                    $createdProduct['menuOption'] = $createdProduct['menu_option'];
+                }
+                if (isset($createdProduct['menu_category'])) {
+                    $createdProduct['menuCategory'] = $createdProduct['menu_category'];
+                    $createdProduct['selectedMenuFilter'] = $createdProduct['menu_category'] ? $createdProduct['menu_category'] : 'all';
+                }
+                
+                // Ensure _id field exists for frontend compatibility
+                if (isset($createdProduct['id']) && !isset($createdProduct['_id'])) {
+                    $createdProduct['_id'] = strval($createdProduct['id']);
+                }
+                
+                error_log("✅ CREATE PRODUCT - Product returned with category: " . ($createdProduct['category'] ?? 'NULL'));
+                error_log("✅ CREATE PRODUCT - SubCategory: " . ($createdProduct['subCategory'] ?? 'NULL') . ", MenuOption: " . ($createdProduct['menuOption'] ?? 'NULL') . ", MenuCategory: " . ($createdProduct['menuCategory'] ?? 'NULL'));
                 
                 sendSuccess('Product created successfully', ['product' => $createdProduct, 'id' => $productId], 201);
             } else {
                 // Fallback if fetch fails
+                error_log("⚠️ CREATE PRODUCT - Failed to fetch created product, returning ID only");
                 sendSuccess('Product created successfully', ['id' => $productId], 201);
             }
         } else {
             $errorInfo = $stmt->errorInfo();
-            error_log("❌ CREATE PRODUCT - Execute failed: " . json_encode($errorInfo));
-            sendError('Failed to create product: ' . ($errorInfo[2] ?? 'Unknown database error'), [], 500);
+            error_log("❌ CREATE PRODUCT - Execute failed");
+            error_log("❌ CREATE PRODUCT - Error Code: " . ($errorInfo[0] ?? 'N/A'));
+            error_log("❌ CREATE PRODUCT - SQL State: " . ($errorInfo[0] ?? 'N/A'));
+            error_log("❌ CREATE PRODUCT - Error Message: " . ($errorInfo[2] ?? 'Unknown error'));
+            error_log("❌ CREATE PRODUCT - Full Error Info: " . json_encode($errorInfo));
+            
+            // Provide user-friendly error message
+            $errorMessage = 'Failed to create product';
+            if (isset($errorInfo[2])) {
+                if (strpos($errorInfo[2], 'Column') !== false) {
+                    $errorMessage = 'Database schema error. Please contact support.';
+                } else if (strpos($errorInfo[2], 'Duplicate') !== false) {
+                    $errorMessage = 'A product with this name already exists.';
+                } else {
+                    $errorMessage = 'Database error: ' . $errorInfo[2];
+                }
+            }
+            
+            sendError($errorMessage, [
+                'error_code' => $errorInfo[0] ?? 'UNKNOWN',
+                'hint' => 'Check if all required fields are provided and valid'
+            ], 500);
         }
     } catch (PDOException $e) {
         error_log("❌ CREATE PRODUCT - PDO Exception: " . $e->getMessage());
         error_log("❌ CREATE PRODUCT - Error Code: " . $e->getCode());
+        error_log("❌ CREATE PRODUCT - SQL State: " . ($e->errorInfo[0] ?? 'N/A'));
         error_log("❌ CREATE PRODUCT - Error Info: " . json_encode($e->errorInfo ?? []));
+        error_log("❌ CREATE PRODUCT - File: " . $e->getFile() . ", Line: " . $e->getLine());
+        
+        // Provide user-friendly error message
+        $errorMessage = 'Database error occurred while creating product';
+        if (strpos($e->getMessage(), 'Column') !== false) {
+            $errorMessage = 'Database schema mismatch. Please contact support.';
+        } else if (strpos($e->getMessage(), 'Duplicate') !== false) {
+            $errorMessage = 'A product with this name already exists.';
+        }
+        
         if (!headers_sent()) {
-            sendError('Database error: ' . $e->getMessage(), [
+            sendError($errorMessage, [
                 'code' => $e->getCode(),
-                'hint' => 'Check if all required fields match database schema'
+                'hint' => 'Check if all required fields match database schema',
+                'sql_state' => $e->errorInfo[0] ?? 'N/A'
             ], 500);
         }
     } catch (Exception $e) {
         error_log("❌ CREATE PRODUCT - General Exception: " . $e->getMessage());
+        error_log("❌ CREATE PRODUCT - File: " . $e->getFile() . ", Line: " . $e->getLine());
         error_log("❌ CREATE PRODUCT - Trace: " . $e->getTraceAsString());
         if (!headers_sent()) {
-            sendError('Failed to create product: ' . $e->getMessage(), [], 500);
+            sendError('Failed to create product: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ], 500);
+        }
+    } catch (Throwable $e) {
+        error_log("❌ CREATE PRODUCT - Fatal Error: " . $e->getMessage());
+        error_log("❌ CREATE PRODUCT - File: " . $e->getFile() . ", Line: " . $e->getLine());
+        error_log("❌ CREATE PRODUCT - Trace: " . $e->getTraceAsString());
+        if (!headers_sent()) {
+            sendError('An unexpected error occurred while creating product', [
+                'error_code' => 'FATAL_ERROR'
+            ], 500);
         }
     }
 }
@@ -1047,14 +1371,39 @@ function updateProduct($db, $id) {
     try {
         $data = getRequestBody();
         
+        // Validate that we received data
+        if (empty($data)) {
+            error_log("❌ UPDATE PRODUCT - Empty request body");
+            sendError('No data provided for update', [], 400);
+            return;
+        }
+        
         // Management Logic: Validate product exists before updating
         $checkStmt = $db->prepare("SELECT id, name FROM products WHERE id = ?");
         $checkStmt->execute([$id]);
-        $existingProduct = $checkStmt->fetch();
+        $existingProduct = $checkStmt->fetch(PDO::FETCH_ASSOC);
         
-        if (!$existingProduct) {
+        if (!$existingProduct || !isset($existingProduct['id'])) {
+            error_log("❌ UPDATE PRODUCT - Product not found: ID " . $id);
             sendError('Product not found for management', [], 404);
             return;
+        }
+        
+        error_log("🔍 UPDATE PRODUCT - Updating product ID: " . $id . " - Name: " . $existingProduct['name']);
+
+        // Check if sub_category, menu_option, and menu_category columns exist
+        $hasSubCategory = false;
+        $hasMenuOption = false;
+        $hasMenuCategory = false;
+        try {
+            $colCheck = $db->query("SHOW COLUMNS FROM products LIKE 'sub_category'");
+            $hasSubCategory = $colCheck && $colCheck->rowCount() > 0;
+            $colCheck2 = $db->query("SHOW COLUMNS FROM products LIKE 'menu_option'");
+            $hasMenuOption = $colCheck2 && $colCheck2->rowCount() > 0;
+            $colCheck3 = $db->query("SHOW COLUMNS FROM products LIKE 'menu_category'");
+            $hasMenuCategory = $colCheck3 && $colCheck3->rowCount() > 0;
+        } catch (Exception $e) {
+            // Columns don't exist, continue without them
         }
 
         // Build update query dynamically based on provided fields
@@ -1097,51 +1446,156 @@ function updateProduct($db, $id) {
             $params[] = $data['isNew'] ? 1 : 0;
         }
         
-        // Handle category_id from category name
-        if (isset($data['category'])) {
-            $catStmt = $db->prepare("SELECT id FROM categories WHERE name = ? OR slug = ?");
-            $catStmt->execute([$data['category'], $data['category']]);
-            $category = $catStmt->fetch();
-            if ($category) {
-                $fields[] = "category_id = ?";
-                $params[] = $category['id'];
+        // Handle category_id from category name - CRITICAL for preserving category selection
+        if (isset($data['category']) && !empty($data['category'])) {
+            try {
+                $catStmt = $db->prepare("SELECT id FROM categories WHERE name = ? OR slug = ? LIMIT 1");
+                $catStmt->execute([$data['category'], $data['category']]);
+                $category = $catStmt->fetch(PDO::FETCH_ASSOC);
+                if ($category && isset($category['id'])) {
+                    $fields[] = "category_id = ?";
+                    $params[] = $category['id'];
+                    error_log("✅ UPDATE PRODUCT - Category found: " . $data['category'] . " -> ID: " . $category['id']);
+                } else {
+                    error_log("⚠️ UPDATE PRODUCT - Category not found: " . $data['category'] . ", category_id will remain unchanged");
+                    // Don't update category_id if category name not found
+                }
+            } catch (PDOException $e) {
+                error_log("❌ UPDATE PRODUCT - Error fetching category: " . $e->getMessage());
+                // Continue without updating category_id
+            }
+        }
+        
+        // Handle sub_category if column exists - ALWAYS update if column exists (even if empty/null)
+        if ($hasSubCategory) {
+            $subCategoryValue = $data['subCategory'] ?? $data['sub_category'] ?? null;
+            // Convert empty string to null, otherwise sanitize
+            $subCategoryValue = ($subCategoryValue === '' || $subCategoryValue === null) ? null : sanitizeInput($subCategoryValue);
+            $fields[] = "sub_category = ?";
+            $params[] = $subCategoryValue;
+            error_log("✅ UPDATE PRODUCT - SubCategory: " . ($subCategoryValue ?? 'NULL'));
+        }
+        
+        // Handle menu_option if column exists - ALWAYS update if column exists (even if empty/null)
+        if ($hasMenuOption) {
+            $menuOptionValue = $data['menuOption'] ?? $data['menu_option'] ?? null;
+            // Convert empty string to null, otherwise sanitize
+            $menuOptionValue = ($menuOptionValue === '' || $menuOptionValue === null) ? null : sanitizeInput($menuOptionValue);
+            $fields[] = "menu_option = ?";
+            $params[] = $menuOptionValue;
+            error_log("✅ UPDATE PRODUCT - MenuOption: " . ($menuOptionValue ?? 'NULL'));
+        }
+        
+        // Handle menu_category if column exists
+        // menu_category should be the same as the main category (category field)
+        // This column is used for filtering, but should match category for consistency
+        if ($hasMenuCategory) {
+            // menu_category = category (they should be the same)
+            $menuCategory = $data['category'] ?? $data['menuCategory'] ?? $data['selectedMenuFilter'] ?? null;
+            // Only set if it's not "all" or empty, otherwise set to NULL
+            if ($menuCategory && $menuCategory !== 'all' && $menuCategory !== '') {
+                $fields[] = "menu_category = ?";
+                $params[] = sanitizeInput($menuCategory);
+                error_log("✅ UPDATE PRODUCT - MenuCategory: " . $menuCategory . " (same as category: " . ($data['category'] ?? 'NULL') . ")");
+            } else {
+                // Explicitly set to NULL if "all" is selected or empty
+                $fields[] = "menu_category = ?";
+                $params[] = null;
+                error_log("✅ UPDATE PRODUCT - MenuCategory: NULL (category is empty/all)");
             }
         }
 
         // Handle JSON fields - normalize image URLs
+        // CRITICAL: Handle base64 images by converting them to files
         if (isset($data['images'])) {
             $imagesArray = $data['images'];
             $normalizedImages = [];
             if (is_array($imagesArray)) {
                 foreach ($imagesArray as $img) {
                     // Handle both string URLs and object with url property
-                    $imageUrl = is_string($img) ? $img : (isset($img['url']) ? $img['url'] : $img);
+                    $imageUrl = '';
+                    if (is_string($img)) {
+                        $imageUrl = $img;
+                    } else if (is_array($img) || is_object($img)) {
+                        $imageUrl = $img['url'] ?? $img['preview'] ?? $img['imageUrl'] ?? '';
+                    }
+                    
                     if (!empty($imageUrl)) {
-                        $normalizedPath = normalizeImagePath($imageUrl);
+                        // normalizeImagePath now handles base64 conversion automatically
+                        $normalizedPath = normalizeImagePath($imageUrl, 'products');
                         if ($normalizedPath) {
                             $normalizedImages[] = $normalizedPath;
+                            error_log("✅ UPDATE PRODUCT - Image normalized: " . substr($imageUrl, 0, 50) . "... -> " . $normalizedPath);
+                        } else {
+                            error_log("⚠️ UPDATE PRODUCT - Image normalization failed for: " . substr($imageUrl, 0, 50) . "...");
                         }
                     }
                 }
             }
+            
+            // Validate that we have at least one normalized image
+            if (empty($normalizedImages)) {
+                error_log("❌ UPDATE PRODUCT - All images failed normalization. Original images: " . json_encode($imagesArray));
+                sendError('Failed to process product images. Please ensure images are valid URLs, uploaded files, or valid base64 data.', [], 400);
+                return;
+            }
+            
             $fields[] = "images = ?";
             $params[] = json_encode($normalizedImages);
+            error_log("✅ UPDATE PRODUCT - Images normalized: " . count($normalizedImages) . " images");
         }
+        // Only update optional fields if they exist in the database schema
+        // Check for product_types column
         if (isset($data['productTypes'])) {
-            $fields[] = "product_types = ?";
-            $params[] = json_encode($data['productTypes']);
+            try {
+                $checkCol = $db->query("SHOW COLUMNS FROM products LIKE 'product_types'");
+                if ($checkCol && $checkCol->rowCount() > 0) {
+                    $fields[] = "product_types = ?";
+                    $params[] = json_encode($data['productTypes']);
+                }
+            } catch (Exception $e) {
+                // Column doesn't exist, skip it
+            }
         }
+        
+        // Check for specifications column
         if (isset($data['specifications'])) {
-            $fields[] = "specifications = ?";
-            $params[] = json_encode($data['specifications']);
+            try {
+                $checkCol = $db->query("SHOW COLUMNS FROM products LIKE 'specifications'");
+                if ($checkCol && $checkCol->rowCount() > 0) {
+                    $fields[] = "specifications = ?";
+                    $params[] = json_encode($data['specifications']);
+                }
+            } catch (Exception $e) {
+                // Column doesn't exist, skip it
+                error_log("⚠️ UPDATE PRODUCT - specifications column not found, skipping");
+            }
         }
+        
+        // Check for tags column
         if (isset($data['tags'])) {
-            $fields[] = "tags = ?";
-            $params[] = json_encode($data['tags']);
+            try {
+                $checkCol = $db->query("SHOW COLUMNS FROM products LIKE 'tags'");
+                if ($checkCol && $checkCol->rowCount() > 0) {
+                    $fields[] = "tags = ?";
+                    $params[] = json_encode($data['tags']);
+                }
+            } catch (Exception $e) {
+                // Column doesn't exist, skip it
+            }
         }
+        
+        // Check for weight_options column
         if (isset($data['weightOptions'])) {
-            $fields[] = "weight_options = ?";
-            $params[] = json_encode($data['weightOptions']);
+            try {
+                $checkCol = $db->query("SHOW COLUMNS FROM products LIKE 'weight_options'");
+                if ($checkCol && $checkCol->rowCount() > 0) {
+                    $fields[] = "weight_options = ?";
+                    $params[] = json_encode($data['weightOptions']);
+                }
+            } catch (Exception $e) {
+                // Column doesn't exist, skip it
+            }
         }
 
         if (empty($fields)) {
@@ -1152,20 +1606,36 @@ function updateProduct($db, $id) {
         $params[] = $id;
         $sql = "UPDATE products SET " . implode(', ', $fields) . " WHERE id = ?";
 
+        error_log("🔍 UPDATE PRODUCT - SQL: " . $sql);
+        error_log("🔍 UPDATE PRODUCT - Params count: " . count($params) . ", Fields count: " . count($fields));
+        
         $stmt = $db->prepare($sql);
-        if ($stmt->execute($params)) {
-            // Fetch updated product with all fields
-            $updatedStmt = $db->prepare("
-                SELECT p.id, p.name, p.description, p.price, p.original_price, p.stock, p.images, p.thumbnail,
+        if ($stmt && $stmt->execute($params)) {
+            // Build SELECT query for updated product with conditional columns
+            $selectFieldsUpdated = "p.id, p.name, p.description, p.price, p.original_price, p.stock, p.images, p.thumbnail,
                        p.is_featured, p.is_bestseller, p.is_new, p.is_active, p.sku, p.weight,
                        p.average_rating, p.num_reviews, p.sold_count, p.view_count, p.created_at, p.updated_at,
-                       c.name as category_name, c.slug as category_slug
+                       c.name as category_name, c.slug as category_slug, p.category_id";
+            
+            if ($hasSubCategory) {
+                $selectFieldsUpdated .= ", p.sub_category";
+            }
+            if ($hasMenuOption) {
+                $selectFieldsUpdated .= ", p.menu_option";
+            }
+            if ($hasMenuCategory) {
+                $selectFieldsUpdated .= ", p.menu_category";
+            }
+            
+            // Fetch updated product with all fields - MUST include category_name from JOIN
+            $updatedStmt = $db->prepare("
+                SELECT $selectFieldsUpdated
                 FROM products p
                 LEFT JOIN categories c ON p.category_id = c.id
                 WHERE p.id = ?
             ");
             $updatedStmt->execute([$id]);
-            $updatedProduct = $updatedStmt->fetch();
+            $updatedProduct = $updatedStmt->fetch(PDO::FETCH_ASSOC);
             
             if ($updatedProduct) {
                 // Decode JSON fields and convert image URLs
@@ -1186,28 +1656,98 @@ function updateProduct($db, $id) {
                 $updatedProduct['tags'] = $updatedProduct['tags'] ?? null ? json_decode($updatedProduct['tags'], true) : null;
                 $updatedProduct['weight_options'] = $updatedProduct['weight_options'] ?? null ? json_decode($updatedProduct['weight_options'], true) : null;
                 
-                // Add category field for frontend compatibility
+                // CRITICAL: Add category field for frontend compatibility - use category_name from JOIN
                 $updatedProduct['category'] = $updatedProduct['category_name'] ?? null;
+                
+                // Add sub_category, menu_option, and menu_category if they exist
+                if (isset($updatedProduct['sub_category'])) {
+                    $updatedProduct['subCategory'] = $updatedProduct['sub_category'];
+                }
+                if (isset($updatedProduct['menu_option'])) {
+                    $updatedProduct['menuOption'] = $updatedProduct['menu_option'];
+                }
+                if (isset($updatedProduct['menu_category'])) {
+                    $updatedProduct['menuCategory'] = $updatedProduct['menu_category'];
+                    $updatedProduct['selectedMenuFilter'] = $updatedProduct['menu_category'] ? $updatedProduct['menu_category'] : 'all';
+                }
+                
+                // Ensure _id field exists for frontend compatibility
+                if (isset($updatedProduct['id']) && !isset($updatedProduct['_id'])) {
+                    $updatedProduct['_id'] = strval($updatedProduct['id']);
+                }
+                
+                error_log("✅ UPDATE PRODUCT - Category returned: " . ($updatedProduct['category'] ?? 'NULL'));
+                error_log("✅ UPDATE PRODUCT - SubCategory: " . ($updatedProduct['subCategory'] ?? 'NULL') . ", MenuOption: " . ($updatedProduct['menuOption'] ?? 'NULL') . ", MenuCategory: " . ($updatedProduct['menuCategory'] ?? 'NULL'));
             }
             
             sendSuccess('Product updated successfully', ['product' => $updatedProduct]);
         } else {
-            $errorInfo = $stmt->errorInfo();
-            error_log("❌ UPDATE PRODUCT - Execute failed: " . json_encode($errorInfo));
+            $errorInfo = $stmt ? $stmt->errorInfo() : ['Unknown error', 'Unknown SQL State', 'Failed to prepare or execute statement'];
+            error_log("❌ UPDATE PRODUCT - Execute failed");
+            error_log("❌ UPDATE PRODUCT - Error Code: " . ($errorInfo[0] ?? 'N/A'));
+            error_log("❌ UPDATE PRODUCT - SQL State: " . ($errorInfo[0] ?? 'N/A'));
+            error_log("❌ UPDATE PRODUCT - Error Message: " . ($errorInfo[2] ?? 'Unknown error'));
+            error_log("❌ UPDATE PRODUCT - Full Error Info: " . json_encode($errorInfo));
+            
+            // Provide user-friendly error message
+            $errorMessage = 'Failed to update product';
+            if (isset($errorInfo[2])) {
+                if (strpos($errorInfo[2], 'Column') !== false) {
+                    $errorMessage = 'Database schema error. Please contact support.';
+                } else if (strpos($errorInfo[2], 'Duplicate') !== false) {
+                    $errorMessage = 'A product with this name already exists.';
+                } else {
+                    $errorMessage = 'Database error: ' . $errorInfo[2];
+                }
+            }
+            
             if (!headers_sent()) {
-                sendError('Failed to update product: ' . ($errorInfo[2] ?? 'Unknown error'), [], 500);
+                sendError($errorMessage, [
+                    'error_code' => $errorInfo[0] ?? 'UNKNOWN',
+                    'hint' => 'Check if all provided fields are valid'
+                ], 500);
             }
         }
     } catch (PDOException $e) {
         error_log("❌ UPDATE PRODUCT - PDO Exception: " . $e->getMessage());
+        error_log("❌ UPDATE PRODUCT - Error Code: " . $e->getCode());
+        error_log("❌ UPDATE PRODUCT - SQL State: " . ($e->errorInfo[0] ?? 'N/A'));
         error_log("❌ UPDATE PRODUCT - Error Info: " . json_encode($e->errorInfo ?? []));
+        error_log("❌ UPDATE PRODUCT - File: " . $e->getFile() . ", Line: " . $e->getLine());
+        
+        // Provide user-friendly error message
+        $errorMessage = 'Database error occurred while updating product';
+        if (strpos($e->getMessage(), 'Column') !== false) {
+            $errorMessage = 'Database schema mismatch. Please contact support.';
+        } else if (strpos($e->getMessage(), 'Duplicate') !== false) {
+            $errorMessage = 'A product with this name already exists.';
+        }
+        
         if (!headers_sent()) {
-            sendError('Database error: ' . $e->getMessage(), [], 500);
+            sendError($errorMessage, [
+                'code' => $e->getCode(),
+                'hint' => 'Check if all required fields match database schema',
+                'sql_state' => $e->errorInfo[0] ?? 'N/A'
+            ], 500);
         }
     } catch (Exception $e) {
         error_log("❌ UPDATE PRODUCT - General Exception: " . $e->getMessage());
+        error_log("❌ UPDATE PRODUCT - File: " . $e->getFile() . ", Line: " . $e->getLine());
+        error_log("❌ UPDATE PRODUCT - Trace: " . $e->getTraceAsString());
         if (!headers_sent()) {
-            sendError('Failed to update product: ' . $e->getMessage(), [], 500);
+            sendError('Failed to update product: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ], 500);
+        }
+    } catch (Throwable $e) {
+        error_log("❌ UPDATE PRODUCT - Fatal Error: " . $e->getMessage());
+        error_log("❌ UPDATE PRODUCT - File: " . $e->getFile() . ", Line: " . $e->getLine());
+        error_log("❌ UPDATE PRODUCT - Trace: " . $e->getTraceAsString());
+        if (!headers_sent()) {
+            sendError('An unexpected error occurred while updating product', [
+                'error_code' => 'FATAL_ERROR'
+            ], 500);
         }
     }
 }
@@ -1243,31 +1783,101 @@ function deleteProduct($db, $id) {
         }
 
         // HARD DELETE - Permanently remove from database
+        // Check for foreign key constraints (e.g., orders referencing this product)
+        $hasOrders = false;
+        try {
+            $orderCheckStmt = $db->prepare("SELECT COUNT(*) as count FROM order_items WHERE product_id = ?");
+            $orderCheckStmt->execute([$id]);
+            $orderResult = $orderCheckStmt->fetch(PDO::FETCH_ASSOC);
+            $hasOrders = $orderResult && isset($orderResult['count']) && $orderResult['count'] > 0;
+            
+            if ($hasOrders) {
+                error_log("⚠️ DELETE PRODUCT - Product has " . $orderResult['count'] . " order items. Proceeding with deletion.");
+            }
+        } catch (Exception $e) {
+            // If order_items table doesn't exist or query fails, continue with deletion
+            error_log("⚠️ DELETE PRODUCT - Could not check order_items: " . $e->getMessage());
+        }
+        
         $stmt = $db->prepare("DELETE FROM products WHERE id = ?");
-
-        if ($stmt->execute([$id])) {
+        
+        if ($stmt && $stmt->execute([$id])) {
+            $deletedRows = $stmt->rowCount();
+            error_log("✅ DELETE PRODUCT - Product deleted successfully. Rows affected: " . $deletedRows);
+            
             sendSuccess('Product deleted successfully', [
                 'id' => $id,
                 'name' => $product['name'],
-                'status' => 'deleted'
+                'status' => 'deleted',
+                'rows_affected' => $deletedRows
             ]);
         } else {
-            $errorInfo = $stmt->errorInfo();
-            error_log("❌ DELETE PRODUCT - Execute failed: " . json_encode($errorInfo));
+            $errorInfo = $stmt ? $stmt->errorInfo() : ['Unknown error', 'Unknown SQL State', 'Failed to prepare statement'];
+            error_log("❌ DELETE PRODUCT - Execute failed");
+            error_log("❌ DELETE PRODUCT - Error Code: " . ($errorInfo[0] ?? 'N/A'));
+            error_log("❌ DELETE PRODUCT - SQL State: " . ($errorInfo[0] ?? 'N/A'));
+            error_log("❌ DELETE PRODUCT - Error Message: " . ($errorInfo[2] ?? 'Unknown error'));
+            error_log("❌ DELETE PRODUCT - Full Error Info: " . json_encode($errorInfo));
+            
+            // Provide user-friendly error message
+            $errorMessage = 'Failed to delete product';
+            if (isset($errorInfo[2])) {
+                if (strpos($errorInfo[2], 'foreign key') !== false || strpos($errorInfo[2], 'FOREIGN KEY') !== false) {
+                    $errorMessage = 'Cannot delete product. It is referenced in existing orders.';
+                } else if (strpos($errorInfo[2], 'Column') !== false) {
+                    $errorMessage = 'Database schema error. Please contact support.';
+                } else {
+                    $errorMessage = 'Database error: ' . $errorInfo[2];
+                }
+            }
+            
             if (!headers_sent()) {
-                sendError('Failed to delete product: ' . ($errorInfo[2] ?? 'Unknown error'), [], 500);
+                sendError($errorMessage, [
+                    'error_code' => $errorInfo[0] ?? 'UNKNOWN',
+                    'hint' => 'Check if product is referenced in orders or other tables'
+                ], 500);
             }
         }
     } catch (PDOException $e) {
         error_log("❌ DELETE PRODUCT - PDO Exception: " . $e->getMessage());
+        error_log("❌ DELETE PRODUCT - Error Code: " . $e->getCode());
+        error_log("❌ DELETE PRODUCT - SQL State: " . ($e->errorInfo[0] ?? 'N/A'));
         error_log("❌ DELETE PRODUCT - Error Info: " . json_encode($e->errorInfo ?? []));
+        error_log("❌ DELETE PRODUCT - File: " . $e->getFile() . ", Line: " . $e->getLine());
+        
+        // Provide user-friendly error message
+        $errorMessage = 'Database error occurred while deleting product';
+        if (strpos($e->getMessage(), 'foreign key') !== false || strpos($e->getMessage(), 'FOREIGN KEY') !== false) {
+            $errorMessage = 'Cannot delete product. It is referenced in existing orders.';
+        } else if (strpos($e->getMessage(), 'Column') !== false) {
+            $errorMessage = 'Database schema mismatch. Please contact support.';
+        }
+        
         if (!headers_sent()) {
-            sendError('Database error: ' . $e->getMessage(), [], 500);
+            sendError($errorMessage, [
+                'code' => $e->getCode(),
+                'hint' => 'Check if product is referenced in orders or other tables',
+                'sql_state' => $e->errorInfo[0] ?? 'N/A'
+            ], 500);
         }
     } catch (Exception $e) {
         error_log("❌ DELETE PRODUCT - General Exception: " . $e->getMessage());
+        error_log("❌ DELETE PRODUCT - File: " . $e->getFile() . ", Line: " . $e->getLine());
+        error_log("❌ DELETE PRODUCT - Trace: " . $e->getTraceAsString());
         if (!headers_sent()) {
-            sendError('Failed to delete product: ' . $e->getMessage(), [], 500);
+            sendError('Failed to delete product: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ], 500);
+        }
+    } catch (Throwable $e) {
+        error_log("❌ DELETE PRODUCT - Fatal Error: " . $e->getMessage());
+        error_log("❌ DELETE PRODUCT - File: " . $e->getFile() . ", Line: " . $e->getLine());
+        error_log("❌ DELETE PRODUCT - Trace: " . $e->getTraceAsString());
+        if (!headers_sent()) {
+            sendError('An unexpected error occurred while deleting product', [
+                'error_code' => 'FATAL_ERROR'
+            ], 500);
         }
     }
 }

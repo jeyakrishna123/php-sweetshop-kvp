@@ -129,6 +129,7 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
 
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Additional flag to prevent duplicate submissions
 
 
   // Initialize form when product prop changes
@@ -147,14 +148,38 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
         stock: product.stock || "",
         images: product.images ? product.images.map(img => {
           // Ensure images are in the correct format for preview
+          let imageUrl = '';
+          
           if (typeof img === 'string') {
-            return img; // Already a URL or base64
+            imageUrl = img; // Already a URL or base64
           } else if (typeof img === 'object' && img.url) {
-            return img.url; // Extract URL from object
+            imageUrl = img.url; // Extract URL from object
           } else if (typeof img === 'object' && img.preview) {
-            return img.preview; // Extract preview from object
+            imageUrl = img.preview; // Extract preview from object
+          } else if (typeof img === 'object' && img.imageUrl) {
+            imageUrl = img.imageUrl; // Extract imageUrl from object
+          } else {
+            imageUrl = img; // Fallback
           }
-          return img; // Fallback
+          
+          // If it's a relative path, convert to full URL for display
+          if (imageUrl && !imageUrl.startsWith('http://') && !imageUrl.startsWith('https://') && !imageUrl.startsWith('data:')) {
+            const apiURL = import.meta.env.VITE_API_URL || "https://skbakers.com/api";
+            // Remove /api from URL if present, then add /backend/uploads if needed
+            const baseURL = apiURL.replace('/api', '');
+            if (!imageUrl.startsWith('/')) {
+              imageUrl = '/' + imageUrl;
+            }
+            imageUrl = baseURL + imageUrl;
+          }
+          
+          // Return as object format that ModernImageUpload expects
+          return {
+            url: imageUrl,
+            preview: imageUrl,
+            name: typeof img === 'object' && img.name ? img.name : 'Product Image',
+            isUrl: !imageUrl.startsWith('data:')
+          };
         }) : [],
         brand: product.brand || "",
         category: product.category || product.categoryName || product.cakeFlavor || "",
@@ -176,29 +201,93 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
 
       // Set the selected main category based on the product's category
       const productCategory = product.category || product.categoryName || product.cakeFlavor || "";
+      console.log('🔍 EnhancedProductModal: Product category from database:', productCategory);
+      
+      // CRITICAL: Set menu filter from database FIRST (menuCategory or selectedMenuFilter)
+      const menuCategory = product.menuCategory || product.selectedMenuFilter || "";
+      if (menuCategory && menuCategory !== 'all') {
+        setSelectedMenuFilter(menuCategory);
+        console.log('✅ EnhancedProductModal: Menu filter set from database:', menuCategory);
+      } else {
+        // If no menu category in database, set to "all" to show all categories
+        setSelectedMenuFilter("all");
+        console.log('⚠️ EnhancedProductModal: No menu category in database, defaulting to "all"');
+      }
+      
+      // CRITICAL: Set sub category from database
+      const subCategory = product.subCategory || "";
+      if (subCategory) {
+        setSelectedSubCategory(subCategory);
+        // CRITICAL: Also update form.subCategory to ensure it's saved on submit
+        setForm(prev => ({ ...prev, subCategory }));
+        console.log('✅ EnhancedProductModal: Sub category set from database:', subCategory);
+      } else {
+        // Ensure form.subCategory is cleared if not in database
+        setForm(prev => ({ ...prev, subCategory: "" }));
+      }
+      
+      // CRITICAL: Set menu option from database
+      const menuOption = product.menuOption || "";
+      if (menuOption) {
+        setForm(prev => ({ ...prev, menuOption }));
+        console.log('✅ EnhancedProductModal: Menu option set from database:', menuOption);
+      } else {
+        // Ensure form.menuOption is cleared if not in database
+        setForm(prev => ({ ...prev, menuOption: "" }));
+      }
+      
       if (productCategory) {
-        setSelectedMainCategory(productCategory);
-        
-        // Set the menu filter to match the product's category if it exists in mainCategories
-        // Use case-insensitive matching to handle variations
-        const matchingCategory = mainCategories.find(cat => 
-          cat.name.toLowerCase() === productCategory.toLowerCase()
+        // First, try exact match
+        let matchingCategory = mainCategories.find(cat => 
+          cat.name === productCategory
         );
+        
+        // If no exact match, try case-insensitive
+        if (!matchingCategory) {
+          matchingCategory = mainCategories.find(cat => 
+            cat.name.toLowerCase() === productCategory.toLowerCase()
+          );
+        }
+        
+        // If still no match, try partial match
+        if (!matchingCategory) {
+          matchingCategory = mainCategories.find(cat => 
+            productCategory.toLowerCase().includes(cat.name.toLowerCase()) || 
+            cat.name.toLowerCase().includes(productCategory.toLowerCase())
+          );
+        }
         
         if (matchingCategory) {
           // Use the exact name from mainCategories to ensure consistency
-          setSelectedMenuFilter(matchingCategory.name);
-          console.log('✅ EnhancedProductModal: Set menu filter to:', matchingCategory.name, 'for product category:', productCategory);
+          const exactCategoryName = matchingCategory.name;
+          setSelectedMainCategory(exactCategoryName);
+          // Only set menu filter if it wasn't already set from database
+          if (!menuCategory || menuCategory === 'all') {
+            setSelectedMenuFilter(exactCategoryName);
+          }
+          
+          // CRITICAL: Update form.category to use exact name from mainCategories
+          setForm(prev => ({ ...prev, category: exactCategoryName }));
+          
+          console.log('✅ EnhancedProductModal: Category matched and set:', exactCategoryName, 'for product category:', productCategory);
         } else {
-          // Try to find partial matches or keep current filter if product has category
-          // Don't reset to "all" - keep the product's category as the filter
-          console.log('⚠️ EnhancedProductModal: Category not found in mainCategories, using product category:', productCategory);
-          setSelectedMenuFilter(productCategory); // Use the product's category directly
+          // Use product's category directly if no match found
+          setSelectedMainCategory(productCategory);
+          // Only set menu filter if it wasn't already set from database
+          if (!menuCategory || menuCategory === 'all') {
+            setSelectedMenuFilter("all"); // Show all categories when editing
+          }
+          // Ensure form.category is set to product's category
+          setForm(prev => ({ ...prev, category: productCategory }));
+          console.log('⚠️ EnhancedProductModal: Category not found in mainCategories, using product category directly:', productCategory);
         }
       } else {
-        // Only reset to "all" if there's no category at all
-        console.log('⚠️ EnhancedProductModal: No category found in product, keeping filter as "all"');
-        setSelectedMenuFilter("all");
+        // Only reset to "all" if there's no category at all and no menuCategory
+        console.log('⚠️ EnhancedProductModal: No category found in product');
+        setSelectedMainCategory("");
+        if (!menuCategory || menuCategory === 'all') {
+          setSelectedMenuFilter("all");
+        }
       }
       
       // Reset dropdown visibility states (but NOT the selected filter value)
@@ -447,11 +536,17 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (isLoading) {
+    
+    // CRITICAL: Prevent duplicate submissions with multiple checks
+    if (isLoading || isSubmitting) {
       console.log('🚀 EnhancedProductModal: Already submitting, ignoring duplicate submission');
+      showToast("Please wait, product is being created...", "info");
       return;
     }
+    
+    // Set both flags immediately to prevent any race conditions
+    setIsLoading(true);
+    setIsSubmitting(true);
 
     if (!validateForm()) {
       showToast("Please fix the errors below", "error");
@@ -460,10 +555,11 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
       if (modalContent) {
         modalContent.scrollTop = 0;
       }
+      setIsLoading(false);
+      setIsSubmitting(false);
       return;
     }
     
-    setIsLoading(true);
     try {
       // Process images - upload files first, then combine with URLs
       let processedImages = [];
@@ -547,6 +643,7 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
       if (processedImages.length === 0) {
         showToast('Please add at least one product image', 'error');
         setIsLoading(false);
+        setIsSubmitting(false);
         return;
       }
       
@@ -561,8 +658,11 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
         stock: parseInt(form.stock),
         images: processedImages, // Array of URLs (full URLs will be normalized by backend)
         thumbnail: processedImages[0] || null, // First image as thumbnail
-        sub_category: form.subCategory || '', // Backend uses snake_case
-        menu_option: form.menuOption || '', // Backend uses snake_case
+        subCategory: form.subCategory || '', // Frontend camelCase - backend will handle conversion
+        menuOption: form.menuOption || '', // Frontend camelCase - backend will handle conversion
+        // menu_category should be the same as form.category (the main category)
+        // Store the category value in menu_category for filtering purposes
+        selectedMenuFilter: form.category || null, // menu_category = category (no separate storage needed)
         cake_flavor: form.cakeFlavor || '', // Backend uses snake_case
         is_new: form.isNew || false, // Backend uses snake_case
         is_active: form.isActive !== undefined ? form.isActive : true,
@@ -575,7 +675,8 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
       };
 
       console.log('🚀 EnhancedProductModal: Submitting product data:', productData);
-      console.log('🔍 EnhancedProductModal: Menu option being saved:', productData.menu_option);
+      console.log('🔍 EnhancedProductModal: Form values - subCategory:', form.subCategory, 'menuOption:', form.menuOption, 'selectedMenuFilter:', selectedMenuFilter);
+      console.log('🔍 EnhancedProductModal: Product data - subCategory:', productData.subCategory, 'menuOption:', productData.menuOption, 'selectedMenuFilter:', productData.selectedMenuFilter);
       console.log('🔍 EnhancedProductModal: Editing mode:', !!product);
 
       let response;
@@ -598,18 +699,29 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
         response = await productAPI.createProduct(productData);
 
         if (response.success) {
-          showToast("Product created successfully!", "success");
-          onSave(response.product || productData);
-          onClose();
+          // Check if this was a duplicate prevention response
+          if (response.duplicate_prevented) {
+            showToast(response.message || "Product already exists (duplicate prevented)", "warning");
+            // Still close modal and refresh list
+            onClose();
+            onSave(response.product || productData);
+          } else {
+            showToast("Product created successfully!", "success");
+            // CRITICAL: Close modal immediately to prevent re-submission
+            onClose();
+            onSave(response.product || productData);
+          }
         } else {
           showToast(response.message || "Failed to create product", "error");
         }
       }
     } catch (error) {
       console.error("Product creation error:", error);
-      showToast("Error creating product", "error");
+      showToast("Error creating product: " + (error.message || "Unknown error"), "error");
     } finally {
+      // CRITICAL: Reset both flags
       setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -841,17 +953,26 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
                 Select Category *
               </label>
               
-              {/* Menu Categories Grid - Filtered */}
+              {/* Menu Categories Grid - Show all when editing, filtered when creating */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                 {mainCategories
-                  .filter(category => selectedMenuFilter === "all" || category.name === selectedMenuFilter)
+                  .filter(category => {
+                    // When editing, always show all categories OR show the selected category
+                    if (product && product._id) {
+                      return true; // Show all categories when editing
+                    }
+                    // When creating, apply the filter
+                    return selectedMenuFilter === "all" || category.name === selectedMenuFilter;
+                  })
                   .map((category) => (
                     <button
                       key={category.name}
                       type="button"
                       onClick={() => handleMainCategorySelect(category.name)}
                       className={`p-4 rounded-lg border-2 transition-all duration-200 hover:shadow-md ${
-                        form.category === category.name || selectedMainCategory === category.name
+                        form.category === category.name || selectedMainCategory === category.name ||
+                        (form.category && form.category.toLowerCase() === category.name.toLowerCase()) ||
+                        (selectedMainCategory && selectedMainCategory.toLowerCase() === category.name.toLowerCase())
                           ? 'border-blue-500 bg-blue-50 text-blue-800'
                           : `border-dashed border-gray-300 hover:border-blue-500 ${category.color}`
                       }`}
@@ -871,14 +992,23 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {mainCategories
-                    .filter(category => selectedMenuFilter === "all" || category.name === selectedMenuFilter)
+                    .filter(category => {
+                      // When editing, always show all categories
+                      if (product && product._id) {
+                        return true; // Show all categories when editing
+                      }
+                      // When creating, apply the filter
+                      return selectedMenuFilter === "all" || category.name === selectedMenuFilter;
+                    })
                     .map((category) => (
                       <button
                         key={category.name}
                         type="button"
                         onClick={() => handleDirectCategorySelect(category.name)}
                         className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                          form.category === category.name || selectedMainCategory === category.name
+                          form.category === category.name || selectedMainCategory === category.name ||
+                          (form.category && form.category.toLowerCase() === category.name.toLowerCase()) ||
+                          (selectedMainCategory && selectedMainCategory.toLowerCase() === category.name.toLowerCase())
                             ? 'bg-blue-500 text-white'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}

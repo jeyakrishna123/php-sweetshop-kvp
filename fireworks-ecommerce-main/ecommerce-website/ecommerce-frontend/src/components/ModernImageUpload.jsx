@@ -1,5 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 
+// Debug helper
+const debugLog = (message, data = null) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[ModernImageUpload] ${message}`, data || '');
+  }
+};
+
 const ModernImageUpload = ({ 
   images = [], 
   onImagesChange, 
@@ -11,6 +18,14 @@ const ModernImageUpload = ({
   const [imageUrl, setImageUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Debug: Log when component mounts and fileInputRef is set
+  useEffect(() => {
+    debugLog('Component mounted, fileInputRef:', fileInputRef.current);
+    if (fileInputRef.current) {
+      debugLog('File input is ready');
+    }
+  }, []);
 
   const handleFileUpload = async (files) => {
     if (!files || files.length === 0) return;
@@ -103,9 +118,44 @@ const ModernImageUpload = ({
     e.preventDefault();
   };
 
-  const handleClick = () => {
-    if (!isUploading && images.length < maxImages) {
-      fileInputRef.current?.click();
+  const handleClick = (e) => {
+    // Don't prevent default on the outer div - let it bubble naturally
+    // Only stop if clicking on nested elements that shouldn't trigger file picker
+    const target = e.target;
+    const currentTarget = e.currentTarget;
+    
+    // If clicking on a button or link inside, don't trigger file picker
+    if (target.tagName === 'BUTTON' || target.tagName === 'A' || target.closest('button') || target.closest('a')) {
+      return;
+    }
+    
+    // Only trigger if clicking directly on the drop zone or its direct children
+    if (target === currentTarget || currentTarget.contains(target)) {
+      e.stopPropagation(); // Prevent bubbling to parent forms/mods
+      
+      if (!isUploading && images.length < maxImages) {
+        // Ensure the file input exists and is accessible
+        if (fileInputRef.current) {
+          console.log('🖱️ ModernImageUpload: Click detected, opening file picker...');
+          // Use setTimeout to ensure DOM is ready and event cycle completes
+          setTimeout(() => {
+            try {
+              if (fileInputRef.current) {
+                fileInputRef.current.click();
+                console.log('✅ ModernImageUpload: File picker triggered');
+              } else {
+                console.error('❌ ModernImageUpload: File input ref is null');
+              }
+            } catch (error) {
+              console.error('❌ ModernImageUpload: Error opening file picker:', error);
+            }
+          }, 10);
+        } else {
+          console.error('❌ ModernImageUpload: fileInputRef.current is null');
+        }
+      } else {
+        console.log('⚠️ ModernImageUpload: Cannot open picker - uploading:', isUploading, 'images:', images.length, 'max:', maxImages);
+      }
     }
   };
 
@@ -140,15 +190,36 @@ const ModernImageUpload = ({
 
       {/* Upload Mode */}
       {uploadMode === 'upload' && (
-        <div
-          className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer ${
-            isUploading
+        <label
+          htmlFor="file-upload-input"
+          className={`block border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 ${
+            isUploading || images.length >= maxImages
               ? 'border-blue-400 bg-blue-50 cursor-not-allowed'
-              : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+              : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50 cursor-pointer'
           }`}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
-          onClick={handleClick}
+          onClick={(e) => {
+            // If clicking on label, let it handle naturally via htmlFor
+            // Only use custom handler for drag zone clicks
+            if (isUploading || images.length >= maxImages) {
+              e.preventDefault();
+              return;
+            }
+            // Fallback: ensure input is triggered even if label doesn't work
+            if (fileInputRef.current && !e.target.matches('input[type="file"]')) {
+              setTimeout(() => {
+                if (fileInputRef.current && document.activeElement !== fileInputRef.current) {
+                  fileInputRef.current.click();
+                }
+              }, 0);
+            }
+          }}
+          style={{ 
+            pointerEvents: isUploading || images.length >= maxImages ? 'none' : 'auto',
+            position: 'relative',
+            display: 'block'
+          }}
         >
           <div className="space-y-4">
             <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
@@ -172,18 +243,39 @@ const ModernImageUpload = ({
                 Supports JPG, PNG, GIF up to 5MB each. Max {maxImages} images.
               </p>
             </div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={(e) => handleFileUpload(Array.from(e.target.files))}
-              disabled={isUploading || images.length >= maxImages}
-              className="hidden"
-            />
           </div>
-        </div>
+
+          <input
+            id="file-upload-input"
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={(e) => {
+              const files = e.target.files;
+              console.log('📁 ModernImageUpload: Files selected:', files?.length || 0);
+              if (files && files.length > 0) {
+                handleFileUpload(Array.from(files));
+              }
+              // Reset input to allow selecting the same file again
+              e.target.value = '';
+            }}
+            disabled={isUploading || images.length >= maxImages}
+            className="sr-only"
+            style={{ 
+              position: 'absolute',
+              width: '1px',
+              height: '1px',
+              padding: 0,
+              margin: '-1px',
+              overflow: 'hidden',
+              clip: 'rect(0, 0, 0, 0)',
+              whiteSpace: 'nowrap',
+              borderWidth: 0
+            }}
+            tabIndex={-1}
+          />
+        </label>
       )}
 
       {/* URL Mode */}
