@@ -91,7 +91,9 @@ const Checkout = () => {
           const parsed = JSON.parse(savedAddress);
           setFormData(prev => ({ ...prev, ...parsed }));
         } catch (error) {
-          console.error("Error parsing saved address:", error);
+          if (process.env.NODE_ENV === 'development') {
+            console.error("Error parsing saved address:", error);
+          }
         }
       }
 
@@ -210,7 +212,9 @@ const Checkout = () => {
         throw new Error("Failed to create checkout session");
       }
     } catch (error) {
-      console.error("Stripe payment error:", error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Stripe payment error:", error);
+      }
       if (error.response?.status === 503) {
         showToast("Credit card payment is not available. Please use Cash on Delivery.", "warning");
       } else {
@@ -224,11 +228,13 @@ const Checkout = () => {
     const handleCODPayment = async () => {
     setLoading(true);
     try {
-      // Debug: Check authentication
+      // Debug: Check authentication (development only)
       const token = localStorage.getItem('token');
-      console.log('🔍 Checkout: Token exists:', !!token);
-      console.log('🔍 Checkout: Token preview:', token ? token.substring(0, 20) + '...' : 'No token');
-      console.log('🔍 Checkout: User:', user);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 Checkout: Token exists:', !!token);
+        console.log('🔍 Checkout: Token preview:', token ? token.substring(0, 20) + '...' : 'No token');
+        console.log('🔍 Checkout: User:', user);
+      }
       
       if (!token) {
         showToast("Please login to place an order", "error");
@@ -260,7 +266,9 @@ const Checkout = () => {
           // Fallback to a placeholder if still no image
           if (!itemImage) {
             itemImage = '/images/placeholder-product.jpg';
-            console.warn('⚠️ No image found for product:', item.name);
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('⚠️ No image found for product:', item.name);
+            }
           }
 
           return {
@@ -291,9 +299,12 @@ const Checkout = () => {
         }
       };
 
-      console.log('🔍 Checkout: Making order API call...');
-      console.log('🔍 Checkout: Order data:', JSON.stringify(orderData, null, 2));
-      console.log('🔍 Checkout: Cart items:', JSON.stringify(cart, null, 2));
+      // Only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 Checkout: Making order API call...');
+        console.log('🔍 Checkout: Order data:', JSON.stringify(orderData, null, 2));
+        console.log('🔍 Checkout: Cart items:', JSON.stringify(cart, null, 2));
+      }
       
       const response = await axios.post(`${process.env.NODE_ENV === 'production' ? 'https://skbakers.com/api' : 'http://localhost:8000/api'}/orders`, orderData, {
         headers: {
@@ -302,9 +313,10 @@ const Checkout = () => {
         timeout: 30000 // 30 second timeout
       });
       
-      console.log('🔍 Checkout: API response received:', response.data);
-
-      console.log('✅ Checkout: Order response:', JSON.stringify(response.data, null, 2));
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 Checkout: API response received:', response.data);
+        console.log('✅ Checkout: Order response:', JSON.stringify(response.data, null, 2));
+      }
 
       if (response.data && response.data.success) {
         // Clear cart after successful order
@@ -321,7 +333,9 @@ const Checkout = () => {
         const totalPrice = orderData.total_price || orderData.totalPrice || total;
         const trackingNumber = orderData.tracking_number || response.data.trackingNumber || response.data.data?.trackingNumber;
 
-        console.log('✅ Checkout: Extracted order data:', { orderId, totalPrice, trackingNumber });
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ Checkout: Extracted order data:', { orderId, totalPrice, trackingNumber });
+        }
 
         // Store order details in sessionStorage as backup
         const orderSuccessData = {
@@ -342,26 +356,108 @@ const Checkout = () => {
         throw new Error("Failed to create order");
       }
     } catch (error) {
-      console.error("❌ Checkout: COD payment error:", error);
-      console.error("❌ Checkout: Error details:", {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
-        config: error.config
-      });
+      // CRITICAL: Handle invalid products error FIRST - before ANY console logging
+      // Check multiple possible error response structures
+      const errorData = error.response?.data;
+      const errorStatus = error.response?.status;
       
-      // Log the full error response data
-      console.error("❌ Checkout: Full error response data:", JSON.stringify(error.response?.data, null, 2));
+      // Check for missingProductIds in different possible locations
+      const missingProductIds = errorData?.errors?.missingProductIds || 
+                                 errorData?.missingProductIds || 
+                                 (errorStatus === 400 && errorData?.message?.includes('Invalid products') ? [] : null);
       
-      // Show detailed error to user
-      const errorMessage = error.response?.data?.message || error.message || "Unknown error occurred";
-      showToast(`Checkout failed: ${errorMessage}`, "error");
+      // Check for unavailableProductIds
+      const unavailableProductIds = errorData?.errors?.unavailableProductIds || 
+                                     errorData?.unavailableProductIds;
+      
+      // Handle invalid/missing products error
+      if (errorStatus === 400 && (missingProductIds || unavailableProductIds)) {
+        const invalidIds = missingProductIds || unavailableProductIds || [];
+        const errorMessage = errorData?.errors?.error || 
+                            errorData?.error || 
+                            "Some products in your cart are no longer available";
+        
+        // Remove invalid products from cart
+        // Compare both string and number IDs to handle type mismatches
+        const validCart = cart.filter(item => {
+          const itemId = item._id || item.id;
+          if (!itemId) return true; // Keep items without ID (shouldn't happen)
+          
+          return !invalidIds.some(invalidId => {
+            // Try multiple comparison methods
+            return itemId == invalidId || 
+                   String(itemId) === String(invalidId) ||
+                   Number(itemId) === Number(invalidId);
+          });
+        });
+        
+        const removedCount = cart.length - validCart.length;
+        
+        if (removedCount > 0) {
+          // Update cart with only valid products
+          dispatch({ type: 'SET_CART', payload: validCart });
+          
+          // Update localStorage
+          localStorage.setItem('cartItems', JSON.stringify(validCart));
+          
+          // Show user-friendly message
+          showToast(
+            `${removedCount} product(s) removed from cart as they are no longer available. Please review your cart and try again.`,
+            "warning",
+            5000
+          );
+          
+          // Navigate back to cart to review
+          setTimeout(() => {
+            navigate('/cart');
+          }, 2000);
+        } else {
+          // Fallback if product IDs don't match - still show message
+          showToast(errorMessage + ". Please refresh your cart.", "error");
+          // Navigate to cart anyway
+          setTimeout(() => {
+            navigate('/cart');
+          }, 2000);
+        }
+        
+        setLoading(false);
+        return; // CRITICAL: Exit early - NO console errors for this case
+      }
+      
+      // Note: Product validation errors (400 with missingProductIds/unavailableProductIds) 
+      // are handled above and return early - no console errors for those cases
+      
+      // Only log errors for non-product validation issues (and only in development)
+      // NEVER log 400 errors - they're handled above
+      if (process.env.NODE_ENV === 'development' && error.response?.status !== 400) {
+        console.error("❌ Checkout: COD payment error:", error);
+        console.error("❌ Checkout: Error details:", {
+          message: error.message,
+          status: error.response?.status,
+          data: error.response?.data
+        });
+      }
+      
+      // For ANY 400 errors (including product validation), show message but NEVER log
+      // This catches any 400 errors that weren't caught above
+      if (error.response?.status === 400) {
+        const backendMessage = errorData?.message || 
+                             errorData?.errors?.message || 
+                             errorData?.errors?.error ||
+                             "Invalid request. Please check your order and try again.";
+        showToast(backendMessage, "error");
+        setLoading(false);
+        return; // Exit early - no console logging
+      }
       
       // Check if it's a timeout error but order might have been created
       if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
-        console.log('🔍 Checkout: Timeout error detected, checking if order was created...');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔍 Checkout: Timeout error detected, checking if order was created...');
+        }
         showToast("Order is being processed. Please check your orders page.", "info");
-        clearCart();
+        dispatch({ type: 'CLEAR_CART' });
+        localStorage.removeItem('cartItems');
         navigate('/orders');
         return;
       }
@@ -372,13 +468,11 @@ const Checkout = () => {
       } else if (error.response?.status === 401) {
         showToast("Please login again to place your order.", "error");
         navigate('/login');
-      } else if (error.response?.status === 400 && error.response?.data?.message?.includes('Insufficient stock')) {
-        showToast(error.response.data.message, "error");
       } else {
+        // All other errors (non-400, non-network, non-auth)
         showToast("Failed to place order. Please try again.", "error");
       }
     } finally {
-      console.log('🔍 Checkout: COD payment completed, setting loading to false');
       setLoading(false);
     }
   };
@@ -404,7 +498,9 @@ const Checkout = () => {
           // Fallback to a placeholder if still no image
           if (!itemImage) {
             itemImage = '/images/placeholder-product.jpg';
-            console.warn('⚠️ No image found for product:', item.name);
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('⚠️ No image found for product:', item.name);
+            }
           }
 
           return {
@@ -443,7 +539,9 @@ const Checkout = () => {
         timeout: 10000
       });
 
-      console.log('✅ Checkout UPI: Order response:', JSON.stringify(response.data, null, 2));
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Checkout UPI: Order response:', JSON.stringify(response.data, null, 2));
+      }
 
       if (response.data && response.data.success) {
         // Clear cart after successful order
@@ -460,7 +558,9 @@ const Checkout = () => {
         const totalPrice = orderData.total_price || orderData.totalPrice || total;
         const trackingNumber = orderData.tracking_number || response.data.trackingNumber || response.data.data?.trackingNumber;
 
-        console.log('✅ Checkout UPI: Extracted order data:', { orderId, totalPrice, trackingNumber });
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ Checkout UPI: Extracted order data:', { orderId, totalPrice, trackingNumber });
+        }
 
         // Store order details in sessionStorage as backup
         const orderSuccessData = {
@@ -481,15 +581,74 @@ const Checkout = () => {
         throw new Error("Failed to create order");
       }
     } catch (error) {
-      console.error("UPI payment error:", error);
+      // CRITICAL: Handle invalid products error FIRST - same logic as COD
+      const errorData = error.response?.data;
+      const errorStatus = error.response?.status;
+      
+      const missingProductIds = errorData?.errors?.missingProductIds || 
+                                 errorData?.missingProductIds;
+      const unavailableProductIds = errorData?.errors?.unavailableProductIds || 
+                                     errorData?.unavailableProductIds;
+      
+      // Handle invalid/missing products error
+      if (errorStatus === 400 && (missingProductIds || unavailableProductIds)) {
+        const invalidIds = missingProductIds || unavailableProductIds || [];
+        const errorMessage = errorData?.errors?.error || 
+                            errorData?.error || 
+                            "Some products in your cart are no longer available";
+        
+        const validCart = cart.filter(item => {
+          const itemId = item._id || item.id;
+          if (!itemId) return true;
+          
+          return !invalidIds.some(invalidId => {
+            return itemId == invalidId || 
+                   String(itemId) === String(invalidId) ||
+                   Number(itemId) === Number(invalidId);
+          });
+        });
+        
+        const removedCount = cart.length - validCart.length;
+        
+        if (removedCount > 0) {
+          dispatch({ type: 'SET_CART', payload: validCart });
+          localStorage.setItem('cartItems', JSON.stringify(validCart));
+          showToast(
+            `${removedCount} product(s) removed from cart as they are no longer available. Please review your cart and try again.`,
+            "warning",
+            5000
+          );
+          setTimeout(() => navigate('/cart'), 2000);
+        } else {
+          showToast(errorMessage + ". Please refresh your cart.", "error");
+          setTimeout(() => navigate('/cart'), 2000);
+        }
+        
+        setLoading(false);
+        return; // Exit early - no console errors
+      }
+      
+      // For ANY 400 errors, show message but NEVER log
+      if (errorStatus === 400) {
+        const backendMessage = errorData?.message || 
+                             errorData?.errors?.message || 
+                             errorData?.errors?.error ||
+                             "Invalid request. Please check your order and try again.";
+        showToast(backendMessage, "error");
+        setLoading(false);
+        return; // Exit early - no console logging
+      }
+      
+      // Only log non-400 errors in development
+      if (process.env.NODE_ENV === 'development') {
+        console.error("UPI payment error:", error);
+      }
       
       if (error.code === 'ECONNREFUSED' || error.message.includes('Network Error')) {
         showToast("Backend server is not available. Please try again later.", "error");
       } else if (error.response?.status === 401) {
         showToast("Please login again to place your order.", "error");
         navigate('/login');
-      } else if (error.response?.status === 400 && error.response?.data?.message?.includes('Insufficient stock')) {
-        showToast(error.response.data.message, "error");
       } else {
         showToast("Failed to place order. Please try again.", "error");
       }

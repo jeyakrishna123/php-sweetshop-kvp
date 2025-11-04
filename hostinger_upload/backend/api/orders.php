@@ -160,6 +160,97 @@ function createOrder($db) {
 
         $orderId = $db->lastInsertId();
 
+        // CRITICAL: Validate all product IDs exist before inserting order items
+        // This prevents foreign key constraint violations
+        $productIds = array_map(function($item) {
+            return $item['product'];
+        }, $data['orderItems']);
+        
+        // Remove duplicates and null values
+        $productIds = array_unique(array_filter($productIds, function($id) {
+            return $id !== null && $id !== '';
+        }));
+        
+        if (empty($productIds)) {
+            $db->rollBack();
+            error_log("❌ CREATE ORDER - No valid product IDs found in order items");
+            sendError('Invalid order items', [
+                'error' => 'No valid product IDs found in order items',
+                'details' => 'Please ensure all order items have valid product IDs'
+            ], 400);
+        }
+        
+        // Check if all products exist
+        // Include image fields to avoid redundant queries later
+        // Note: deleted_at column may not exist in all database schemas, so we exclude it
+        $placeholders = implode(',', array_fill(0, count($productIds), '?'));
+        $productCheckStmt = $db->prepare("
+            SELECT id, name, stock, is_active, thumbnail, images
+            FROM products 
+            WHERE id IN ($placeholders)
+        ");
+        $productCheckStmt->execute($productIds);
+        $existingProducts = $productCheckStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Create a map of existing product IDs
+        $existingProductIds = array_map(function($product) {
+            return (int)$product['id'];
+        }, $existingProducts);
+        
+        // Find missing product IDs
+        $missingProductIds = [];
+        foreach ($productIds as $productId) {
+            if (!in_array((int)$productId, $existingProductIds)) {
+                $missingProductIds[] = $productId;
+            }
+        }
+        
+        // If any products are missing, rollback and return error
+        if (!empty($missingProductIds)) {
+            $db->rollBack();
+            error_log("❌ CREATE ORDER - Missing products found: " . json_encode($missingProductIds));
+            error_log("❌ CREATE ORDER - Requested product IDs: " . json_encode($productIds));
+            error_log("❌ CREATE ORDER - Existing product IDs: " . json_encode($existingProductIds));
+            
+            sendError('Invalid products in order', [
+                'error' => 'One or more products in your order are no longer available',
+                'details' => 'The following product IDs are invalid or have been removed: ' . implode(', ', $missingProductIds),
+                'missingProductIds' => $missingProductIds,
+                'message' => 'Please refresh your cart and try again'
+            ], 400);
+        }
+        
+        // Create a map of product data for quick lookup
+        $productMap = [];
+        foreach ($existingProducts as $product) {
+            $productMap[(int)$product['id']] = $product;
+        }
+        
+        // Additional validation: Check if products are active
+        // Note: deleted_at column check removed as it may not exist in all schemas
+        $inactiveProducts = [];
+        foreach ($productIds as $productId) {
+            $product = $productMap[(int)$productId];
+            // Check if product is active (is_active = 1 or not set means active)
+            if (isset($product['is_active']) && $product['is_active'] == 0) {
+                $inactiveProducts[] = $productId;
+            }
+        }
+        
+        if (!empty($inactiveProducts)) {
+            $db->rollBack();
+            error_log("❌ CREATE ORDER - Inactive products found: " . json_encode($inactiveProducts));
+            
+            sendError('Unavailable products', [
+                'error' => 'One or more products in your order are no longer available',
+                'details' => 'The following products are inactive: ' . implode(', ', $inactiveProducts),
+                'unavailableProductIds' => $inactiveProducts,
+                'message' => 'Please remove these items from your cart and try again'
+            ], 400);
+        }
+
+        error_log("✅ CREATE ORDER - All products validated successfully. Processing " . count($data['orderItems']) . " order items");
+
         // Insert order items
         $itemStmt = $db->prepare("
             INSERT INTO order_items (
@@ -169,6 +260,16 @@ function createOrder($db) {
         ");
 
         foreach ($data['orderItems'] as $item) {
+            // CRITICAL: Double-check product exists before inserting (safety measure)
+            $productId = $item['product'];
+            if (!isset($productMap[(int)$productId])) {
+                $db->rollBack();
+                error_log("❌ CREATE ORDER - Product ID $productId not found in validated products map");
+                sendError('Invalid product in order', [
+                    'error' => "Product ID $productId is invalid or no longer available",
+                    'details' => 'Please refresh your cart and try again'
+                ], 400);
+            }
             // Get product image if not provided in order item
             $productImage = $item['image'] ?? null;
             // Convert to production URL if exists
@@ -177,16 +278,15 @@ function createOrder($db) {
             }
 
             if (empty($productImage)) {
-                error_log("⚠️ CREATE ORDER - Image missing for item, fetching from product: " . $item['product']);
+                error_log("⚠️ CREATE ORDER - Image missing for item, using validated product data: " . $item['product']);
 
-                // Fetch product details to get image
-                $productStmt = $db->prepare("SELECT thumbnail, images FROM products WHERE id = ?");
-                $productStmt->execute([$item['product']]);
-                $product = $productStmt->fetch();
-
-                if ($product) {
+                // Use validated product data from productMap (already fetched during validation)
+                // No need for additional database query - image fields were included in validation query
+                if (isset($productMap[(int)$productId])) {
+                    $product = $productMap[(int)$productId];
+                    
                     // Try thumbnail first, then first image from images array
-                    $productImage = $product['thumbnail'];
+                    $productImage = $product['thumbnail'] ?? null;
 
                     if (empty($productImage) && !empty($product['images'])) {
                         $imagesArray = json_decode($product['images'], true);
@@ -200,11 +300,11 @@ function createOrder($db) {
                         $productImage = '/images/placeholder-product.jpg';
                     }
 
-                    error_log("✅ CREATE ORDER - Found image for product: " . $productImage);
+                    error_log("✅ CREATE ORDER - Found image for product from validated data: " . $productImage);
                 } else {
-                    // Product not found, use placeholder
+                    // This should never happen due to validation, but safety fallback
                     $productImage = '/images/placeholder-product.jpg';
-                    error_log("⚠️ CREATE ORDER - Product not found, using placeholder");
+                    error_log("⚠️ CREATE ORDER - Product not in validated map, using placeholder (should not happen)");
                 }
             }
 
@@ -230,12 +330,18 @@ function createOrder($db) {
             ]);
 
             // Update product stock and sold count
+            // CRITICAL: Only update if product exists (already validated above)
             $stockStmt = $db->prepare("
                 UPDATE products
                 SET stock = GREATEST(0, stock - ?), sold_count = sold_count + ?
                 WHERE id = ?
             ");
-            $stockStmt->execute([$item['quantity'], $item['quantity'], $item['product']]);
+            $stockResult = $stockStmt->execute([$item['quantity'], $item['quantity'], $item['product']]);
+            
+            // Log if stock update failed (shouldn't happen due to validation, but safety check)
+            if (!$stockResult) {
+                error_log("⚠️ CREATE ORDER - Stock update failed for product ID: " . $item['product']);
+            }
         }
 
         // Insert shipping address
@@ -387,10 +493,18 @@ function getUserOrders($db) {
  */
 function getAllOrders($db) {
     // Enable authentication for admin access
+    error_log("📋 GET ALL ORDERS - Request received");
+    
     try {
         $authUser = AuthMiddleware::authenticate();
+        error_log("📋 GET ALL ORDERS - User authenticated: " . json_encode(['id' => $authUser->id, 'email' => $authUser->email, 'role' => $authUser->role ?? 'unknown']));
+        
         AuthMiddleware::requireAdmin($authUser);
+        error_log("📋 GET ALL ORDERS - Admin access verified");
     } catch (Exception $e) {
+        // Log authentication failure
+        error_log("❌ GET ALL ORDERS - Authentication failed: " . $e->getMessage());
+        
         // If authentication fails, return empty orders instead of error
         sendSuccess('Orders retrieved successfully', [
             'orders' => [],
