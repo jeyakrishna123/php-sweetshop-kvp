@@ -441,21 +441,52 @@ function getProductById($db, $id) {
     $product['tags'] = isset($product['tags']) && $product['tags'] ? json_decode($product['tags'], true) : [];
     $product['weight_options'] = isset($product['weight_options']) && $product['weight_options'] ? json_decode($product['weight_options'], true) : [];
     
-    // CRITICAL: Add category field for frontend compatibility - use category_name from JOIN
-    $product['category'] = $product['category_name'] ?? null;
+    // CRITICAL: Add category field for frontend compatibility
+    // Use category_name from JOIN, but fallback to menu_category if category_id is NULL
+    // This handles products that have menu_category but no category_id
+    if (!empty($product['category_name'])) {
+        $product['category'] = $product['category_name'];
+    } elseif (isset($product['menu_category']) && !empty($product['menu_category'])) {
+        // Fallback to menu_category if category_name is NULL/empty
+        $product['category'] = $product['menu_category'];
+        error_log("✅ GET PRODUCT BY ID - Using menu_category as category fallback: " . $product['menu_category']);
+    } else {
+        $product['category'] = null;
+    }
     
     // Check if sub_category, menu_option, and menu_category columns exist and include them
     // These fields might not exist in all database schemas
-    if (isset($product['sub_category'])) {
+    if (isset($product['sub_category']) && $product['sub_category'] !== null && $product['sub_category'] !== '') {
         $product['subCategory'] = $product['sub_category'];
+        error_log("✅ GET PRODUCT BY ID - SubCategory set: " . $product['sub_category']);
+    } else {
+        $product['subCategory'] = null;
+        error_log("⚠️ GET PRODUCT BY ID - SubCategory is NULL or empty");
     }
-    if (isset($product['menu_option'])) {
+    // Check if menu_option column exists and has a value
+    if (isset($product['menu_option']) && $product['menu_option'] !== null && $product['menu_option'] !== '') {
         $product['menuOption'] = $product['menu_option'];
+        error_log("✅ GET PRODUCT BY ID - MenuOption set: " . $product['menu_option']);
+    } else {
+        $product['menuOption'] = null;
+        error_log("⚠️ GET PRODUCT BY ID - MenuOption is NULL or empty");
     }
-    if (isset($product['menu_category'])) {
+    // Check if menu_category column exists and has a value
+    if (isset($product['menu_category']) && $product['menu_category'] !== null && $product['menu_category'] !== '') {
         $product['menuCategory'] = $product['menu_category'];
-        // Also set selectedMenuFilter for frontend compatibility
-        $product['selectedMenuFilter'] = $product['menu_category'] ? $product['menu_category'] : 'all';
+        // CRITICAL: Set selectedMenuFilter to the actual menu_category value
+        // This ensures the dropdown shows the correct selection when editing
+        if ($product['menu_category'] !== 'all') {
+            $product['selectedMenuFilter'] = $product['menu_category'];
+            error_log("✅ GET PRODUCT BY ID - MenuCategory set: " . $product['menu_category']);
+        } else {
+            $product['selectedMenuFilter'] = null;
+        }
+    } else {
+        // If menu_category is NULL, empty, or column doesn't exist
+        $product['menuCategory'] = null;
+        $product['selectedMenuFilter'] = null;
+        error_log("⚠️ GET PRODUCT BY ID - MenuCategory is NULL or empty");
     }
     
     // Ensure _id field exists for frontend compatibility (React expects _id)
@@ -464,7 +495,10 @@ function getProductById($db, $id) {
     }
     
     error_log("🔍 GET PRODUCT BY ID - Category: " . ($product['category'] ?? 'NULL') . ", Category Name: " . ($product['category_name'] ?? 'NULL'));
-    error_log("🔍 GET PRODUCT BY ID - SubCategory: " . ($product['subCategory'] ?? 'NULL') . ", MenuOption: " . ($product['menuOption'] ?? 'NULL') . ", MenuCategory: " . ($product['menuCategory'] ?? 'NULL'));
+    error_log("🔍 GET PRODUCT BY ID - SubCategory: " . ($product['subCategory'] ?? 'NULL') . ", MenuOption: " . ($product['menuOption'] ?? 'NULL') . ", MenuCategory: " . ($product['menuCategory'] ?? 'NULL') . ", selectedMenuFilter: " . ($product['selectedMenuFilter'] ?? 'NULL'));
+    error_log("🔍 GET PRODUCT BY ID - Raw sub_category from DB: " . (isset($product['sub_category']) ? ($product['sub_category'] ?? 'NULL') : 'COLUMN_NOT_INCLUDED'));
+    error_log("🔍 GET PRODUCT BY ID - Raw menu_category from DB: " . (isset($product['menu_category']) ? ($product['menu_category'] ?? 'NULL') : 'COLUMN_NOT_INCLUDED'));
+    error_log("🔍 GET PRODUCT BY ID - Raw menu_option from DB: " . (isset($product['menu_option']) ? ($product['menu_option'] ?? 'NULL') : 'COLUMN_NOT_INCLUDED'));
 
     // Get reviews
     $stmt = $db->prepare("
@@ -972,7 +1006,7 @@ function createProduct($db) {
                         'duplicate_prevented' => true,
                         'message' => 'This product was created very recently. Returning existing product.'
                     ], 200);
-                    return;
+                return;
                 }
             }
         }
@@ -1092,7 +1126,7 @@ function createProduct($db) {
             $insertFields .= ", menu_category";
             $insertPlaceholders .= ", ?";
         }
-        
+
         $stmt = $db->prepare("
             INSERT INTO products ($insertFields) VALUES ($insertPlaceholders)
         ");
@@ -1109,7 +1143,7 @@ function createProduct($db) {
         if (isset($data['category']) && !empty($data['category'])) {
             try {
                 $catStmt = $db->prepare("SELECT id FROM categories WHERE name = ? OR slug = ? LIMIT 1");
-                $catStmt->execute([$data['category'], $data['category']]);
+            $catStmt->execute([$data['category'], $data['category']]);
                 $category = $catStmt->fetch(PDO::FETCH_ASSOC);
                 if ($category && isset($category['id'])) {
                     $categoryId = $category['id'];
@@ -1278,7 +1312,7 @@ function createProduct($db) {
             } else {
                 // Fallback if fetch fails
                 error_log("⚠️ CREATE PRODUCT - Failed to fetch created product, returning ID only");
-                sendSuccess('Product created successfully', ['id' => $productId], 201);
+            sendSuccess('Product created successfully', ['id' => $productId], 201);
             }
         } else {
             $errorInfo = $stmt->errorInfo();
@@ -1450,11 +1484,11 @@ function updateProduct($db, $id) {
         if (isset($data['category']) && !empty($data['category'])) {
             try {
                 $catStmt = $db->prepare("SELECT id FROM categories WHERE name = ? OR slug = ? LIMIT 1");
-                $catStmt->execute([$data['category'], $data['category']]);
+            $catStmt->execute([$data['category'], $data['category']]);
                 $category = $catStmt->fetch(PDO::FETCH_ASSOC);
                 if ($category && isset($category['id'])) {
-                    $fields[] = "category_id = ?";
-                    $params[] = $category['id'];
+                $fields[] = "category_id = ?";
+                $params[] = $category['id'];
                     error_log("✅ UPDATE PRODUCT - Category found: " . $data['category'] . " -> ID: " . $category['id']);
                 } else {
                     error_log("⚠️ UPDATE PRODUCT - Category not found: " . $data['category'] . ", category_id will remain unchanged");
@@ -1550,9 +1584,9 @@ function updateProduct($db, $id) {
             try {
                 $checkCol = $db->query("SHOW COLUMNS FROM products LIKE 'product_types'");
                 if ($checkCol && $checkCol->rowCount() > 0) {
-                    $fields[] = "product_types = ?";
-                    $params[] = json_encode($data['productTypes']);
-                }
+            $fields[] = "product_types = ?";
+            $params[] = json_encode($data['productTypes']);
+        }
             } catch (Exception $e) {
                 // Column doesn't exist, skip it
             }
@@ -1563,9 +1597,9 @@ function updateProduct($db, $id) {
             try {
                 $checkCol = $db->query("SHOW COLUMNS FROM products LIKE 'specifications'");
                 if ($checkCol && $checkCol->rowCount() > 0) {
-                    $fields[] = "specifications = ?";
-                    $params[] = json_encode($data['specifications']);
-                }
+            $fields[] = "specifications = ?";
+            $params[] = json_encode($data['specifications']);
+        }
             } catch (Exception $e) {
                 // Column doesn't exist, skip it
                 error_log("⚠️ UPDATE PRODUCT - specifications column not found, skipping");
@@ -1577,9 +1611,9 @@ function updateProduct($db, $id) {
             try {
                 $checkCol = $db->query("SHOW COLUMNS FROM products LIKE 'tags'");
                 if ($checkCol && $checkCol->rowCount() > 0) {
-                    $fields[] = "tags = ?";
-                    $params[] = json_encode($data['tags']);
-                }
+            $fields[] = "tags = ?";
+            $params[] = json_encode($data['tags']);
+        }
             } catch (Exception $e) {
                 // Column doesn't exist, skip it
             }
@@ -1590,8 +1624,8 @@ function updateProduct($db, $id) {
             try {
                 $checkCol = $db->query("SHOW COLUMNS FROM products LIKE 'weight_options'");
                 if ($checkCol && $checkCol->rowCount() > 0) {
-                    $fields[] = "weight_options = ?";
-                    $params[] = json_encode($data['weightOptions']);
+            $fields[] = "weight_options = ?";
+            $params[] = json_encode($data['weightOptions']);
                 }
             } catch (Exception $e) {
                 // Column doesn't exist, skip it
@@ -1608,7 +1642,7 @@ function updateProduct($db, $id) {
 
         error_log("🔍 UPDATE PRODUCT - SQL: " . $sql);
         error_log("🔍 UPDATE PRODUCT - Params count: " . count($params) . ", Fields count: " . count($fields));
-        
+
         $stmt = $db->prepare($sql);
         if ($stmt && $stmt->execute($params)) {
             // Build SELECT query for updated product with conditional columns
@@ -1656,19 +1690,47 @@ function updateProduct($db, $id) {
                 $updatedProduct['tags'] = $updatedProduct['tags'] ?? null ? json_decode($updatedProduct['tags'], true) : null;
                 $updatedProduct['weight_options'] = $updatedProduct['weight_options'] ?? null ? json_decode($updatedProduct['weight_options'], true) : null;
                 
-                // CRITICAL: Add category field for frontend compatibility - use category_name from JOIN
-                $updatedProduct['category'] = $updatedProduct['category_name'] ?? null;
+                // CRITICAL: Add category field for frontend compatibility
+                // Use category_name from JOIN, but fallback to menu_category if category_id is NULL
+                if (!empty($updatedProduct['category_name'])) {
+                    $updatedProduct['category'] = $updatedProduct['category_name'];
+                } elseif (isset($updatedProduct['menu_category']) && !empty($updatedProduct['menu_category'])) {
+                    // Fallback to menu_category if category_name is NULL/empty
+                    $updatedProduct['category'] = $updatedProduct['menu_category'];
+                    error_log("✅ UPDATE PRODUCT - Using menu_category as category fallback: " . $updatedProduct['menu_category']);
+                } else {
+                    $updatedProduct['category'] = null;
+                }
                 
                 // Add sub_category, menu_option, and menu_category if they exist
-                if (isset($updatedProduct['sub_category'])) {
+                if (isset($updatedProduct['sub_category']) && $updatedProduct['sub_category'] !== null && $updatedProduct['sub_category'] !== '') {
                     $updatedProduct['subCategory'] = $updatedProduct['sub_category'];
+                    error_log("✅ UPDATE PRODUCT - SubCategory set: " . $updatedProduct['sub_category']);
+                } else {
+                    $updatedProduct['subCategory'] = null;
+                    error_log("⚠️ UPDATE PRODUCT - SubCategory is NULL or empty");
                 }
-                if (isset($updatedProduct['menu_option'])) {
+                // CRITICAL: Map menu_option correctly - same logic as getProductById
+                if (isset($updatedProduct['menu_option']) && $updatedProduct['menu_option'] !== null && $updatedProduct['menu_option'] !== '') {
                     $updatedProduct['menuOption'] = $updatedProduct['menu_option'];
+                    error_log("✅ UPDATE PRODUCT - MenuOption set: " . $updatedProduct['menu_option']);
+                } else {
+                    $updatedProduct['menuOption'] = null;
+                    error_log("⚠️ UPDATE PRODUCT - MenuOption is NULL or empty");
                 }
-                if (isset($updatedProduct['menu_category'])) {
+                // CRITICAL: Map menu_category correctly - same logic as getProductById
+                if (isset($updatedProduct['menu_category']) && $updatedProduct['menu_category'] !== null && $updatedProduct['menu_category'] !== '') {
                     $updatedProduct['menuCategory'] = $updatedProduct['menu_category'];
-                    $updatedProduct['selectedMenuFilter'] = $updatedProduct['menu_category'] ? $updatedProduct['menu_category'] : 'all';
+                    if ($updatedProduct['menu_category'] !== 'all') {
+                        $updatedProduct['selectedMenuFilter'] = $updatedProduct['menu_category'];
+                        error_log("✅ UPDATE PRODUCT - MenuCategory set: " . $updatedProduct['menu_category']);
+                    } else {
+                        $updatedProduct['selectedMenuFilter'] = null;
+                    }
+                } else {
+                    $updatedProduct['menuCategory'] = null;
+                    $updatedProduct['selectedMenuFilter'] = null;
+                    error_log("⚠️ UPDATE PRODUCT - MenuCategory is NULL or empty");
                 }
                 
                 // Ensure _id field exists for frontend compatibility
@@ -1677,7 +1739,7 @@ function updateProduct($db, $id) {
                 }
                 
                 error_log("✅ UPDATE PRODUCT - Category returned: " . ($updatedProduct['category'] ?? 'NULL'));
-                error_log("✅ UPDATE PRODUCT - SubCategory: " . ($updatedProduct['subCategory'] ?? 'NULL') . ", MenuOption: " . ($updatedProduct['menuOption'] ?? 'NULL') . ", MenuCategory: " . ($updatedProduct['menuCategory'] ?? 'NULL'));
+                error_log("✅ UPDATE PRODUCT - SubCategory: " . ($updatedProduct['subCategory'] ?? 'NULL') . ", MenuOption: " . ($updatedProduct['menuOption'] ?? 'NULL') . ", MenuCategory: " . ($updatedProduct['menuCategory'] ?? 'NULL') . ", selectedMenuFilter: " . ($updatedProduct['selectedMenuFilter'] ?? 'NULL'));
             }
             
             sendSuccess('Product updated successfully', ['product' => $updatedProduct]);
@@ -1800,7 +1862,7 @@ function deleteProduct($db, $id) {
         }
         
         $stmt = $db->prepare("DELETE FROM products WHERE id = ?");
-        
+
         if ($stmt && $stmt->execute([$id])) {
             $deletedRows = $stmt->rowCount();
             error_log("✅ DELETE PRODUCT - Product deleted successfully. Rows affected: " . $deletedRows);

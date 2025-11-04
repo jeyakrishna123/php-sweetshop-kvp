@@ -19,7 +19,7 @@ if (!ob_get_level()) {
 
 // Load required files with error handling
 try {
-    require_once __DIR__ . "/../config/database.php";
+require_once __DIR__ . "/../config/database.php";
 } catch (Throwable $e) {
     error_log("❌ AUTH API - Failed to load database.php: " . $e->getMessage());
     http_response_code(500);
@@ -29,7 +29,7 @@ try {
 }
 
 try {
-    require_once __DIR__ . "/../config/config.php";
+require_once __DIR__ . "/../config/config.php";
 } catch (Throwable $e) {
     error_log("❌ AUTH API - Failed to load config.php: " . $e->getMessage());
     http_response_code(500);
@@ -39,7 +39,7 @@ try {
 }
 
 try {
-    require_once __DIR__ . "/../includes/helpers.php";
+require_once __DIR__ . "/../includes/helpers.php";
 } catch (Throwable $e) {
     error_log("❌ AUTH API - Failed to load helpers.php: " . $e->getMessage());
     http_response_code(500);
@@ -52,7 +52,7 @@ try {
 $emailServiceLoaded = false;
 try {
     if (file_exists(__DIR__ . "/../includes/EmailService.php")) {
-        require_once __DIR__ . "/../includes/EmailService.php";
+require_once __DIR__ . "/../includes/EmailService.php";
         $emailServiceLoaded = class_exists('EmailService');
         if ($emailServiceLoaded) {
             error_log("✅ AUTH API - EmailService loaded successfully");
@@ -67,7 +67,7 @@ try {
 }
 
 try {
-    require_once __DIR__ . "/../middleware/cors.php";
+require_once __DIR__ . "/../middleware/cors.php";
 } catch (Throwable $e) {
     error_log("❌ AUTH API - Failed to load cors.php: " . $e->getMessage());
     http_response_code(500);
@@ -77,7 +77,7 @@ try {
 }
 
 try {
-    require_once __DIR__ . "/../middleware/auth.php";
+require_once __DIR__ . "/../middleware/auth.php";
 } catch (Throwable $e) {
     error_log("❌ AUTH API - Failed to load auth.php middleware: " . $e->getMessage());
     http_response_code(500);
@@ -89,7 +89,7 @@ try {
 // Handle CORS with error handling
 try {
     if (class_exists('CorsMiddleware')) {
-        CorsMiddleware::handle();
+CorsMiddleware::handle();
     } else {
         error_log("⚠️ AUTH API - CorsMiddleware class not found, setting basic CORS headers");
         // Basic CORS headers as fallback
@@ -223,7 +223,7 @@ switch ($endpoint) {
                     exit;
                 }
                 
-                forgotPassword($db);
+            forgotPassword($db);
             } catch (Error $e) {
                 // Catch PHP 7+ Error class
                 error_log("❌ FORGOT PASSWORD - PHP Error caught: " . $e->getMessage());
@@ -399,8 +399,8 @@ function register($db) {
             // If user is verified and active, reject registration
             if ($existingUser['is_email_verified'] == 1 || $existingUser['is_active'] == 1) {
                 error_log("❌ REGISTER - Verified user already exists with email: $email");
-                sendError("An account with this email already exists", ["email" => "This email is already registered"], 409);
-                return;
+            sendError("An account with this email already exists", ["email" => "This email is already registered"], 409);
+            return;
             }
             // If user exists but not verified, allow resending OTP
             error_log("⚠️ REGISTER - Unverified user exists, allowing OTP resend");
@@ -504,24 +504,24 @@ function register($db) {
                 throw $initError;
             }
             
-            $subject = "Verify Your Email - OTP Code";
-            $message = "
-                <h2>Welcome to SK Bakers!</h2>
-                <p>Please use the following OTP to verify your email address:</p>
-                <h1 style=\"color: #e74c3c; font-size: 32px; text-align: center;\">$otp</h1>
-                <p>This code will expire in 5 minutes.</p>
-                <p>If you didn't request this, please ignore this email.</p>
-            ";
+                $subject = "Verify Your Email - OTP Code";
+                $message = "
+                    <h2>Welcome to SK Bakers!</h2>
+                    <p>Please use the following OTP to verify your email address:</p>
+                    <h1 style=\"color: #e74c3c; font-size: 32px; text-align: center;\">$otp</h1>
+                    <p>This code will expire in 5 minutes.</p>
+                    <p>If you didn't request this, please ignore this email.</p>
+                ";
 
             // EmailService never throws exceptions, always returns boolean
-            $mailSent = $emailService->sendEmail($email, $subject, $message, true);
+                $mailSent = $emailService->sendEmail($email, $subject, $message, true);
             error_log("🔍 REGISTER - Email send result: " . ($mailSent ? 'SUCCESS' : 'FAILED'));
             
         } catch (Throwable $e) {
             // This should never happen since EmailService doesn't throw, but just in case
             error_log("❌ REGISTER - Unexpected email error: " . $e->getMessage());
             error_log("❌ REGISTER - Error trace: " . $e->getTraceAsString());
-            $mailSent = false;
+                $mailSent = false;
         } finally {
             // Always restore error reporting settings
             error_reporting($oldErrorLevel);
@@ -716,8 +716,8 @@ function forgotPassword($db) {
         
         // Get request body with error handling
         $data = null;
-        try {
-            $data = getRequestBody();
+    try {
+        $data = getRequestBody();
             if ($data === null) {
                 $data = [];
             }
@@ -781,7 +781,7 @@ function forgotPassword($db) {
                 sendError("Database error. Please try again.", [], 500);
                 return;
             }
-            $stmt->execute([$email]);
+        $stmt->execute([$email]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC); // Explicitly use FETCH_ASSOC for safety
             if ($user === false) {
                 $user = null; // Normalize false to null
@@ -873,7 +873,7 @@ function forgotPassword($db) {
 
         // Generate cryptographically secure 6-digit OTP
         try {
-            $otp = str_pad(random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+        $otp = str_pad(random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
             $expiresAt = date('Y-m-d H:i:s', time() + 300); // 5 minutes expiry
             error_log("🔍 FORGOT PASSWORD - Generated OTP for email: $email (expires: $expiresAt)");
         } catch (Exception $e) {
@@ -891,11 +891,11 @@ function forgotPassword($db) {
                 return;
             }
             
-            $otpStmt = $db->prepare("
-                INSERT INTO password_reset_tokens (user_id, email, token, expires_at) 
-                VALUES (?, ?, ?, ?)
-            ");
-            $otpStmt->execute([$user["id"], $email, $otp, $expiresAt]);
+        $otpStmt = $db->prepare("
+            INSERT INTO password_reset_tokens (user_id, email, token, expires_at) 
+            VALUES (?, ?, ?, ?)
+        ");
+        $otpStmt->execute([$user["id"], $email, $otp, $expiresAt]);
             $otpId = $db->lastInsertId();
             
             if (!$otpId || $otpId == 0) {
@@ -972,7 +972,7 @@ function forgotPassword($db) {
             } else {
                 // Instantiate EmailService (constructor cannot fail, but wrap for safety)
                 try {
-                    $emailService = new EmailService();
+        $emailService = new EmailService();
                     if (!is_object($emailService)) {
                         error_log("❌ FORGOT PASSWORD - EmailService instantiation returned non-object");
                         $mailSent = false;
@@ -989,7 +989,7 @@ function forgotPassword($db) {
             
             // Only proceed if EmailService is available and instantiated
             if (isset($emailService) && is_object($emailService)) {
-                $subject = "Password Reset OTP - SK Bakers";
+        $subject = "Password Reset OTP - SK Bakers";
                 // Safely get user name with multiple fallbacks
                 // Don't require name - use email as fallback if name is empty or null
                 $userName = "User";
@@ -1001,17 +1001,17 @@ function forgotPassword($db) {
                     }
                 }
                 
-                $message = "
-                    <h2>Password Reset Request</h2>
+        $message = "
+            <h2>Password Reset Request</h2>
                     <p>Hello " . $userName . ",</p>
-                    <p>You requested a password reset. Use the following OTP:</p>
+            <p>You requested a password reset. Use the following OTP:</p>
                     <h1 style=\"color: #e74c3c; font-size: 32px; text-align: center;\">" . htmlspecialchars($otp, ENT_QUOTES, 'UTF-8') . "</h1>
-                    <p>This code will expire in 5 minutes.</p>
-                    <p>If you didn't request this, please ignore this email.</p>
-                ";
+            <p>This code will expire in 5 minutes.</p>
+            <p>If you didn't request this, please ignore this email.</p>
+        ";
 
                 // EmailService never throws exceptions, always returns boolean
-                $mailSent = $emailService->sendEmail($email, $subject, $message, true);
+        $mailSent = $emailService->sendEmail($email, $subject, $message, true);
                 if (!$mailSent) {
                     $emailError = "Email sending returned false";
                 }
@@ -1043,7 +1043,7 @@ function forgotPassword($db) {
         if (ob_get_level()) {
             ob_clean();
         }
-        
+
         if ($mailSent) {
             error_log("✅ FORGOT PASSWORD - OTP email sent successfully to: $email");
             
@@ -1246,14 +1246,14 @@ function verifyOtp($db) {
 
         // Verify OTP from database
         try {
-            $verifyStmt = $db->prepare("
+        $verifyStmt = $db->prepare("
                 SELECT id, user_id, token, expires_at, created_at, used
-                FROM password_reset_tokens 
-                WHERE email = ? AND token = ? AND expires_at > NOW() AND used = 0
-                ORDER BY created_at DESC 
-                LIMIT 1
-            ");
-            $verifyStmt->execute([$email, $otp]);
+            FROM password_reset_tokens 
+            WHERE email = ? AND token = ? AND expires_at > NOW() AND used = 0
+            ORDER BY created_at DESC 
+            LIMIT 1
+        ");
+        $verifyStmt->execute([$email, $otp]);
             $token = $verifyStmt->fetch(PDO::FETCH_ASSOC); // Explicitly use FETCH_ASSOC for safety
             if ($token === false) {
                 $token = null; // Normalize false to null
@@ -1408,14 +1408,14 @@ function resetPassword($db) {
         // SECURITY: Verify OTP again before password reset (double verification)
         // Note: OTP should not be marked as used yet (verified but not used for password reset)
         try {
-            $verifyStmt = $db->prepare("
+        $verifyStmt = $db->prepare("
                 SELECT id, user_id, token, expires_at, created_at, used
-                FROM password_reset_tokens 
-                WHERE email = ? AND token = ? AND expires_at > NOW() AND used = 0
-                ORDER BY created_at DESC 
-                LIMIT 1
-            ");
-            $verifyStmt->execute([$email, $otp]);
+            FROM password_reset_tokens 
+            WHERE email = ? AND token = ? AND expires_at > NOW() AND used = 0
+            ORDER BY created_at DESC 
+            LIMIT 1
+        ");
+        $verifyStmt->execute([$email, $otp]);
             $token = $verifyStmt->fetch(PDO::FETCH_ASSOC); // Explicitly use FETCH_ASSOC for safety
             if ($token === false) {
                 $token = null; // Normalize false to null
@@ -1434,7 +1434,7 @@ function resetPassword($db) {
             ], 400);
             return;
         }
-        
+
         // Verify token data is complete
         if (!isset($token["user_id"]) || !isset($token["id"])) {
             error_log("❌ RESET PASSWORD - Token data incomplete");
@@ -1473,7 +1473,7 @@ function resetPassword($db) {
 
         // SECURITY: Hash password using bcrypt (PASSWORD_DEFAULT uses bcrypt)
         try {
-            $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+        $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
             if (!$hashedPassword) {
                 error_log("❌ RESET PASSWORD - Password hashing failed");
                 sendError("Failed to process password. Please try again.", [], 500);
@@ -1491,8 +1491,8 @@ function resetPassword($db) {
         try {
             // Start: Mark OTP as used first to lock it (prevents race conditions)
             $updateTokenStmt = $db->prepare("UPDATE password_reset_tokens SET used = 1 WHERE id = ? AND used = 0");
-            $updateTokenStmt->execute([$token["id"]]);
-            
+        $updateTokenStmt->execute([$token["id"]]);
+
             if ($updateTokenStmt->rowCount() === 0) {
                 error_log("❌ RESET PASSWORD - OTP already used or not found. Possible concurrent request.");
                 sendError("This OTP has already been used or expired. Please request a new password reset.", [], 400);
@@ -1500,7 +1500,7 @@ function resetPassword($db) {
             }
             
             error_log("✅ RESET PASSWORD - OTP token locked for password update");
-        } catch (Exception $e) {
+    } catch (Exception $e) {
             error_log("❌ RESET PASSWORD - Failed to mark token as used: " . $e->getMessage());
             sendError("Failed to process password reset. Please try again.", [], 500);
             return;
@@ -1591,7 +1591,7 @@ function resendSignupOtp($db) {
         }
 
         $email = sanitizeInput($data["email"]);
-        
+
         // Validate email format
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             sendError("Invalid email format", ["email" => "Please enter a valid email address"], 400);
@@ -1661,7 +1661,7 @@ function resendSignupOtp($db) {
 
         // Store new OTP with existing signup data
         try {
-            $otpStmt = $db->prepare("
+        $otpStmt = $db->prepare("
                 INSERT INTO signup_otps (email, name, password_hash, phone, otp, expires_at) 
                 VALUES (?, ?, ?, ?, ?, ?)
             ");
@@ -1699,25 +1699,25 @@ function resendSignupOtp($db) {
         try {
             // Instantiate EmailService (constructor cannot fail, but wrap for safety)
             try {
-                $emailService = new EmailService();
+        $emailService = new EmailService();
             } catch (Throwable $initError) {
                 error_log("❌ RESEND OTP - Failed to instantiate EmailService: " . $initError->getMessage());
                 $mailSent = false;
                 throw $initError;
             }
             
-            $subject = "Verify Your Email - New OTP Code";
-            $message = "
-                <h2>New OTP Code - SK Bakers</h2>
+        $subject = "Verify Your Email - New OTP Code";
+        $message = "
+            <h2>New OTP Code - SK Bakers</h2>
                 <p>Hello " . htmlspecialchars($signupData['name']) . ",</p>
-                <p>Here is your new OTP code:</p>
-                <h1 style=\"color: #e74c3c; font-size: 32px; text-align: center;\">$otp</h1>
-                <p>This code will expire in 5 minutes.</p>
-                <p>If you didn't request this, please ignore this email.</p>
-            ";
+            <p>Here is your new OTP code:</p>
+            <h1 style=\"color: #e74c3c; font-size: 32px; text-align: center;\">$otp</h1>
+            <p>This code will expire in 5 minutes.</p>
+            <p>If you didn't request this, please ignore this email.</p>
+        ";
 
             // EmailService never throws exceptions, always returns boolean
-            $mailSent = $emailService->sendEmail($email, $subject, $message, true);
+        $mailSent = $emailService->sendEmail($email, $subject, $message, true);
             
         } catch (Throwable $e) {
             // This should never happen since EmailService doesn't throw, but just in case
@@ -1940,19 +1940,19 @@ function verifySignupOtp($db) {
                     
                     if ($existingUser) {
                         $userId = $existingUser['id'];
-                        $checkEmailVerified = $db->prepare("SHOW COLUMNS FROM users LIKE 'is_email_verified'");
-                        $checkEmailVerified->execute();
-                        $hasEmailVerified = $checkEmailVerified->fetch();
-                        
-                        $checkIsActive = $db->prepare("SHOW COLUMNS FROM users LIKE 'is_active'");
-                        $checkIsActive->execute();
-                        $hasIsActive = $checkIsActive->fetch();
-                        
-                        if ($hasEmailVerified && $hasIsActive) {
-                            $activateStmt = $db->prepare("UPDATE users SET is_email_verified = 1, is_active = 1 WHERE id = ?");
+            $checkEmailVerified = $db->prepare("SHOW COLUMNS FROM users LIKE 'is_email_verified'");
+            $checkEmailVerified->execute();
+            $hasEmailVerified = $checkEmailVerified->fetch();
+            
+            $checkIsActive = $db->prepare("SHOW COLUMNS FROM users LIKE 'is_active'");
+            $checkIsActive->execute();
+            $hasIsActive = $checkIsActive->fetch();
+            
+            if ($hasEmailVerified && $hasIsActive) {
+                $activateStmt = $db->prepare("UPDATE users SET is_email_verified = 1, is_active = 1 WHERE id = ?");
                             $activateStmt->execute([$userId]);
                             error_log("✅ OTP VERIFICATION - Existing user activated after duplicate entry: $userId");
-                        } else {
+            } else {
                             error_log("✅ OTP VERIFICATION - User exists but table structure incomplete");
                         }
                     } else {
@@ -1975,7 +1975,7 @@ function verifySignupOtp($db) {
                 $updateStmt = $db->prepare("UPDATE signup_otps SET used = 1 WHERE id = ?");
                 $updateStmt->execute([$signupData['id']]);
                 error_log("✅ OTP VERIFICATION - OTP marked as used");
-            } catch (Exception $e) {
+        } catch (Exception $e) {
                 error_log("⚠️ OTP VERIFICATION - Failed to mark OTP as used: " . $e->getMessage());
                 // Continue anyway - user is already created
             }
@@ -2097,8 +2097,8 @@ function getCurrentUser($db) {
         }
         
         // Authenticate user
-        $authUser = AuthMiddleware::authenticate();
-        
+    $authUser = AuthMiddleware::authenticate();
+
         if (!$authUser || !isset($authUser->id)) {
             error_log("❌ GET CURRENT USER - Authentication failed");
             sendError("Authentication failed", [], 401);
@@ -2106,21 +2106,21 @@ function getCurrentUser($db) {
         }
 
         // Get user data
-        $stmt = $db->prepare("
-            SELECT id, name, email, phone, role, is_active, is_email_verified, created_at
-            FROM users WHERE id = ?
-        ");
-        $stmt->execute([$authUser->id]);
-        $user = $stmt->fetch();
+    $stmt = $db->prepare("
+        SELECT id, name, email, phone, role, is_active, is_email_verified, created_at
+        FROM users WHERE id = ?
+    ");
+    $stmt->execute([$authUser->id]);
+    $user = $stmt->fetch();
 
-        if (!$user) {
+    if (!$user) {
             error_log("❌ GET CURRENT USER - User not found: " . $authUser->id);
-            sendError("User not found", [], 404);
-            return;
-        }
+        sendError("User not found", [], 404);
+        return;
+    }
 
         error_log("✅ GET CURRENT USER - User retrieved: " . $user['email']);
-        sendSuccess("User profile retrieved successfully", ["user" => $user]);
+    sendSuccess("User profile retrieved successfully", ["user" => $user]);
         
     } catch (PDOException $e) {
         error_log("❌ GET CURRENT USER - Database error: " . $e->getMessage());

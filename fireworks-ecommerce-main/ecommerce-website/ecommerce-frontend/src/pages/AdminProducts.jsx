@@ -283,9 +283,12 @@ const AdminProducts = () => {
           stock: productData.stock || productData.countInStock || 0,
           images: productData.images || [],
           brand: productData.brand || "",
-          category: productData.category || "",
+          category: productData.category || productData.categoryName || productData.cakeFlavor || "",
           subCategory: productData.subCategory || productData.sub_category || "", // Handle both camelCase and snake_case
           menuOption: productData.menuOption || productData.menu_option || "", // Handle both camelCase and snake_case
+          // CRITICAL: Include menuCategory and selectedMenuFilter for dropdown display
+          menuCategory: productData.menuCategory || productData.menu_category || null,
+          selectedMenuFilter: productData.selectedMenuFilter || productData.menuCategory || productData.menu_category || null,
           description: productData.description || "",
           features: productData.features || "",
           specifications: productData.specifications || {},
@@ -303,6 +306,13 @@ const AdminProducts = () => {
           createdAt: productData.createdAt || productData.created_at,
           updatedAt: productData.updatedAt || productData.updated_at
         };
+        
+        console.log('🔍 AdminProducts: cleanedProductData includes:', {
+          menuCategory: cleanedProductData.menuCategory,
+          selectedMenuFilter: cleanedProductData.selectedMenuFilter,
+          subCategory: cleanedProductData.subCategory,
+          menuOption: cleanedProductData.menuOption
+        });
         
         setEditingProduct(cleanedProductData);
         setModalOpen(true);
