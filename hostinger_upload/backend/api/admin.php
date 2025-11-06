@@ -39,37 +39,55 @@ try {
     sendError("Database connection failed", [], 500);
 }
 
+// Start output buffering to prevent premature output
+ob_start();
+
 $method = $_SERVER["REQUEST_METHOD"];
-$requestUri = $_SERVER["REQUEST_URI"];
-$path = parse_url($requestUri, PHP_URL_PATH);
-$pathParts = explode("/", trim($path, "/"));
+$requestUri = $_SERVER["REQUEST_URI"] ?? "";
+$path = parse_url($requestUri, PHP_URL_PATH) ?? "";
+$pathParts = array_filter(explode("/", trim($path, "/")));
+$pathParts = array_values($pathParts); // Re-index array
+
+// Log for debugging
+error_log("🔍 Admin API - Full URI: $requestUri");
+error_log("🔍 Admin API - Path: $path");
+error_log("🔍 Admin API - Path Parts: " . json_encode($pathParts));
 
 // Handle both /api/admin and /api/php-backend/api/admin
+// Also handle /api/admin/dashboard and /backend/api/admin/dashboard
 if (isset($pathParts[1]) && $pathParts[1] === "php-backend" && isset($pathParts[2]) && $pathParts[2] === "api" && isset($pathParts[3]) && $pathParts[3] === "admin") {
     $endpoint = isset($pathParts[4]) ? $pathParts[4] : "";
-} else {
+} elseif (isset($pathParts[0]) && $pathParts[0] === "api" && isset($pathParts[1]) && $pathParts[1] === "admin") {
+    // Handle /api/admin/dashboard
     $endpoint = isset($pathParts[2]) ? $pathParts[2] : "";
+} elseif (isset($pathParts[0]) && $pathParts[0] === "backend" && isset($pathParts[1]) && $pathParts[1] === "api" && isset($pathParts[2]) && $pathParts[2] === "admin") {
+    // Handle /backend/api/admin/dashboard
+    $endpoint = isset($pathParts[3]) ? $pathParts[3] : "";
+} else {
+    // Fallback: try to find "admin" in path
+    $adminIndex = array_search("admin", $pathParts);
+    if ($adminIndex !== false && isset($pathParts[$adminIndex + 1])) {
+        $endpoint = $pathParts[$adminIndex + 1];
+    } else {
+        $endpoint = "";
+    }
 }
 
+error_log("🔍 Admin API - Extracted endpoint: '$endpoint'");
+
 try {
-    error_log("🔍 Admin API - Method: $method, Endpoint: $endpoint");
+    error_log("🔍 Admin API - Method: $method, Endpoint: '$endpoint'");
     
     switch ($endpoint) {
         case "":
-            if ($method === "GET") {
-                getDashboardStats($db);
-            }
-            break;
-
         case "dashboard":
-            if ($method === "GET") {
-                getDashboardStats($db);
-            }
-            break;
-
         case "stats":
             if ($method === "GET") {
+                ob_clean(); // Clear any output before sending response
                 getDashboardStats($db);
+            } else {
+                ob_clean();
+                sendError("Method not allowed", [], 405);
             }
             break;
 
@@ -183,9 +201,27 @@ try {
             break;
 
         default:
-            sendError("Endpoint not found", [], 404);
+            ob_clean(); // Clear any output before sending error
+            error_log("❌ Admin API - Endpoint not found: '$endpoint'");
+            sendError("Endpoint not found", [
+                'endpoint' => $endpoint,
+                'method' => $method,
+                'available_endpoints' => ['dashboard', 'stats', 'users', 'products', 'orders', 'banners', 'menu']
+            ], 404);
     }
 } catch (Exception $e) {
+    ob_clean(); // Clear any output before sending error
+    error_log("❌ Admin API - Exception: " . $e->getMessage());
+    error_log("❌ Admin API - Stack trace: " . $e->getTraceAsString());
+    sendError("Server error", [
+        'error' => $e->getMessage()
+    ], 500);
+} catch (Throwable $e) {
+    ob_clean(); // Clear any output before sending error
+    error_log("❌ Admin API - Fatal error: " . $e->getMessage());
+    sendError("Server error", [
+        'error' => 'An unexpected error occurred'
+    ], 500);
     error_log("❌❌❌ FATAL ERROR in admin.php:");
     error_log("Message: " . $e->getMessage());
     error_log("File: " . $e->getFile());
@@ -203,6 +239,9 @@ try {
  * Get dashboard statistics with enhanced error handling
  */
 function getDashboardStats($db) {
+    // Start output buffering for this function
+    ob_start();
+    
     try {
         error_log("🔍 Getting dashboard statistics");
         
@@ -297,6 +336,7 @@ function getDashboardStats($db) {
 
         error_log("✅ Dashboard stats retrieved successfully");
         
+        ob_clean(); // Clear any output before sending response
         sendSuccess("Dashboard statistics retrieved successfully", [
             "stats" => [
                 "totalUsers" => (int)$totalUsers,
@@ -314,7 +354,9 @@ function getDashboardStats($db) {
         ]);
         
     } catch (Exception $e) {
+        ob_clean(); // Clear any output before sending error response
         error_log("❌ getDashboardStats Error: " . $e->getMessage());
+        error_log("❌ getDashboardStats Stack trace: " . $e->getTraceAsString());
         
         // Return empty stats on error
         sendSuccess("Dashboard statistics retrieved successfully", [

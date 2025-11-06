@@ -330,21 +330,38 @@ const Checkout = () => {
         // Handle different response structures
         const orderData = response.data.data?.order || response.data.order || response.data.data || {};
         const orderId = orderData.id || orderData._id || response.data.orderId || response.data.data?.orderId;
+        // Use 6-digit order number if available (prioritize from response.data)
+        // This is the dynamically generated unique 6-digit order ID
+        const orderNumber = response.data.orderNumber || 
+                           response.data.displayOrderId || 
+                           orderData.order_number || 
+                           orderData.display_order_id ||
+                           null; // Don't fallback to orderId - we want the 6-digit number
         const totalPrice = orderData.total_price || orderData.totalPrice || total;
         const trackingNumber = orderData.tracking_number || response.data.trackingNumber || response.data.data?.trackingNumber;
 
         if (process.env.NODE_ENV === 'development') {
-          console.log('✅ Checkout: Extracted order data:', { orderId, totalPrice, trackingNumber });
+          console.log('✅ Checkout: Extracted order data:', { orderId, orderNumber, totalPrice, trackingNumber });
         }
 
         // Store order details in sessionStorage as backup
         const orderSuccessData = {
           orderId: orderId,
+          orderNumber: orderNumber, // 6-digit unique order ID for display (dynamically generated)
           total: totalPrice,
           trackingNumber: trackingNumber,
-          orderDetails: orderData,
+          orderDetails: {
+            ...orderData,
+            order_number: orderNumber, // Ensure order_number is in orderDetails too
+            display_order_id: orderNumber
+          },
           paymentStatus: 'pending'
         };
+        
+        // Log for debugging
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ Checkout: Order success data:', { orderId, orderNumber, orderData });
+        }
         sessionStorage.setItem('orderSuccessDetails', JSON.stringify(orderSuccessData));
 
         // Navigate to success page with order details
@@ -555,21 +572,38 @@ const Checkout = () => {
         // Handle different response structures
         const orderData = response.data.data?.order || response.data.order || response.data.data || {};
         const orderId = orderData.id || orderData._id || response.data.orderId || response.data.data?.orderId;
+        // Use 6-digit order number if available (prioritize from response.data)
+        // This is the dynamically generated unique 6-digit order ID
+        const orderNumber = response.data.orderNumber || 
+                           response.data.displayOrderId || 
+                           orderData.order_number || 
+                           orderData.display_order_id ||
+                           null; // Don't fallback to orderId - we want the 6-digit number
         const totalPrice = orderData.total_price || orderData.totalPrice || total;
         const trackingNumber = orderData.tracking_number || response.data.trackingNumber || response.data.data?.trackingNumber;
 
         if (process.env.NODE_ENV === 'development') {
-          console.log('✅ Checkout UPI: Extracted order data:', { orderId, totalPrice, trackingNumber });
+          console.log('✅ Checkout UPI: Extracted order data:', { orderId, orderNumber, totalPrice, trackingNumber });
         }
 
         // Store order details in sessionStorage as backup
         const orderSuccessData = {
           orderId: orderId,
+          orderNumber: orderNumber, // 6-digit unique order ID for display (dynamically generated)
           total: totalPrice,
           trackingNumber: trackingNumber,
-          orderDetails: orderData,
+          orderDetails: {
+            ...orderData,
+            order_number: orderNumber, // Ensure order_number is in orderDetails too
+            display_order_id: orderNumber
+          },
           paymentStatus: 'paid'
         };
+        
+        // Log for debugging
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ Checkout UPI: Order success data:', { orderId, orderNumber, orderData });
+        }
         sessionStorage.setItem('orderSuccessDetails', JSON.stringify(orderSuccessData));
 
         // Navigate to success page with order details

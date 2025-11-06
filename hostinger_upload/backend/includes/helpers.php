@@ -162,7 +162,7 @@ function generateRandomString($length = 32) {
  * Format: 6-digit unique order ID like Amazon/Flipkart (e.g., 243158, 876542)
  */
 function generateTrackingNumber() {
-    // Generate a unique 6-digit number
+    // Generate a unique 6-digit tracking number
     // Start from 100000 to ensure 6 digits
     $min = 100000;
     $max = 999999;
@@ -175,6 +175,101 @@ function generateTrackingNumber() {
     $uniqueNumber = ($microtime + $random) % 900000 + 100000;
 
     return (string)$uniqueNumber;
+}
+
+/**
+ * Generate unique 6-digit order ID
+ * Ensures uniqueness by checking database
+ * Generated once and never regenerated
+ * Always returns exactly 6 digits (100000-999999)
+ * Handles case where order_number column doesn't exist yet
+ */
+function generateUniqueOrderId($db) {
+    // First, check if order_number column exists
+    $columnExists = false;
+    try {
+        $checkColStmt = $db->query("SHOW COLUMNS FROM orders LIKE 'order_number'");
+        $columnExists = $checkColStmt && $checkColStmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        // Column doesn't exist, continue without it
+        $columnExists = false;
+    }
+    
+    $maxAttempts = 50; // Increased attempts for better uniqueness
+    $attempt = 0;
+    
+    do {
+        // Generate 6-digit number (100000 to 999999)
+        // Method 1: Use microtime + random for better uniqueness
+        $microtime = (int)(microtime(true) * 1000000); // Microseconds
+        $microtimePart = $microtime % 1000000; // Last 6 digits
+        
+        // Generate random component to ensure uniqueness
+        $randomPart = mt_rand(100000, 999999);
+        
+        // Combine microtime and random (XOR for better distribution)
+        $orderId = ($microtimePart ^ $randomPart) % 900000 + 100000;
+        
+        // Ensure it's exactly 6 digits (100000-999999)
+        if ($orderId < 100000 || $orderId > 999999) {
+            $orderId = mt_rand(100000, 999999);
+        }
+        
+        // Format as 6-digit string (ensure leading zeros if needed, though shouldn't happen)
+        $orderIdString = str_pad((string)$orderId, 6, '0', STR_PAD_LEFT);
+        
+        // Validate it's exactly 6 digits
+        if (strlen($orderIdString) !== 6 || !is_numeric($orderIdString)) {
+            $orderIdString = str_pad((string)mt_rand(100000, 999999), 6, '0', STR_PAD_LEFT);
+        }
+        
+        // Check if this order ID already exists in database
+        // Only check order_number column if it exists
+        if ($columnExists) {
+            try {
+                $checkStmt = $db->prepare("SELECT id FROM orders WHERE order_number = ? LIMIT 1");
+                $checkStmt->execute([$orderIdString]);
+                $exists = $checkStmt->fetch();
+            } catch (PDOException $e) {
+                // If column check fails, assume it doesn't exist and skip duplicate check
+                $exists = false;
+            }
+        } else {
+            // Column doesn't exist, so we can't check for duplicates
+            // Just return the generated ID (it will be unique enough with microtime + random)
+            error_log("✅ Generated 6-digit order ID (no column check): $orderIdString");
+            return $orderIdString;
+        }
+        
+        if (!$exists) {
+            error_log("✅ Generated unique 6-digit order ID: $orderIdString");
+            return $orderIdString;
+        }
+        
+        $attempt++;
+        
+        // If duplicate found, try again with different random component
+        if ($attempt < $maxAttempts) {
+            // Generate new random component for next attempt
+            $randomPart = mt_rand(100000, 999999);
+        }
+        
+    } while ($attempt < $maxAttempts);
+    
+    // If all attempts failed (highly unlikely), use timestamp-based fallback
+    error_log("⚠️ Max attempts reached, using fallback for order ID generation");
+    $timestamp = time();
+    $timestampPart = $timestamp % 1000000; // Last 6 digits of timestamp
+    $fallbackId = ($timestampPart % 900000) + 100000; // Ensure 6 digits
+    
+    // Final validation
+    if ($fallbackId < 100000 || $fallbackId > 999999) {
+        $fallbackId = mt_rand(100000, 999999);
+    }
+    
+    $finalOrderId = str_pad((string)$fallbackId, 6, '0', STR_PAD_LEFT);
+    error_log("✅ Generated fallback 6-digit order ID: $finalOrderId");
+    return $finalOrderId;
 }
 
 /**

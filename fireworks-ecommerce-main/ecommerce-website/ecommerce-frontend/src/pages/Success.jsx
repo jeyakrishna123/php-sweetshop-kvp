@@ -117,13 +117,68 @@ const Success = () => {
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
             <h3 className="font-semibold text-gray-900 mb-2">Order Details</h3>
             <p className="text-sm text-gray-600 mb-1">
-              <span className="font-medium">Order ID:</span> {orderDetails.orderId}
+              <span className="font-medium">Order ID:</span> {(() => {
+                // Prioritize 6-digit orderNumber from response
+                let orderNum = orderDetails.orderNumber || 
+                              orderDetails.orderDetails?.order_number || 
+                              orderDetails.orderDetails?.display_order_id ||
+                              orderDetails.displayOrderId;
+                
+                // If we have a number, ensure it's formatted as 6 digits
+                if (orderNum) {
+                  const numStr = String(orderNum).padStart(6, '0');
+                  // Only use if it's 6 digits, otherwise try to generate from orderId
+                  if (numStr.length === 6) {
+                    return numStr;
+                  }
+                }
+                
+                // If no valid 6-digit number, generate one from orderId for display
+                if (orderDetails.orderId) {
+                  const orderIdNum = parseInt(orderDetails.orderId) || 0;
+                  if (orderIdNum > 0) {
+                    // Generate consistent 6-digit number: (order_id * 12345) % 900000 + 100000
+                    const generated = ((orderIdNum * 12345) % 900000) + 100000;
+                    return String(generated).padStart(6, '0');
+                  }
+                }
+                
+                return 'N/A';
+              })()}
             </p>
             <p className="text-sm text-gray-600 mb-1">
               <span className="font-medium">Total Amount:</span> ₹{orderDetails.total?.toLocaleString()}
             </p>
             <p className="text-sm text-gray-600 mb-1">
-              <span className="font-medium">Date:</span> {new Date().toLocaleDateString()}
+              <span className="font-medium">Date:</span> {(() => {
+                try {
+                  const orderDate = orderDetails.orderDetails?.created_at || orderDetails.createdAt || new Date();
+                  let date = new Date(orderDate);
+                  
+                  // If date is invalid, try parsing with IST timezone
+                  if (isNaN(date.getTime())) {
+                    const dateStr = String(orderDate);
+                    if (dateStr && !dateStr.includes('Z') && !dateStr.includes('+')) {
+                      date = new Date(dateStr + '+05:30');
+                    } else {
+                      date = new Date(orderDate);
+                    }
+                  }
+                  
+                  if (isNaN(date.getTime())) {
+                    return new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
+                  }
+                  
+                  return date.toLocaleDateString('en-IN', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    timeZone: 'Asia/Kolkata'
+                  });
+                } catch (e) {
+                  return new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
+                }
+              })()}
             </p>
             {orderDetails.orderDetails?.paymentMethod && (
               <p className="text-sm text-gray-600">

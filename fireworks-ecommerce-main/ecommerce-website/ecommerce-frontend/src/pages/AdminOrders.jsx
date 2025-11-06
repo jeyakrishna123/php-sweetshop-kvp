@@ -79,13 +79,17 @@ const AdminOrders = () => {
           return {
             ...order,
             _id: order._id || order.id?.toString() || `temp-${index}`,
+            // Use 6-digit order number for display (prioritize order_number from backend)
+            // Only fallback to id if order_number is not available
+            orderNumber: order.order_number || order.display_order_id || order.orderNumber || null,
+            displayOrderId: order.display_order_id || order.order_number || order.orderNumber || null,
             // Map snake_case to camelCase for order summary with validation
             itemsPrice: !isNaN(parseFloat(order.items_price)) ? parseFloat(order.items_price) : 0,
             taxPrice: !isNaN(parseFloat(order.tax_price)) ? parseFloat(order.tax_price) : 0,
             shippingPrice: !isNaN(parseFloat(order.shipping_price)) ? parseFloat(order.shipping_price) : 0,
             totalPrice: !isNaN(parseFloat(order.total_price)) ? parseFloat(order.total_price) : 0,
             discountAmount: !isNaN(parseFloat(order.discount_amount)) ? parseFloat(order.discount_amount) : 0,
-            // Map date fields - CRITICAL FIX for date display
+            // Map date fields - CRITICAL FIX for date display with timezone
             createdAt: order.createdAt || order.created_at || order.orderDate || new Date().toISOString(),
             updatedAt: order.updatedAt || order.updated_at || order.createdAt || order.created_at || new Date().toISOString(),
             // Map customer information with fallbacks
@@ -477,9 +481,11 @@ const AdminOrders = () => {
       // Status filtering
       const matchesStatus = filterStatus === "all" || order.status === filterStatus;
 
-      // Search filtering
+      // Search filtering - include order number in search
       const matchesSearch = searchTerm === "" ||
         order._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (order.orderNumber && String(order.orderNumber).toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (order.displayOrderId && String(order.displayOrderId).toLowerCase().includes(searchTerm.toLowerCase())) ||
         order.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.userDetails?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.orderItems?.some(item => item.name?.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -807,18 +813,124 @@ const AdminOrders = () => {
                       #
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-gray-900">Order #{order._id?.slice(-8) || 'N/A'}</h3>
+                      <h3 className="text-xl font-bold text-gray-900">
+                        Order #{(() => {
+                          // Get order ID first (always available)
+                          const orderId = order._id || order.id;
+                          const orderIdNum = parseInt(orderId) || 0;
+                          
+                          // Check if we have a valid 6-digit order number from backend
+                          let orderNum = order.orderNumber || order.displayOrderId || order.order_number || order.display_order_id;
+                          
+                          // Validate: orderNum must be numeric, 6 digits, and NOT the same as order ID
+                          if (orderNum) {
+                            const numStr = String(orderNum).padStart(6, '0');
+                            const numValue = parseInt(numStr) || 0;
+                            
+                            // Only use if it's 6 digits AND not the same as order ID
+                            if (numStr.length === 6 && numValue !== orderIdNum && numValue >= 100000 && numValue <= 999999) {
+                              return numStr;
+                            }
+                          }
+                          
+                          // If no valid 6-digit number, generate one from order ID for display
+                          if (orderIdNum > 0) {
+                            // Generate consistent 6-digit number: (order_id * 12345) % 900000 + 100000
+                            let generated = ((orderIdNum * 12345) % 900000) + 100000;
+                            
+                            // Ensure it's within 6-digit range (100000-999999)
+                            if (generated > 999999) {
+                              generated = (generated % 900000) + 100000;
+                            }
+                            if (generated < 100000) {
+                              generated = generated + 100000;
+                            }
+                            
+                            return String(generated).padStart(6, '0');
+                          }
+                          
+                          return '000000';
+                        })()}
+                      </h3>
                       <div className="flex items-center space-x-3 mt-1">
                         <p className="text-sm text-gray-600 flex items-center">
                           <svg className="w-4 h-4 mr-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
                           <span className="font-medium">
-                            {new Date(order.createdAt).toLocaleDateString('en-IN', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric'
-                            })}
+                            {(() => {
+                              try {
+                                // Use created_at from database (MySQL datetime format: YYYY-MM-DD HH:MM:SS)
+                                const createdAt = order.created_at || order.createdAt || order.orderDate;
+                                if (!createdAt) return 'Invalid Date';
+                                
+                                // MySQL datetime format: "2025-11-06 14:47:00" (no timezone info)
+                                // CRITICAL: MySQL stores datetime in server timezone (likely IST)
+                                // We need to parse it as IST and then display it correctly
+                                
+                                let orderDate;
+                                
+                                // Check if it's already an ISO string with timezone
+                                if (createdAt.includes('T') && (createdAt.includes('Z') || createdAt.includes('+') || createdAt.includes('-'))) {
+                                  // ISO format with timezone - parse directly
+                                  orderDate = new Date(createdAt);
+                                } else {
+                                  // MySQL datetime format without timezone: "2025-11-06 14:47:00"
+                                  // Parse it as IST (Asia/Kolkata = UTC+5:30)
+                                  // The simplest approach: treat the MySQL datetime as IST and convert to UTC
+                                  const mysqlDateTime = createdAt.replace(' ', 'T');
+                                  const dateTimeParts = mysqlDateTime.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+                                  
+                                  if (dateTimeParts) {
+                                    const year = parseInt(dateTimeParts[1]);
+                                    const month = parseInt(dateTimeParts[2]) - 1; // JS months are 0-indexed
+                                    const day = parseInt(dateTimeParts[3]);
+                                    const hour = parseInt(dateTimeParts[4]);
+                                    const minute = parseInt(dateTimeParts[5]);
+                                    const second = parseInt(dateTimeParts[6]);
+                                    
+                                    // Create date assuming it's in IST
+                                    // IST = UTC+5:30, so to convert IST datetime to UTC, subtract 5:30
+                                    // Create as UTC first, then subtract the offset
+                                    const utcDate = new Date(Date.UTC(year, month, day, hour, minute, second));
+                                    // Subtract IST offset: 5 hours 30 minutes = 330 minutes
+                                    utcDate.setUTCMinutes(utcDate.getUTCMinutes() - 330);
+                                    
+                                    orderDate = utcDate;
+                                  } else {
+                                    // Fallback: try parsing directly (will use browser's local timezone)
+                                    orderDate = new Date(createdAt);
+                                  }
+                                }
+                                
+                                if (isNaN(orderDate.getTime())) {
+                                  return 'Invalid Date';
+                                }
+                                
+                                // Format: DD MMM YYYY • HH:MM AM/PM (Indian timezone)
+                                // Now convert UTC date to IST for display
+                                const dateStr = orderDate.toLocaleDateString('en-IN', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric',
+                                  timeZone: 'Asia/Kolkata'
+                                });
+                                
+                                const timeStr = orderDate.toLocaleTimeString('en-IN', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: true,
+                                  timeZone: 'Asia/Kolkata'
+                                });
+                                
+                                return `${dateStr} • ${timeStr}`;
+                              } catch (e) {
+                                if (process.env.NODE_ENV === 'development') {
+                                  console.error('Date parsing error:', e, order.created_at, order.createdAt);
+                                }
+                                return 'Invalid Date';
+                              }
+                            })()}
                           </span>
                         </p>
                         <span className="text-gray-400">•</span>
@@ -827,11 +939,43 @@ const AdminOrders = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                           <span className="font-medium">
-                            {new Date(order.createdAt).toLocaleTimeString('en-IN', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              hour12: true
-                            })}
+                            {(() => {
+                              try {
+                                const createdAt = order.created_at || order.createdAt;
+                                if (!createdAt) return 'N/A';
+                                
+                                // Parse MySQL datetime as IST
+                                let orderDate;
+                                if (createdAt.includes('T') || createdAt.includes('Z') || createdAt.includes('+')) {
+                                  orderDate = new Date(createdAt);
+                                } else {
+                                  const mysqlDateTime = createdAt.replace(' ', 'T');
+                                  const dateTimeParts = mysqlDateTime.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+                                  if (dateTimeParts) {
+                                    const year = parseInt(dateTimeParts[1]);
+                                    const month = parseInt(dateTimeParts[2]) - 1;
+                                    const day = parseInt(dateTimeParts[3]);
+                                    const hour = parseInt(dateTimeParts[4]);
+                                    const minute = parseInt(dateTimeParts[5]);
+                                    const second = parseInt(dateTimeParts[6]);
+                                    const utcDate = new Date(Date.UTC(year, month, day, hour, minute, second));
+                                    utcDate.setUTCMinutes(utcDate.getUTCMinutes() - 330); // IST offset
+                                    orderDate = utcDate;
+                                  } else {
+                                    orderDate = new Date(createdAt);
+                                  }
+                                }
+                                
+                                return orderDate.toLocaleTimeString('en-IN', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: true,
+                                  timeZone: 'Asia/Kolkata'
+                                });
+                              } catch (e) {
+                                return 'N/A';
+                              }
+                            })()}
                           </span>
                         </p>
                       </div>
