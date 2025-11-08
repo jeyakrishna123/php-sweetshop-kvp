@@ -9,7 +9,7 @@ import AdvancedSearch from "./AdvancedSearch";
 
 const Navbar = () => {
   const cartContext = useCart();
-  const { cartCount = 0 } = cartContext || {};
+  const { cartCount = 0, cartItemCount = 0 } = cartContext || {};
   const { wishlistCount = 0 } = useWishlist() || {};
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -387,9 +387,7 @@ const Navbar = () => {
                 )}
               </button>
 
-              {/* Cart - Mobile Optimized - COMMENTED OUT FOR MOBILE (footer has cart icon) */}
-              {/* Uncomment below if you need header cart icon on mobile */}
-              {/*
+              {/* Cart Icon - Visible on Desktop, Hidden on Mobile (footer has cart icon) */}
               <button 
                 onClick={(e) => {
                   e.preventDefault();
@@ -397,17 +395,17 @@ const Navbar = () => {
                   console.log('🛒 Cart button clicked');
                   handleNavigation("/cart");
                 }}
-                className="relative p-1.5 sm:p-2 text-gray-600 hover:text-red-600 transition-colors duration-200 group"
+                className="relative p-1.5 sm:p-2 text-gray-600 hover:text-red-600 transition-colors duration-200 group hidden md:block"
                 style={{ minHeight: '44px', minWidth: '44px' }}
+                title={`Cart (${cartItemCount} items)`}
               >
-                <Icon name="cart" className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform duration-200" />
-                {cartCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center text-[10px] sm:text-xs font-medium">
-                    {cartCount > 9 ? '9+' : cartCount}
+                <Icon name="shopping-cart" className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform duration-200" />
+                {cartItemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center text-[10px] sm:text-xs font-bold shadow-lg border-2 border-white ring-2 ring-red-600 animate-pulse">
+                    {cartItemCount > 99 ? '99+' : cartItemCount}
                   </span>
                 )}
               </button>
-              */}
 
               {/* User Menu - Mobile Optimized */}
               {user ? (

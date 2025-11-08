@@ -208,16 +208,31 @@ function register($db) {
         // Send email with error handling
         $mailSent = @mail($email, $subject, $message, $headers);
         
-        // Log the OTP for testing purposes (remove in production)
-        error_log("Signup OTP for " . $email . ": " . $otp);
+        // Log the OTP for testing purposes (only in development)
+        $isDevelopment = (defined('ENVIRONMENT') && ENVIRONMENT === 'development') || 
+                         (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') !== false);
+        if ($isDevelopment) {
+            error_log("🔧 DEVELOPMENT MODE - Signup OTP for " . $email . ": " . $otp);
+        }
 
         logActivity('User registered - OTP sent', ['user_id' => $userId, 'email' => $email]);
 
-        sendSuccess('Account created successfully. Please check your email for verification code.', [
+        // Prepare response - only include OTP in development mode
+        $responseData = [
             'user_id' => $userId,
-            'email' => $email,
-            'otp' => $otp // Remove this in production
-        ], 201);
+            'email' => $email
+        ];
+        
+        // Only include OTP in development/testing (check if in development mode)
+        $isDevelopment = (defined('ENVIRONMENT') && ENVIRONMENT === 'development') || 
+                         (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') !== false);
+        
+        if ($isDevelopment) {
+            $responseData['otp'] = $otp; // Only for development/testing
+            error_log("🔧 DEVELOPMENT MODE - OTP included in response: " . $otp);
+        }
+
+        sendSuccess('Account created successfully. Please check your email for verification code.', $responseData, 201);
     } else {
         sendError('Failed to create user', [], 500);
     }
@@ -238,9 +253,9 @@ function login($db) {
     $email = sanitizeInput($data['email']);
     $password = $data['password'];
 
-    // Get user by email (include password)
+    // Get user by email (include password and verification status)
     $stmt = $db->prepare("
-        SELECT id, name, email, password, role, is_active, locked_until
+        SELECT id, name, email, password, role, is_active, is_email_verified, locked_until
         FROM users WHERE email = ?
     ");
     $stmt->execute([$email]);
@@ -248,11 +263,15 @@ function login($db) {
 
     if (!$user) {
         sendError('Invalid credentials', ['error' => 'Email or password incorrect'], 401);
+        return;
     }
 
     // Check if account is locked
     if ($user['locked_until'] && strtotime($user['locked_until']) > time()) {
-        sendError('Account locked due to multiple failed login attempts', [], 403);
+        $lockTime = strtotime($user['locked_until']) - time();
+        $minutes = ceil($lockTime / 60);
+        sendError('Account locked due to multiple failed login attempts. Please try again in ' . $minutes . ' minute(s).', [], 403);
+        return;
     }
 
     // Verify password
@@ -267,11 +286,22 @@ function login($db) {
         $stmt->execute([$user['id']]);
 
         sendError('Invalid credentials', ['error' => 'Email or password incorrect'], 401);
+        return;
     }
 
     // Check if account is active
     if (!$user['is_active']) {
-        sendError('Account is deactivated', [], 403);
+        sendError('Account is deactivated. Please contact support.', [], 403);
+        return;
+    }
+
+    // Check if email is verified (required for login)
+    if (!$user['is_email_verified']) {
+        sendError('Email not verified. Please verify your email address before logging in. Check your inbox for the verification code.', [
+            'email_verified' => false,
+            'hint' => 'You can resend the verification code from the signup page'
+        ], 403);
+        return;
     }
 
     // Reset login attempts and update last login
@@ -282,9 +312,10 @@ function login($db) {
     ");
     $stmt->execute([$user['id']]);
 
-    // Remove password from response
+    // Remove sensitive data from response
     unset($user['password']);
     unset($user['locked_until']);
+    // Keep is_email_verified in response for frontend reference
 
     // Generate token
     $token = AuthMiddleware::generateToken($user);
@@ -413,8 +444,12 @@ function forgotPassword($db) {
         // Send email with error handling
         $mailSent = @mail($email, $subject, $message, $headers);
         
-        // Log the OTP for testing purposes (remove in production)
-        error_log("OTP for " . $email . ": " . $otp);
+        // Log the OTP for testing purposes (only in development)
+        $isDevelopment = (defined('ENVIRONMENT') && ENVIRONMENT === 'development') || 
+                         (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') !== false);
+        if ($isDevelopment) {
+            error_log("🔧 DEVELOPMENT MODE - Password reset OTP for " . $email . ": " . $otp);
+        }
 
         logActivity('Password reset OTP sent', ['user_id' => $user['id'], 'email' => $email]);
     }
@@ -477,8 +512,10 @@ function resetPassword($db) {
     $otp = sanitizeInput($data['otp']);
     $newPassword = $data['newPassword'];
 
-    if (strlen($newPassword) < 6) {
-        sendError('Password must be at least 6 characters', [], 400);
+    // Password validation - must match signup requirements (8 characters minimum)
+    if (strlen($newPassword) < 8) {
+        sendError('Password must be at least 8 characters', ['password' => 'Too short'], 400);
+        return;
     }
 
     // Verify OTP again

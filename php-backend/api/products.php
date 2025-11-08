@@ -656,6 +656,7 @@ function updateProduct($db, $id) {
     // Build update query dynamically based on provided fields
     $fields = [];
     $params = [];
+    $nameChanged = false;
 
     $allowedFields = [
         'name', 'description', 'price', 'original_price', 'discount_percentage',
@@ -665,9 +666,39 @@ function updateProduct($db, $id) {
 
     foreach ($allowedFields as $field) {
         if (isset($data[$field])) {
+            $value = sanitizeInput($data[$field]);
+            
+            // Validate numeric fields
+            if (in_array($field, ['price', 'original_price', 'discount_percentage', 'stock', 'weight'])) {
+                $numericValue = is_numeric($value) ? floatval($value) : null;
+                if ($numericValue === null && $value !== '' && $value !== null) {
+                    sendError("Invalid value for $field. Must be a number.", [], 400);
+                    return;
+                }
+                // Prevent negative values for price and stock
+                if (in_array($field, ['price', 'original_price', 'stock']) && $numericValue !== null && $numericValue < 0) {
+                    sendError("$field cannot be negative.", [], 400);
+                    return;
+                }
+                $value = $numericValue;
+            }
+            
             $fields[] = "$field = ?";
-            $params[] = sanitizeInput($data[$field]);
+            $params[] = $value;
+            
+            // Track if name changed for slug regeneration
+            if ($field === 'name' && $value !== $existingProduct['name']) {
+                $nameChanged = true;
+            }
         }
+    }
+
+    // Regenerate slug if name changed
+    if ($nameChanged) {
+        $newSlug = generateSlug($data['name']);
+        $fields[] = "slug = ?";
+        $params[] = $newSlug;
+        error_log("🔄 UPDATE PRODUCT - Name changed, regenerating slug: " . $newSlug);
     }
 
     // Handle featured field - both isFeatured and isBestseller should set featured = 1
@@ -701,16 +732,39 @@ function updateProduct($db, $id) {
 
     if (empty($fields)) {
         sendError('No fields to update', [], 400);
+        return;
     }
+
+    // Always update the updated_at timestamp
+    $fields[] = "updated_at = NOW()";
 
     $params[] = $id;
     $sql = "UPDATE products SET " . implode(', ', $fields) . " WHERE id = ?";
 
-    $stmt = $db->prepare($sql);
-    if ($stmt->execute($params)) {
-        sendSuccess('Product updated successfully');
-    } else {
-        sendError('Failed to update product', [], 500);
+    error_log("🔄 UPDATE PRODUCT - SQL: " . $sql);
+    error_log("🔄 UPDATE PRODUCT - Params: " . json_encode($params));
+
+    try {
+        $stmt = $db->prepare($sql);
+        if ($stmt->execute($params)) {
+            $rowsAffected = $stmt->rowCount();
+            error_log("✅ UPDATE PRODUCT - Product updated successfully. Rows affected: " . $rowsAffected);
+            sendSuccess('Product updated successfully', ['rows_affected' => $rowsAffected]);
+        } else {
+            $errorInfo = $stmt->errorInfo();
+            error_log("❌ UPDATE PRODUCT - Execute failed: " . json_encode($errorInfo));
+            sendError('Failed to update product: ' . ($errorInfo[2] ?? 'Unknown database error'), [
+                'code' => $errorInfo[0] ?? 'UNKNOWN',
+                'sql_state' => $errorInfo[0] ?? null
+            ], 500);
+        }
+    } catch (PDOException $e) {
+        error_log("❌ UPDATE PRODUCT - PDO Exception: " . $e->getMessage());
+        error_log("❌ UPDATE PRODUCT - Error Code: " . $e->getCode());
+        sendError('Database error: ' . $e->getMessage(), [
+            'code' => $e->getCode(),
+            'hint' => 'Check if all field values are valid'
+        ], 500);
     }
 }
 
@@ -736,17 +790,76 @@ function deleteProduct($db, $id) {
         return;
     }
 
-    // HARD DELETE - Permanently remove from database
-    $stmt = $db->prepare("DELETE FROM products WHERE id = ?");
+    // Check for foreign key constraints (e.g., orders referencing this product)
+    $hasOrders = false;
+    $orderCount = 0;
+    try {
+        // Check if order_items table exists and has references
+        $orderCheckStmt = $db->prepare("SELECT COUNT(*) as count FROM order_items WHERE product_id = ?");
+        $orderCheckStmt->execute([$id]);
+        $orderResult = $orderCheckStmt->fetch();
+        $orderCount = $orderResult ? (int)$orderResult['count'] : 0;
+        $hasOrders = $orderCount > 0;
+        
+        if ($hasOrders) {
+            error_log("⚠️ DELETE PRODUCT - Product has $orderCount order items. Proceeding with deletion.");
+        }
+    } catch (Exception $e) {
+        // If order_items table doesn't exist or query fails, log and continue
+        error_log("⚠️ DELETE PRODUCT - Could not check order_items: " . $e->getMessage());
+    }
 
-    if ($stmt->execute([$id])) {
-        sendSuccess('Product deleted successfully', [
-            'id' => $id,
-            'name' => $product['name'],
-            'status' => 'deleted'
-        ]);
-    } else {
-        sendError('Failed to delete product', [], 500);
+    // HARD DELETE - Permanently remove from database
+    try {
+        $stmt = $db->prepare("DELETE FROM products WHERE id = ?");
+        
+        if ($stmt->execute([$id])) {
+            $deletedRows = $stmt->rowCount();
+            error_log("✅ DELETE PRODUCT - Product deleted successfully. Rows affected: " . $deletedRows);
+            
+            sendSuccess('Product deleted successfully', [
+                'id' => $id,
+                'name' => $product['name'],
+                'status' => 'deleted',
+                'rows_affected' => $deletedRows,
+                'had_orders' => $hasOrders,
+                'order_count' => $orderCount
+            ]);
+        } else {
+            $errorInfo = $stmt->errorInfo();
+            error_log("❌ DELETE PRODUCT - Execute failed");
+            error_log("❌ DELETE PRODUCT - Error Code: " . ($errorInfo[0] ?? 'N/A'));
+            error_log("❌ DELETE PRODUCT - SQL State: " . ($errorInfo[0] ?? 'N/A'));
+            error_log("❌ DELETE PRODUCT - Error Message: " . ($errorInfo[2] ?? 'Unknown error'));
+            
+            // Provide user-friendly error message
+            $errorMessage = 'Failed to delete product';
+            if (isset($errorInfo[2])) {
+                if (strpos($errorInfo[2], 'foreign key') !== false || strpos($errorInfo[2], 'constraint') !== false) {
+                    $errorMessage = 'Cannot delete product: It is referenced in existing orders. Consider deactivating the product instead.';
+                } else {
+                    $errorMessage = 'Failed to delete product: ' . $errorInfo[2];
+                }
+            }
+            
+            sendError($errorMessage, [
+                'code' => $errorInfo[0] ?? 'UNKNOWN',
+                'sql_state' => $errorInfo[0] ?? null
+            ], 500);
+        }
+    } catch (PDOException $e) {
+        error_log("❌ DELETE PRODUCT - PDO Exception: " . $e->getMessage());
+        error_log("❌ DELETE PRODUCT - Error Code: " . $e->getCode());
+        
+        $errorMessage = 'Database error: ' . $e->getMessage();
+        if (strpos($e->getMessage(), 'foreign key') !== false || strpos($e->getMessage(), 'constraint') !== false) {
+            $errorMessage = 'Cannot delete product: It is referenced in existing orders. Consider deactivating the product instead.';
+        }
+        
+        sendError($errorMessage, [
+            'code' => $e->getCode(),
+            'hint' => 'Check if product is referenced in other tables'
+        ], 500);
     }
 }
 
