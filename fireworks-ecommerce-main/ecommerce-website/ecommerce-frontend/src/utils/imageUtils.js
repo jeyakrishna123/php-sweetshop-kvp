@@ -1,20 +1,63 @@
+// Helper function to detect base64 images (improved to catch all cases)
+const isBase64Image = (str) => {
+  if (!str || typeof str !== 'string') return false;
+  
+  // Check for data URI format anywhere in string (not just at start)
+  if (str.includes('data:image/') || str.includes(';base64,')) return true;
+  
+  // Check for base64 pattern even if it has path prefixes
+  // Look for the base64 data after path prefixes like /uploads/products/
+  if (str.includes('/uploads/') && str.includes('data:image/')) return true;
+  if (str.includes('/backend/uploads/') && str.includes('data:image/')) return true;
+  
+  // Check for raw base64 string (long string matching base64 pattern)
+  // Base64 images are typically >100 characters and match the pattern
+  if (str.length > 100 && /^[A-Za-z0-9+\/]+=*$/.test(str)) {
+    // Only treat as base64 if it doesn't look like a file path or URL
+    if (!str.includes('/') && !str.includes('\\') && !str.includes('http')) {
+      return true;
+    }
+  }
+  
+  // Check for base64 pattern in strings with path prefixes
+  // e.g., /uploads/products/data:image/webp;base64,...
+  if (str.length > 200 && /data:image\/[^;]+;base64,/.test(str)) {
+    return true;
+  }
+  
+  return false;
+};
+
 // Utility function to construct proper image URLs with CORS fallback
 export const getImageUrl = (imagePath) => {
   if (!imagePath) return '';
-  
+
+  // CRITICAL: Never convert base64 images to URLs - return null to prevent 414 errors
+  if (isBase64Image(imagePath)) {
+    console.error('❌ getImageUrl: Base64 image detected, returning null to prevent 414 error');
+    return null; // Return null instead of base64 to prevent 414 errors
+  }
+
+  // Additional safety: if string contains base64 patterns, don't construct URL
+  if (typeof imagePath === 'string' && (imagePath.includes('base64') || (imagePath.length > 500 && !imagePath.includes('.')))) {
+    console.error('❌ getImageUrl: Suspicious image string detected, returning null:', imagePath.substring(0, 100));
+    return null;
+  }
+
   // If it's already a full URL, return as is
   if (imagePath.startsWith('http')) {
     return imagePath;
   }
-  
+
   // For relative paths, use the Vite proxy (CORS-friendly)
   // Vite will proxy /uploads requests to the backend
   if (imagePath.startsWith('/uploads/')) {
     return imagePath; // Vite proxy will handle this
   }
-  
+
   // For other paths, construct the full URL
-  const backendUrl = process.env.NODE_ENV === 'production' ? 'https://skbakers.com' : 'http://localhost:8000';
+  // Use import.meta.env for Vite builds
+  const backendUrl = import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000';
   return `${backendUrl}${imagePath}`;
 };
 

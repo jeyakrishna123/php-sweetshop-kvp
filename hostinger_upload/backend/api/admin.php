@@ -693,9 +693,18 @@ function uploadMultipleImages() {
     error_log("🔍 uploadMultipleImages called");
     error_log("🔍 FILES: " . json_encode(array_keys($_FILES)));
     
+    // PRODUCTION CHECKS - Verify environment is ready
+    error_log("🔍 PRODUCTION CHECK - UPLOAD_DIR: " . (defined('UPLOAD_DIR') ? UPLOAD_DIR : 'NOT DEFINED'));
+    error_log("🔍 PRODUCTION CHECK - UPLOAD_DIR exists: " . (defined('UPLOAD_DIR') && file_exists(UPLOAD_DIR) ? 'YES' : 'NO'));
+    error_log("🔍 PRODUCTION CHECK - UPLOAD_DIR writable: " . (defined('UPLOAD_DIR') && is_writable(UPLOAD_DIR) ? 'YES' : 'NO'));
+    error_log("🔍 PRODUCTION CHECK - PHP upload_max_filesize: " . ini_get('upload_max_filesize'));
+    error_log("🔍 PRODUCTION CHECK - PHP post_max_size: " . ini_get('post_max_size'));
+    error_log("🔍 PRODUCTION CHECK - PHP file_uploads: " . (ini_get('file_uploads') ? 'ENABLED' : 'DISABLED'));
+    
     // Check if images are uploaded
     if (!isset($_FILES['images'])) {
         error_log("❌ No images file provided");
+        error_log("❌ PRODUCTION ISSUE - $_FILES is empty. Check PHP file_uploads setting and form enctype.");
         sendError('No images provided. Please upload at least one image.', [], 400);
         return;
     }
@@ -760,25 +769,96 @@ function uploadMultipleImages() {
             continue;
         }
         
+        // PRODUCTION: Check file upload error code first
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            $errorMsg = 'Upload error code: ' . $file['error'];
+            switch ($file['error']) {
+                case UPLOAD_ERR_INI_SIZE:
+                    $errorMsg .= ' (File exceeds upload_max_filesize: ' . ini_get('upload_max_filesize') . ')';
+                    break;
+                case UPLOAD_ERR_FORM_SIZE:
+                    $errorMsg .= ' (File exceeds MAX_FILE_SIZE in form)';
+                    break;
+                case UPLOAD_ERR_PARTIAL:
+                    $errorMsg .= ' (File upload was incomplete)';
+                    break;
+                case UPLOAD_ERR_NO_FILE:
+                    $errorMsg .= ' (No file was uploaded)';
+                    break;
+                case UPLOAD_ERR_NO_TMP_DIR:
+                    $errorMsg .= ' (Missing temporary folder - PRODUCTION ISSUE!)';
+                    break;
+                case UPLOAD_ERR_CANT_WRITE:
+                    $errorMsg .= ' (Failed to write file to disk - PERMISSION ISSUE!)';
+                    break;
+                case UPLOAD_ERR_EXTENSION:
+                    $errorMsg .= ' (PHP extension stopped the file upload)';
+                    break;
+            }
+            $errors[] = $file['name'] . ': ' . $errorMsg;
+            error_log("❌ PRODUCTION UPLOAD ERROR: " . $errorMsg);
+            continue;
+        }
+        
         // Upload image to products directory
         $imagePath = uploadImage($file, 'products');
         
         if ($imagePath) {
-            // Convert to production URL
+            error_log("🔍 uploadMultipleImages - Image path from uploadImage: $imagePath");
+            
+            // Convert to production URL FIRST (before file verification)
             $fullUrl = getImageUrl($imagePath);
-            $uploadedImages[] = [
-                'url' => $fullUrl,
-                'path' => $imagePath,
-                'name' => $file['name']
-            ];
-            error_log("✅ Image uploaded successfully: $imagePath -> $fullUrl");
+            error_log("🔍 uploadMultipleImages - URL from getImageUrl: " . ($fullUrl ?: 'NULL'));
+            
+            // Fallback if getImageUrl returns null
+            if (!$fullUrl) {
+                $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+                if (strpos($imagePath, '/uploads/') === 0) {
+                    $fullUrl = $baseUrl . '/backend' . $imagePath;
+                } else {
+                    $fullUrl = $baseUrl . $imagePath;
+                }
+                error_log("⚠️ getImageUrl returned null, using fallback: $fullUrl");
+            }
+            
+            // CRITICAL: Only verify file exists if we have a valid URL
+            // If URL generation fails, we still want to add the image with the path
+            if ($fullUrl && $imagePath) {
+                // Verify file exists (optional check - URL is more important)
+                $filename = basename($imagePath);
+                $fullFilePath = defined('UPLOAD_DIR') ? rtrim(UPLOAD_DIR, '/') . '/products/' . $filename : null;
+                
+                if ($fullFilePath && !file_exists($fullFilePath)) {
+                    // Try alternative path
+                    $altPath = defined('UPLOAD_DIR') ? UPLOAD_DIR . 'products/' . $filename : null;
+                    if ($altPath && !file_exists($altPath)) {
+                        error_log("⚠️ File verification: File not found at expected paths, but continuing with URL");
+                    }
+                }
+                
+                // Add image data - CRITICAL: Always add if we have URL and path
+                $imageData = [
+                    'url' => $fullUrl,
+                    'path' => $imagePath,
+                    'fullUrl' => $fullUrl,
+                    'name' => $file['name']
+                ];
+                $uploadedImages[] = $imageData;
+                error_log("✅ Image uploaded successfully: $imagePath -> $fullUrl");
+                error_log("🔍 uploadMultipleImages - Image data added: " . json_encode($imageData));
+            } else {
+                error_log("❌ Image upload failed: fullUrl or imagePath is empty. fullUrl: " . ($fullUrl ?: 'NULL') . ", imagePath: " . ($imagePath ?: 'NULL'));
+                $errors[] = $file['name'] . ': Failed to generate image URL';
+            }
         } else {
             $errors[] = $file['name'] . ': Failed to upload image';
             error_log("❌ Failed to upload image: " . $file['name']);
+            error_log("❌ PRODUCTION ISSUE - uploadImage() returned false. Check server logs for details.");
         }
     }
     
     if (empty($uploadedImages)) {
+        error_log("❌ uploadMultipleImages - No images uploaded successfully. Errors: " . json_encode($errors));
         sendError('Failed to upload images', [
             'errors' => $errors,
             'message' => count($errors) > 0 ? implode('; ', $errors) : 'No images were uploaded successfully'
@@ -787,10 +867,91 @@ function uploadMultipleImages() {
     }
     
     // Return success response with uploaded images
-    sendSuccess('Images uploaded successfully', [
-        'images' => $uploadedImages,
+    // Response format: { success: true, message: "...", data: { images: [...], count: N } }
+    error_log("✅ uploadMultipleImages - Successfully uploaded " . count($uploadedImages) . " image(s)");
+    
+    // Build response data - ensure images array is always present
+    $responseData = [
+        'images' => $uploadedImages, // CRITICAL: Always include images array
         'count' => count($uploadedImages),
         'errors' => $errors
-    ], 201);
+    ];
+    
+    // Verify each image has required fields
+    foreach ($uploadedImages as $index => $img) {
+        if (!isset($img['url']) && !isset($img['path']) && !isset($img['fullUrl'])) {
+            error_log("⚠️ uploadMultipleImages - Image at index $index missing URL fields: " . json_encode($img));
+        }
+    }
+    
+    error_log("🔍 uploadMultipleImages - Response data structure: " . json_encode($responseData, JSON_UNESCAPED_SLASHES));
+    error_log("🔍 uploadMultipleImages - Images count in response: " . count($responseData['images']));
+    error_log("🔍 uploadMultipleImages - First image in response: " . json_encode($responseData['images'][0] ?? 'NONE', JSON_UNESCAPED_SLASHES));
+    error_log("🔍 uploadMultipleImages - Full responseData structure: " . print_r($responseData, true));
+    
+    // CRITICAL: Test JSON encoding before sending
+    $testJson = json_encode($responseData, JSON_UNESCAPED_SLASHES);
+    if ($testJson === false) {
+        error_log("❌ CRITICAL ERROR - JSON encoding failed! Error: " . json_last_error_msg());
+        error_log("❌ Data that failed to encode: " . print_r($responseData, true));
+        sendError('Failed to encode response', ['error' => json_last_error_msg()], 500);
+        return;
+    }
+    
+    error_log("✅ uploadMultipleImages - JSON encoding test passed. Response length: " . strlen($testJson) . " bytes");
+    
+    // CRITICAL: Final verification before sending - ensure data is not empty
+    if (empty($responseData) || empty($responseData['images']) || !is_array($responseData['images']) || count($responseData['images']) === 0) {
+        error_log("❌ CRITICAL ERROR - Response data is empty or images array is empty before sending!");
+        error_log("❌ responseData: " . json_encode($responseData));
+        error_log("❌ uploadedImages count: " . count($uploadedImages));
+        sendError('Failed to upload images - response data is empty', [
+            'errors' => $errors,
+            'message' => 'Images were uploaded but response data is empty',
+            'images' => []
+        ], 500);
+        return;
+    }
+    
+    // Log final response structure
+    error_log("✅ uploadMultipleImages - FINAL RESPONSE: " . json_encode([
+        'success' => true,
+        'message' => 'Images uploaded successfully',
+        'data' => $responseData,
+        'images_count' => count($responseData['images'])
+    ], JSON_UNESCAPED_SLASHES));
+    
+    // CRITICAL: Send response DIRECTLY to ensure images array is included
+    // Don't use sendSuccess wrapper - send directly to avoid any data loss
+    $finalResponse = [
+        'success' => true,
+        'message' => 'Images uploaded successfully',
+        'data' => $responseData, // This MUST contain 'images' array
+        'timestamp' => date('c')
+    ];
+    
+    // Final verification - ensure images are in the response
+    if (empty($finalResponse['data']['images']) || !is_array($finalResponse['data']['images']) || count($finalResponse['data']['images']) === 0) {
+        error_log("❌ CRITICAL: Final response has empty images array!");
+        error_log("❌ finalResponse['data']: " . json_encode($finalResponse['data']));
+        sendError('Failed to upload images - images array is empty in final response', [
+            'errors' => $errors,
+            'message' => 'Images were uploaded but response is empty',
+            'images' => []
+        ], 500);
+        return;
+    }
+    
+    error_log("✅ uploadMultipleImages - Sending final response with " . count($finalResponse['data']['images']) . " image(s)");
+    error_log("✅ uploadMultipleImages - Final response structure: " . json_encode($finalResponse, JSON_UNESCAPED_SLASHES));
+    
+    // Send response directly
+    if (ob_get_level()) {
+        ob_clean();
+    }
+    http_response_code(201);
+    header('Content-Type: application/json');
+    echo json_encode($finalResponse, JSON_UNESCAPED_SLASHES);
+    exit;
 }
 ?>

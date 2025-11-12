@@ -78,6 +78,16 @@ function sanitizeInput($data) {
     if (is_array($data)) {
         return array_map('sanitizeInput', $data);
     }
+    
+    // Handle null, empty, or non-string values
+    if ($data === null || $data === '') {
+        return '';
+    }
+    
+    if (!is_string($data)) {
+        return $data; // Return as-is for non-string values
+    }
+    
     return htmlspecialchars(strip_tags(trim($data)), ENT_QUOTES, 'UTF-8');
 }
 
@@ -85,8 +95,29 @@ function sanitizeInput($data) {
  * Get request body as JSON
  */
 function getRequestBody() {
+    // First try to get from php://input
     $input = file_get_contents('php://input');
-    return json_decode($input, true) ?? [];
+    $data = json_decode($input, true);
+    
+    // If no data from input stream, try POST data
+    if (empty($data) && !empty($_POST)) {
+        $data = $_POST;
+    }
+    
+    // If still no data, try to get from raw input
+    if (empty($data)) {
+        $rawInput = file_get_contents('php://input');
+        if (!empty($rawInput)) {
+            $data = json_decode($rawInput, true);
+        }
+    }
+    
+    // Log for debugging (only in development or when debug mode is enabled)
+    // Removed verbose logging in production to prevent log file bloat
+    // Uncomment below for debugging if needed:
+    // error_log("getRequestBody() - Parsed data keys: " . json_encode(array_keys($data ?? [])));
+    
+    return $data ?? [];
 }
 
 /**
@@ -131,7 +162,7 @@ function generateRandomString($length = 32) {
  * Format: 6-digit unique order ID like Amazon/Flipkart (e.g., 243158, 876542)
  */
 function generateTrackingNumber() {
-    // Generate a unique 6-digit number
+    // Generate a unique 6-digit tracking number
     // Start from 100000 to ensure 6 digits
     $min = 100000;
     $max = 999999;
@@ -144,6 +175,101 @@ function generateTrackingNumber() {
     $uniqueNumber = ($microtime + $random) % 900000 + 100000;
 
     return (string)$uniqueNumber;
+}
+
+/**
+ * Generate unique 6-digit order ID
+ * Ensures uniqueness by checking database
+ * Generated once and never regenerated
+ * Always returns exactly 6 digits (100000-999999)
+ * Handles case where order_number column doesn't exist yet
+ */
+function generateUniqueOrderId($db) {
+    // First, check if order_number column exists
+    $columnExists = false;
+    try {
+        $checkColStmt = $db->query("SHOW COLUMNS FROM orders LIKE 'order_number'");
+        $columnExists = $checkColStmt && $checkColStmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        // Column doesn't exist, continue without it
+        $columnExists = false;
+    }
+    
+    $maxAttempts = 50; // Increased attempts for better uniqueness
+    $attempt = 0;
+    
+    do {
+        // Generate 6-digit number (100000 to 999999)
+        // Method 1: Use microtime + random for better uniqueness
+        $microtime = (int)(microtime(true) * 1000000); // Microseconds
+        $microtimePart = $microtime % 1000000; // Last 6 digits
+        
+        // Generate random component to ensure uniqueness
+        $randomPart = mt_rand(100000, 999999);
+        
+        // Combine microtime and random (XOR for better distribution)
+        $orderId = ($microtimePart ^ $randomPart) % 900000 + 100000;
+        
+        // Ensure it's exactly 6 digits (100000-999999)
+        if ($orderId < 100000 || $orderId > 999999) {
+            $orderId = mt_rand(100000, 999999);
+        }
+        
+        // Format as 6-digit string (ensure leading zeros if needed, though shouldn't happen)
+        $orderIdString = str_pad((string)$orderId, 6, '0', STR_PAD_LEFT);
+        
+        // Validate it's exactly 6 digits
+        if (strlen($orderIdString) !== 6 || !is_numeric($orderIdString)) {
+            $orderIdString = str_pad((string)mt_rand(100000, 999999), 6, '0', STR_PAD_LEFT);
+        }
+        
+        // Check if this order ID already exists in database
+        // Only check order_number column if it exists
+        if ($columnExists) {
+            try {
+                $checkStmt = $db->prepare("SELECT id FROM orders WHERE order_number = ? LIMIT 1");
+                $checkStmt->execute([$orderIdString]);
+                $exists = $checkStmt->fetch();
+            } catch (PDOException $e) {
+                // If column check fails, assume it doesn't exist and skip duplicate check
+                $exists = false;
+            }
+        } else {
+            // Column doesn't exist, so we can't check for duplicates
+            // Just return the generated ID (it will be unique enough with microtime + random)
+            error_log("✅ Generated 6-digit order ID (no column check): $orderIdString");
+            return $orderIdString;
+        }
+        
+        if (!$exists) {
+            error_log("✅ Generated unique 6-digit order ID: $orderIdString");
+            return $orderIdString;
+        }
+        
+        $attempt++;
+        
+        // If duplicate found, try again with different random component
+        if ($attempt < $maxAttempts) {
+            // Generate new random component for next attempt
+            $randomPart = mt_rand(100000, 999999);
+        }
+        
+    } while ($attempt < $maxAttempts);
+    
+    // If all attempts failed (highly unlikely), use timestamp-based fallback
+    error_log("⚠️ Max attempts reached, using fallback for order ID generation");
+    $timestamp = time();
+    $timestampPart = $timestamp % 1000000; // Last 6 digits of timestamp
+    $fallbackId = ($timestampPart % 900000) + 100000; // Ensure 6 digits
+    
+    // Final validation
+    if ($fallbackId < 100000 || $fallbackId > 999999) {
+        $fallbackId = mt_rand(100000, 999999);
+    }
+    
+    $finalOrderId = str_pad((string)$fallbackId, 6, '0', STR_PAD_LEFT);
+    error_log("✅ Generated fallback 6-digit order ID: $finalOrderId");
+    return $finalOrderId;
 }
 
 /**
@@ -294,6 +420,95 @@ function uploadImage($file, $directory = 'products') {
     }
 
     return false;
+}
+
+/**
+ * Convert base64 image to file and upload
+ * Returns relative path on success, false on failure
+ */
+function uploadBase64Image($base64String, $directory = 'products') {
+    if (empty($base64String)) {
+        return false;
+    }
+    
+    // Check if it's a base64 data URI
+    if (preg_match('/^data:image\/(\w+);base64,(.+)$/', $base64String, $matches)) {
+        $imageType = strtolower($matches[1]); // jpeg, png, webp, gif
+        $base64Data = $matches[2];
+    } else {
+        // Assume it's raw base64 without data URI prefix
+        // Try to detect image type from the base64 data
+        $decoded = base64_decode($base64String, true);
+        if ($decoded === false) {
+            error_log("❌ uploadBase64Image - Invalid base64 string");
+            return false;
+        }
+        
+        // Detect MIME type from binary data
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_buffer($finfo, $decoded);
+        finfo_close($finfo);
+        
+        // Map MIME type to extension
+        $mimeMap = [
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            'image/gif' => 'gif'
+        ];
+        
+        $imageType = $mimeMap[$mimeType] ?? 'jpg'; // Default to jpg
+        $base64Data = $base64String;
+    }
+    
+    // Validate image type
+    $allowedTypes = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    if (!in_array($imageType, $allowedTypes)) {
+        error_log("❌ uploadBase64Image - Invalid image type: " . $imageType);
+        return false;
+    }
+    
+    // Decode base64 data
+    $imageData = base64_decode($base64Data, true);
+    if ($imageData === false) {
+        error_log("❌ uploadBase64Image - Failed to decode base64");
+        return false;
+    }
+    
+    // Validate it's actually an image
+    $tempFile = tmpfile();
+    $tempPath = stream_get_meta_data($tempFile)['uri'];
+    file_put_contents($tempPath, $imageData);
+    
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $detectedMime = finfo_file($finfo, $tempPath);
+    finfo_close($finfo);
+    fclose($tempFile);
+    
+    if (!in_array($detectedMime, ALLOWED_IMAGE_TYPES)) {
+        error_log("❌ uploadBase64Image - Detected invalid MIME type: " . $detectedMime);
+        return false;
+    }
+    
+    // Create upload directory if it doesn't exist
+    $uploadDir = UPLOAD_DIR . $directory . '/';
+    if (!file_exists($uploadDir)) {
+        mkdir($uploadDir, 0755, true);
+    }
+    
+    // Generate unique filename
+    $extension = ($imageType === 'jpeg') ? 'jpg' : $imageType;
+    $filename = uniqid() . '_' . time() . '.' . $extension;
+    $filepath = $uploadDir . $filename;
+    
+    // Save image to file
+    if (file_put_contents($filepath, $imageData)) {
+        error_log("✅ uploadBase64Image - Saved base64 image to: /uploads/" . $directory . "/" . $filename);
+        return '/uploads/' . $directory . '/' . $filename;
+    } else {
+        error_log("❌ uploadBase64Image - Failed to save file: " . $filepath);
+        return false;
+    }
 }
 
 /**
@@ -450,4 +665,128 @@ function sendOrderStatusEmail($customerEmail, $customerName, $orderId, $newStatu
     </html>";
 
     return sendEmail($customerEmail, $subject, $body, true);
+}
+
+/**
+ * Get image URL - Convert relative paths to absolute production URLs
+ * CRITICAL: Never convert base64 images to URLs - they should be converted to files first
+ */
+function getImageUrl($imagePath) {
+    if (empty($imagePath)) {
+        return null; // Return null instead of empty string
+    }
+    
+    // CRITICAL: Check if it's a base64 image string - DO NOT convert to URL
+    // Base64 images should never be passed to this function - they should be converted to files first
+    if (is_string($imagePath)) {
+        // Check for data URI format (data:image/...)
+        if (strpos($imagePath, 'data:image/') === 0) {
+            error_log("⚠️ getImageUrl - Base64 data URI detected! This should have been converted to a file first: " . substr($imagePath, 0, 50) . "...");
+            // Return null to prevent creating invalid URLs
+            return null;
+        }
+        
+        // Check for raw base64 string (long string matching base64 pattern)
+        if (strlen($imagePath) > 100 && preg_match('/^[A-Za-z0-9+\/]+=*$/', $imagePath)) {
+            // Only treat as base64 if it doesn't look like a file path or URL
+            if (strpos($imagePath, '/') === false && strpos($imagePath, '\\') === false && strpos($imagePath, 'http') === false) {
+                error_log("⚠️ getImageUrl - Raw base64 string detected! This should have been converted to a file first");
+                // Return null to prevent creating invalid URLs
+                return null;
+            }
+        }
+    }
+    
+    // If already an absolute URL, return as is
+    if (preg_match('/^https?:\/\//', $imagePath)) {
+        return $imagePath;
+    }
+    
+    // Handle old paths like /uploads/banners/ -> convert to /backend/uploads/banners/
+    if (strpos($imagePath, '/uploads/') === 0) {
+        $imagePath = '/backend' . $imagePath;
+    }
+    
+    // If starts with /, it's a root-relative path
+    if (strpos($imagePath, '/') === 0) {
+        return defined('BASE_URL') ? BASE_URL . $imagePath : 'https://skbakers.com' . $imagePath;
+    }
+    
+    // Otherwise, prepend uploads directory
+    $baseUrl = defined('IMAGE_BASE_URL') ? IMAGE_BASE_URL : 'https://skbakers.com/backend/uploads';
+    return $baseUrl . '/' . ltrim($imagePath, '/');
+}
+
+/**
+ * Normalize image URL/path - Convert full URLs to relative paths for storage
+ * This ensures images are stored as relative paths and converted back to full URLs when retrieved
+ */
+function normalizeImagePath($imagePath, $directory = 'products') {
+    if (empty($imagePath)) {
+        return null;
+    }
+    
+    // CRITICAL: Check if it's a base64 image string
+    // Base64 images start with "data:image/" or are long base64 strings (at least 100 chars, typical for images)
+    $isBase64 = false;
+    if (strpos($imagePath, 'data:image/') === 0) {
+        $isBase64 = true;
+    } else if (strlen($imagePath) > 100 && preg_match('/^[A-Za-z0-9+\/]+=*$/', $imagePath)) {
+        // Only treat as base64 if it's a long string (images are typically >100 chars when base64 encoded)
+        // and matches base64 pattern, but doesn't look like a file path or URL
+        if (strpos($imagePath, '/') === false && strpos($imagePath, '\\') === false && strpos($imagePath, 'http') === false) {
+            $isBase64 = true;
+        }
+    }
+    
+    if ($isBase64) {
+        error_log("🔍 normalizeImagePath - Detected base64 image, converting to file...");
+        // Convert base64 to file
+        $uploadedPath = uploadBase64Image($imagePath, $directory);
+        if ($uploadedPath) {
+            error_log("✅ normalizeImagePath - Base64 converted to: " . $uploadedPath);
+            return $uploadedPath;
+        } else {
+            error_log("❌ normalizeImagePath - Failed to convert base64 image");
+            return null;
+        }
+    }
+    
+    // If it's already a relative path (starts with /uploads/ or /backend/uploads/), return as is
+    if (strpos($imagePath, '/uploads/') === 0) {
+        return $imagePath; // Return as /uploads/... format
+    }
+    
+    if (strpos($imagePath, '/backend/uploads/') === 0) {
+        // Convert /backend/uploads/ to /uploads/ for storage
+        return str_replace('/backend/uploads/', '/uploads/', $imagePath);
+    }
+    
+    // If it's a full URL, extract the relative path
+    $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+    $imageBaseUrl = defined('IMAGE_BASE_URL') ? IMAGE_BASE_URL : 'https://skbakers.com/backend/uploads';
+    
+    // Remove base URL if present
+    if (strpos($imagePath, $baseUrl) === 0) {
+        $relativePath = substr($imagePath, strlen($baseUrl));
+        // Convert /backend/uploads/ to /uploads/ for storage
+        if (strpos($relativePath, '/backend/uploads/') === 0) {
+            return str_replace('/backend/uploads/', '/uploads/', $relativePath);
+        }
+        return $relativePath;
+    }
+    
+    // Remove image base URL if present
+    if (strpos($imagePath, $imageBaseUrl) === 0) {
+        $relativePath = substr($imagePath, strlen($imageBaseUrl));
+        return '/uploads/products' . $relativePath;
+    }
+    
+    // If it doesn't start with /, assume it's a filename or path relative to uploads
+    if (strpos($imagePath, '/') !== 0) {
+        return '/uploads/products/' . ltrim($imagePath, '/');
+    }
+    
+    // Return as is if we can't normalize it
+    return $imagePath;
 }

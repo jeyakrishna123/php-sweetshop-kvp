@@ -341,10 +341,32 @@ const ModernImageUpload = ({
                 imageUrl = null;
               }
 
-              // Prepend API base URL if it's a relative path
-              if (imageUrl && !imageUrl.startsWith('http://') && !imageUrl.startsWith('https://') && !imageUrl.startsWith('data:')) {
-                const apiURL = import.meta.env.VITE_API_URL || "http://localhost:3001";
-                imageUrl = `${apiURL}${imageUrl}`;
+              // CRITICAL: Check if it's a base64 image before converting to URL
+              // Base64 images should never be converted to URLs - they cause 414 errors
+              // Check for data:image/ anywhere in the string (not just at start)
+              const isBase64 = imageUrl && typeof imageUrl === 'string' && (
+                imageUrl.includes('data:image/') || 
+                imageUrl.includes(';base64,') ||
+                // Check if it's a long base64-like string (even if it has path prefixes)
+                (imageUrl.length > 200 && /data:image\/[^;]+;base64,/.test(imageUrl)) ||
+                // Check for raw base64 pattern (long string with base64 chars)
+                (imageUrl.length > 100 && /^[A-Za-z0-9+\/]+=*$/.test(imageUrl) && !imageUrl.includes('http') && !imageUrl.includes('.jpg') && !imageUrl.includes('.png') && !imageUrl.includes('.webp'))
+              );
+              
+              // Prepend API base URL if it's a relative path (not base64)
+              if (imageUrl && typeof imageUrl === 'string' && !imageUrl.startsWith('http://') && !imageUrl.startsWith('https://') && !isBase64) {
+                // Additional safety: if string contains base64-like patterns, don't construct URL
+                if (imageUrl.includes('base64') || (imageUrl.length > 500 && !imageUrl.includes('.'))) {
+                  console.error('❌ ModernImageUpload: Suspicious image string detected, skipping URL construction:', imageUrl.substring(0, 100));
+                  imageUrl = null; // Set to null to prevent invalid URL
+                } else {
+                  const apiURL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+                  imageUrl = `${apiURL}${imageUrl}`;
+                }
+              } else if (isBase64) {
+                // Base64 image - set to null to prevent 414 errors (don't try to use as URL)
+                console.warn('⚠️ ModernImageUpload: Base64 image detected, setting to null to prevent 414 error');
+                imageUrl = null; // Don't use base64 as URL - it will cause 414 error
               }
 
               return (
@@ -357,7 +379,12 @@ const ModernImageUpload = ({
                       className="w-full h-full object-contain"
                       onError={(e) => {
                         console.error('Image load error:', imageUrl);
-                        e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%23666" font-size="12"%3EError%3C/text%3E%3C/svg%3E';
+                        // If it's a base64 or suspicious URL, don't try to load it
+                        if (imageUrl && (imageUrl.includes('base64') || imageUrl.includes('data:image/'))) {
+                          e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%23666" font-size="12"%3EInvalid Image%3C/text%3E%3C/svg%3E';
+                        } else {
+                          e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%23666" font-size="12"%3EError%3C/text%3E%3C/svg%3E';
+                        }
                       }}
                     />
                   ) : (

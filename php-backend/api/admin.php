@@ -106,6 +106,14 @@ try {
             exit;
             break;
 
+        case 'upload-images':
+            if ($method === 'POST') {
+                uploadProductImages();
+            } else {
+                sendError('Method not allowed', [], 405);
+            }
+            break;
+
         case 'marketing':
             if ($method === 'GET') {
                 getMarketingData($db);
@@ -914,4 +922,112 @@ function getMarketingData($db) {
             'period' => 'Last 30 days'
         ]
     ]);
+}
+
+/**
+ * Upload multiple product images (Admin only)
+ * Endpoint: POST /api/admin/upload-images
+ * Accepts: FormData with multiple files under 'images' field
+ */
+function uploadProductImages() {
+    try {
+        $authUser = AuthMiddleware::authenticate();
+        AuthMiddleware::requireAdmin($authUser);
+    } catch (Exception $e) {
+        error_log("Upload images authentication failed: " . $e->getMessage());
+        sendError('Authentication required. Please login as admin.', [], 401);
+        return;
+    }
+
+    error_log("🔍 uploadProductImages called");
+    error_log("🔍 FILES: " . json_encode($_FILES));
+    error_log("🔍 POST: " . json_encode($_POST));
+
+    // Check if files were uploaded
+    if (!isset($_FILES['images'])) {
+        error_log("❌ No images file provided");
+        sendError('No image files provided', [], 400);
+        return;
+    }
+
+    $files = $_FILES['images'];
+    $uploadedImages = [];
+    $errors = [];
+
+    // Handle both single file and multiple files
+    $fileArray = [];
+    if (is_array($files['name'])) {
+        // Multiple files
+        for ($i = 0; $i < count($files['name']); $i++) {
+            $fileArray[] = [
+                'name' => $files['name'][$i],
+                'type' => $files['type'][$i],
+                'tmp_name' => $files['tmp_name'][$i],
+                'error' => $files['error'][$i],
+                'size' => $files['size'][$i]
+            ];
+        }
+    } else {
+        // Single file
+        $fileArray[] = $files;
+    }
+
+    // Process each file
+    foreach ($fileArray as $file) {
+        // Check for upload errors
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            $errorMsg = 'Upload error: ' . $file['name'];
+            error_log("❌ $errorMsg");
+            $errors[] = $errorMsg;
+            continue;
+        }
+
+        // Validate image
+        $validationErrors = validateImageUpload($file);
+        if (!empty($validationErrors)) {
+            $errorMsg = 'Invalid image file: ' . $file['name'] . ' - ' . implode(', ', $validationErrors);
+            error_log("❌ $errorMsg");
+            $errors[] = $errorMsg;
+            continue;
+        }
+
+        // Upload image to products directory
+        $imagePath = uploadImage($file, 'products');
+
+        if ($imagePath) {
+            // Get full URL for response
+            $fullImageUrl = getImageUrl($imagePath);
+            
+            $uploadedImages[] = [
+                'url' => $fullImageUrl ?: $imagePath,
+                'path' => $imagePath,
+                'fullUrl' => $fullImageUrl ?: (defined('BASE_URL') ? BASE_URL . $imagePath : 'https://skbakers.com' . $imagePath),
+                'name' => $file['name']
+            ];
+            
+            error_log("✅ Image uploaded successfully: " . $imagePath);
+        } else {
+            $errorMsg = 'Failed to upload: ' . $file['name'];
+            error_log("❌ $errorMsg");
+            $errors[] = $errorMsg;
+        }
+    }
+
+    // Return response
+    if (empty($uploadedImages)) {
+        sendError('Failed to upload images', ['errors' => $errors], 400);
+        return;
+    }
+
+    // If some images failed, include errors in response but still return success
+    if (!empty($errors)) {
+        error_log("⚠️ Some images failed to upload: " . implode(', ', $errors));
+    }
+
+    sendSuccess('Images uploaded successfully', [
+        'success' => true,
+        'images' => $uploadedImages,
+        'count' => count($uploadedImages),
+        'errors' => $errors
+    ], 201);
 }

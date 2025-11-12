@@ -1,11 +1,11 @@
 import axios from "axios";
 
 const instance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || (process.env.NODE_ENV === 'production' ? 'https://skbakers.com/api' : 'http://localhost:8000'), // Production or development backend
+  baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000'), // Production or development backend
 });
 
 // Debug: Log the base URL being used
-console.log('🔧 Axios instance created with baseURL:', import.meta.env.VITE_API_URL || (process.env.NODE_ENV === 'production' ? 'https://skbakers.com/api' : 'http://localhost:8000'));
+console.log('🔧 Axios instance created with baseURL:', import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000'));
 console.log('🔧 Environment variables:', {
   VITE_API_URL: import.meta.env.VITE_API_URL,
   VITE_ENV: import.meta.env.VITE_ENV

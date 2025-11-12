@@ -532,11 +532,39 @@ const AdminProducts = () => {
     }
   };
 
+  // Helper to detect base64 images
+  const isBase64Image = (str) => {
+    if (!str || typeof str !== 'string') return false;
+    if (str.startsWith('data:image/')) return true;
+    // Check for raw base64 string (long string matching base64 pattern)
+    if (str.length > 100 && /^[A-Za-z0-9+\/]+=*$/.test(str)) {
+      if (!str.includes('/') && !str.includes('\\') && !str.includes('http')) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   const getImageUrl = (image) => {
     if (typeof image === 'string') {
+      // CRITICAL: Check for base64 anywhere in string (not just at start)
+      const isBase64 = image.includes('data:image/') || 
+                       image.includes(';base64,') ||
+                       (image.length > 200 && /data:image\/[^;]+;base64,/.test(image)) ||
+                       isBase64Image(image);
+      
+      if (isBase64) {
+        console.error('❌ AdminProducts: Base64 image detected, returning null to prevent 414 error');
+        return null; // Return null instead of base64 to prevent 414 errors
+      }
       // If it's already a full URL, return as is
-      if (image.startsWith('http') || image.startsWith('data:')) {
+      if (image.startsWith('http')) {
         return image;
+      }
+      // Additional safety check: if string looks suspicious (long, no file extension), don't construct URL
+      if (image.length > 500 && !image.includes('.jpg') && !image.includes('.png') && !image.includes('.webp') && !image.includes('.gif')) {
+        console.error('❌ AdminProducts: Suspicious image string detected, returning null:', image.substring(0, 100));
+        return null;
       }
       // If it's a relative URL from backend, make it absolute
       if (image.startsWith('/uploads/')) {
@@ -546,7 +574,16 @@ const AdminProducts = () => {
     }
     if (image && image.url) {
       // Handle image object with url property
-      if (image.url.startsWith('http') || image.url.startsWith('data:')) {
+      const isBase64 = image.url.includes('data:image/') || 
+                       image.url.includes(';base64,') ||
+                       (image.url.length > 200 && /data:image\/[^;]+;base64,/.test(image.url)) ||
+                       isBase64Image(image.url);
+      
+      if (isBase64) {
+        console.error('❌ AdminProducts: Base64 image detected in object, returning null');
+        return null; // Return null instead of base64
+      }
+      if (image.url.startsWith('http')) {
         return image.url;
       }
       if (image.url.startsWith('/uploads/')) {
@@ -708,7 +745,7 @@ const AdminProducts = () => {
                 <div className="flex items-start space-x-3">
                   <img
                     className="w-16 h-16 rounded-lg object-contain"
-                    src={getImageUrl(product.images[0])}
+                    src={getImageUrl(product.images[0]) || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%23f3f4f6'/%3E%3Ctext x='100' y='100' text-anchor='middle' dy='.3em' fill='%23666' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E"}
                     alt={product.name}
                     onError={(e) => {
                       e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' fill='%23666' font-size='12'%3ENo Image%3C/text%3E%3C/svg%3E";

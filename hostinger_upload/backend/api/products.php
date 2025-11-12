@@ -137,6 +137,112 @@ try {
 }
 
 /**
+ * Helper function to filter base64 images from product images array
+ * Converts base64 to files or removes invalid images
+ */
+function filterBase64Images($images) {
+    if (!is_array($images)) {
+        return [];
+    }
+    
+    $validImages = [];
+    foreach ($images as $img) {
+        if (is_string($img)) {
+            // Check if it's a base64 image (shouldn't be in database, but handle it)
+            // Check for data:image/ ANYWHERE in string (not just at start) - handles path prefixes
+            $isBase64 = (strpos($img, 'data:image/') !== false) || 
+                        (strpos($img, ';base64,') !== false) ||
+                        // Check for base64 pattern with path prefixes
+                        (strlen($img) > 200 && preg_match('/data:image\/[^;]+;base64,/', $img)) ||
+                        // Check for raw base64 string
+                        (strlen($img) > 100 && preg_match('/^[A-Za-z0-9+\/]+=*$/', $img) && 
+                         strpos($img, '/') === false && strpos($img, 'http') === false);
+            
+            if ($isBase64) {
+                // Try to convert base64 to file
+                $uploadedPath = uploadBase64Image($img, 'products');
+                if ($uploadedPath) {
+                    $validImages[] = getImageUrl($uploadedPath) ?: (defined('BASE_URL') ? BASE_URL . $uploadedPath : 'https://skbakers.com' . $uploadedPath);
+                    error_log("⚠️ filterBase64Images - Found base64 image, converted to: " . $uploadedPath);
+                } else {
+                    error_log("⚠️ filterBase64Images - Found base64 image but conversion failed, skipping");
+                }
+            } else {
+                // Valid image path/URL - convert to full URL
+                $imageUrl = getImageUrl($img);
+                if ($imageUrl) {
+                    // CRITICAL: Verify image file exists before adding to response
+                    // Extract file path from URL for verification
+                    $filePath = null;
+                    if (strpos($imageUrl, '/backend/uploads/') !== false || strpos($imageUrl, '/uploads/') !== false) {
+                        // Extract relative path from URL
+                        $urlPath = parse_url($imageUrl, PHP_URL_PATH);
+                        // Remove /backend prefix if present
+                        $relativePath = str_replace('/backend', '', $urlPath);
+                        // Remove leading /uploads/ to get just the subdirectory and filename
+                        // e.g., /uploads/products/filename.webp -> products/filename.webp
+                        $relativePath = preg_replace('#^/uploads/#', '', $relativePath);
+                        
+                        // Construct full file path: UPLOAD_DIR already includes /uploads/
+                        // So: UPLOAD_DIR = /path/to/backend/uploads/
+                        // relativePath = products/filename.webp
+                        // Result: /path/to/backend/uploads/products/filename.webp
+                        if (defined('UPLOAD_DIR') && $relativePath) {
+                            $filePath = rtrim(UPLOAD_DIR, '/') . '/' . $relativePath;
+                        }
+                    }
+                    
+                    // Only add image if file exists (or if we can't verify - for external URLs)
+                    if ($filePath === null || file_exists($filePath)) {
+                        $validImages[] = $imageUrl;
+                    } else {
+                        error_log("⚠️ filterBase64Images - Image file does not exist: $filePath (URL: $imageUrl, relativePath: " . ($relativePath ?? 'N/A') . ")");
+                        // Don't add missing images to prevent 404 errors
+                    }
+                }
+            }
+        } else {
+            // Non-string image - keep as is
+            $validImages[] = $img;
+        }
+    }
+    return $validImages;
+}
+
+/**
+ * Helper function to filter base64 from thumbnail
+ */
+function filterBase64Thumbnail($thumbnail) {
+    if (empty($thumbnail)) {
+        return null;
+    }
+    
+    if (is_string($thumbnail)) {
+        // Check for data:image/ ANYWHERE in string (not just at start) - handles path prefixes
+        $isBase64 = (strpos($thumbnail, 'data:image/') !== false) || 
+                    (strpos($thumbnail, ';base64,') !== false) ||
+                    // Check for base64 pattern with path prefixes
+                    (strlen($thumbnail) > 200 && preg_match('/data:image\/[^;]+;base64,/', $thumbnail)) ||
+                    // Check for raw base64 string
+                    (strlen($thumbnail) > 100 && preg_match('/^[A-Za-z0-9+\/]+=*$/', $thumbnail) && 
+                     strpos($thumbnail, '/') === false && strpos($thumbnail, 'http') === false);
+        
+        if ($isBase64) {
+            $uploadedPath = uploadBase64Image($thumbnail, 'products');
+            if ($uploadedPath) {
+                return getImageUrl($uploadedPath) ?: (defined('BASE_URL') ? BASE_URL . $uploadedPath : 'https://skbakers.com' . $uploadedPath);
+            } else {
+                return null;
+            }
+        } else {
+            return getImageUrl($thumbnail);
+        }
+    }
+    
+    return $thumbnail;
+}
+
+/**
  * Get all products with pagination and filters
  */
 function getAllProducts($db) {
@@ -293,21 +399,13 @@ function getAllProducts($db) {
     error_log("🔍 GET ALL PRODUCTS - Total count: $total");
 
     // Decode JSON fields and convert image URLs to production URLs
+    // CRITICAL: Filter out base64 images that might be in the database
     foreach ($products as &$product) {
         $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
-        // Convert image URLs to production URLs
-        if (is_array($product['images'])) {
-            $product['images'] = array_map(function($img) {
-                if (is_string($img)) {
-                    return getImageUrl($img);
-                }
-                return $img;
-            }, $product['images']);
-        }
-        // Convert thumbnail to production URL
-        if (!empty($product['thumbnail'])) {
-            $product['thumbnail'] = getImageUrl($product['thumbnail']);
-        }
+        
+        // CRITICAL: Filter out base64 images that might be in the database
+        $product['images'] = filterBase64Images($product['images']);
+        $product['thumbnail'] = filterBase64Thumbnail($product['thumbnail']);
         $product['product_types'] = $product['product_types'] ?? null ? json_decode($product['product_types'], true) : null;
         $product['specifications'] = $product['specifications'] ?? null ? json_decode($product['specifications'], true) : null;
         $product['tags'] = $product['tags'] ?? null ? json_decode($product['tags'], true) : null;
@@ -423,19 +521,9 @@ function getProductById($db, $id) {
 
     // Decode JSON fields - handle null values properly
     $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
-    // Convert image URLs to production URLs
-    if (is_array($product['images'])) {
-        $product['images'] = array_map(function($img) {
-            if (is_string($img)) {
-                return getImageUrl($img);
-            }
-            return $img;
-        }, $product['images']);
-    }
-    // Convert thumbnail to production URL
-    if (!empty($product['thumbnail'])) {
-        $product['thumbnail'] = getImageUrl($product['thumbnail']);
-    }
+    // CRITICAL: Filter out base64 images that might be in the database
+    $product['images'] = filterBase64Images($product['images']);
+    $product['thumbnail'] = filterBase64Thumbnail($product['thumbnail']);
     $product['product_types'] = isset($product['product_types']) && $product['product_types'] ? json_decode($product['product_types'], true) : null;
     $product['specifications'] = isset($product['specifications']) && $product['specifications'] ? json_decode($product['specifications'], true) : [];
     $product['tags'] = isset($product['tags']) && $product['tags'] ? json_decode($product['tags'], true) : [];
@@ -542,17 +630,11 @@ function getFeaturedProducts($db) {
         $product['images'] = json_decode($product['images'], true);
         // Convert image URLs to production URLs
         if (is_array($product['images'])) {
-            $product['images'] = array_map(function($img) {
-                if (is_string($img)) {
-                    return getImageUrl($img);
-                }
-                return $img;
-            }, $product['images']);
+            // CRITICAL: Filter out base64 images that might be in the database
+            $product['images'] = filterBase64Images($product['images']);
         }
-        // Convert thumbnail to production URL
-        if (!empty($product['thumbnail'])) {
-            $product['thumbnail'] = getImageUrl($product['thumbnail']);
-        }
+        // Convert thumbnail to production URL (filter base64)
+        $product['thumbnail'] = filterBase64Thumbnail($product['thumbnail']);
         // Add category field for frontend compatibility
         $product['category'] = $product['category_name'] ?? null;
     }
@@ -730,17 +812,11 @@ function searchProducts($db) {
         $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
         // Convert image URLs to production URLs
         if (is_array($product['images'])) {
-            $product['images'] = array_map(function($img) {
-                if (is_string($img)) {
-                    return getImageUrl($img);
-                }
-                return $img;
-            }, $product['images']);
+            // CRITICAL: Filter out base64 images that might be in the database
+            $product['images'] = filterBase64Images($product['images']);
         }
-        // Convert thumbnail to production URL
-        if (!empty($product['thumbnail'])) {
-            $product['thumbnail'] = getImageUrl($product['thumbnail']);
-        }
+        // Convert thumbnail to production URL (filter base64)
+        $product['thumbnail'] = filterBase64Thumbnail($product['thumbnail']);
     }
 
     $response = createPaginationResponse($products, $total, $pagination['page'], $pagination['limit']);
@@ -792,17 +868,11 @@ function getProductsByCategory($db, $category) {
         $product['images'] = json_decode($product['images'], true);
         // Convert image URLs to production URLs
         if (is_array($product['images'])) {
-            $product['images'] = array_map(function($img) {
-                if (is_string($img)) {
-                    return getImageUrl($img);
-                }
-                return $img;
-            }, $product['images']);
+            // CRITICAL: Filter out base64 images that might be in the database
+            $product['images'] = filterBase64Images($product['images']);
         }
-        // Convert thumbnail to production URL
-        if (!empty($product['thumbnail'])) {
-            $product['thumbnail'] = getImageUrl($product['thumbnail']);
-        }
+        // Convert thumbnail to production URL (filter base64)
+        $product['thumbnail'] = filterBase64Thumbnail($product['thumbnail']);
     }
 
     $response = createPaginationResponse($products, $total, $pagination['page'], $pagination['limit']);
@@ -844,17 +914,11 @@ function getProductsByFlavor($db, $flavor) {
         $product['images'] = json_decode($product['images'], true);
         // Convert image URLs to production URLs
         if (is_array($product['images'])) {
-            $product['images'] = array_map(function($img) {
-                if (is_string($img)) {
-                    return getImageUrl($img);
-                }
-                return $img;
-            }, $product['images']);
+            // CRITICAL: Filter out base64 images that might be in the database
+            $product['images'] = filterBase64Images($product['images']);
         }
-        // Convert thumbnail to production URL
-        if (!empty($product['thumbnail'])) {
-            $product['thumbnail'] = getImageUrl($product['thumbnail']);
-        }
+        // Convert thumbnail to production URL (filter base64)
+        $product['thumbnail'] = filterBase64Thumbnail($product['thumbnail']);
     }
 
     $response = createPaginationResponse($products, $total, $pagination['page'], $pagination['limit']);
@@ -905,17 +969,11 @@ function getProductsByType($db, $type) {
         $product['images'] = json_decode($product['images'], true);
         // Convert image URLs to production URLs
         if (is_array($product['images'])) {
-            $product['images'] = array_map(function($img) {
-                if (is_string($img)) {
-                    return getImageUrl($img);
-                }
-                return $img;
-            }, $product['images']);
+            // CRITICAL: Filter out base64 images that might be in the database
+            $product['images'] = filterBase64Images($product['images']);
         }
-        // Convert thumbnail to production URL
-        if (!empty($product['thumbnail'])) {
-            $product['thumbnail'] = getImageUrl($product['thumbnail']);
-        }
+        // Convert thumbnail to production URL (filter base64)
+        $product['thumbnail'] = filterBase64Thumbnail($product['thumbnail']);
     }
 
     $response = createPaginationResponse($products, $total, $pagination['page'], $pagination['limit']);

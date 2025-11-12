@@ -3,7 +3,7 @@
 
 export const PRODUCTION_CONFIG = {
   // API Configuration
-  API_BASE_URL: 'https://skbakers.com/api',
+  API_BASE_URL: 'https://skbakers.com',
   
   // App Configuration
   APP_NAME: 'SK Bakers',
@@ -13,7 +13,7 @@ export const PRODUCTION_CONFIG = {
   // Domain Configuration
   DOMAIN: 'skbakers.com',
   FRONTEND_URL: 'https://skbakers.com',
-  BACKEND_URL: 'https://skbakers.com/api',
+  BACKEND_URL: 'https://skbakers.com',
   
   // Email Configuration
   CONTACT_EMAIL: 'info@upgradenow.in',
@@ -34,7 +34,7 @@ export const PRODUCTION_CONFIG = {
 
 // Override API_CONFIG for production
 export const getProductionApiConfig = () => ({
-  BASE_URL: PRODUCTION_CONFIG.API_BASE_URL,
+  BASE_URL: PRODUCTION_CONFIG.API_BASE_URL || 'https://skbakers.com',
   ENDPOINTS: {
     AUTH: {
       REGISTER: '/api/auth/register',

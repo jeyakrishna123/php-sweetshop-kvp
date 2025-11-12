@@ -94,11 +94,13 @@ function uploadMenuImage() {
     $imagePath = uploadImage($file, 'menu-items');
 
     if ($imagePath) {
-        // Return relative path instead of absolute URL
-        // This ensures compatibility across different environments (dev, production, etc.)
+        // Convert to production URL using getImageUrl helper
+        $fullImageUrl = getImageUrl($imagePath);
         error_log("✅ Image upload successful: " . $imagePath);
+        error_log("✅ Full production URL: " . $fullImageUrl);
         sendSuccess('Image uploaded successfully', [
-            'imageUrl' => $imagePath
+            'imageUrl' => $fullImageUrl,
+            'path' => $imagePath
         ], 201);
     } else {
         error_log("❌ Image upload failed - no path returned");

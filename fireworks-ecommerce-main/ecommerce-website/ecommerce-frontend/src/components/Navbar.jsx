@@ -387,9 +387,7 @@ const Navbar = () => {
                 )}
               </button>
 
-              {/* Cart - Mobile Optimized - COMMENTED OUT FOR MOBILE (footer has cart icon) */}
-              {/* Uncomment below if you need header cart icon on mobile */}
-              {/*
+              {/* Cart Icon - Desktop/Windows View Only (visible on md and above, hidden on mobile) */}
               <button 
                 onClick={(e) => {
                   e.preventDefault();
@@ -397,17 +395,17 @@ const Navbar = () => {
                   console.log('🛒 Cart button clicked');
                   handleNavigation("/cart");
                 }}
-                className="relative p-1.5 sm:p-2 text-gray-600 hover:text-red-600 transition-colors duration-200 group"
+                className="relative hidden md:flex p-2 text-gray-600 hover:text-red-600 transition-colors duration-200 group"
                 style={{ minHeight: '44px', minWidth: '44px' }}
+                title="Shopping Cart"
               >
                 <Icon name="cart" className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform duration-200" />
                 {cartCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center text-[10px] sm:text-xs font-medium">
-                    {cartCount > 9 ? '9+' : cartCount}
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center text-[10px] sm:text-xs font-bold shadow-lg border-2 border-white ring-2 ring-red-600">
+                    {cartCount > 99 ? '99+' : cartCount}
                   </span>
                 )}
               </button>
-              */}
 
               {/* User Menu - Mobile Optimized */}
               {user ? (

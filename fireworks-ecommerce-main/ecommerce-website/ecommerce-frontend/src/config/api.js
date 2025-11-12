@@ -1,8 +1,8 @@
 // API Configuration
 export const API_CONFIG = {
-  // Backend API base URL (PHP Backend) - FORCE PRODUCTION
-  BASE_URL: 'https://skbakers.com/api',
-  
+  // Backend API base URL (PHP Backend)
+  BASE_URL: import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000',
+
   // API endpoints
   ENDPOINTS: {
     AUTH: {
@@ -18,10 +18,10 @@ export const API_CONFIG = {
     USERS: '/api/users',
     ADMIN: '/api/admin'
   },
-  
+
   // Request timeout (in milliseconds)
   TIMEOUT: 10000,
-  
+
   // Retry configuration
   RETRY: {
     MAX_ATTEMPTS: 3,
@@ -29,16 +29,17 @@ export const API_CONFIG = {
   }
 };
 
-// Environment-specific configurations - FORCE PRODUCTION
+// Environment-specific configurations
 export const getApiConfig = () => {
   return {
     ...API_CONFIG,
-    BASE_URL: 'https://skbakers.com/api', // ALWAYS USE PRODUCTION
+    BASE_URL: import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000',
     TIMEOUT: API_CONFIG.TIMEOUT
   };
 };
 
-// Production-specific banner API fix - FORCE PRODUCTION
+// Banner API URL
 export const getBannerApiUrl = () => {
-  return 'https://skbakers.com/api/banners/active';
+  const baseUrl = import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000';
+  return `${baseUrl}/api/banners/active`;
 };

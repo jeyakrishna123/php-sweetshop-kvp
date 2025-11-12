@@ -65,7 +65,13 @@ const NewProductCard = memo(({ product, viewMode = "grid", showQuickView = true,
 
   const handleWishlistToggle = async (e) => {
     e.stopPropagation();
-    
+
+    // Prevent multiple simultaneous requests
+    if (wishlistLoading) {
+      console.log('⏳ Wishlist operation already in progress');
+      return;
+    }
+
     if (!user) {
       showToast("Please login to add items to wishlist", "warning");
       navigate("/login");
@@ -86,13 +92,27 @@ const NewProductCard = memo(({ product, viewMode = "grid", showQuickView = true,
         setIsInWishlist(false);
         showToast("Removed from wishlist", "success");
       } else {
-        await axios.post("/api/wishlist/add", { productId: product._id });
-        setIsInWishlist(true);
-        showToast("Added to wishlist", "success");
+        try {
+          await axios.post("/api/wishlist/add", { productId: product._id });
+          setIsInWishlist(true);
+          showToast("Added to wishlist", "success");
+        } catch (addError) {
+          // Handle 409 separately - it means already in wishlist
+          if (addError.response?.status === 409) {
+            console.log('⚠️ Product already in wishlist, syncing state');
+            setIsInWishlist(true);  // Sync state with backend
+            showToast("Already in wishlist", "info");
+          } else {
+            throw addError;  // Re-throw other errors to outer catch
+          }
+        }
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || "Failed to update wishlist";
-      showToast(errorMessage, "error");
+      // Handle other errors (409 already handled in inner catch)
+      if (error.response?.status !== 409) {
+        const errorMessage = error.response?.data?.message || "Failed to update wishlist";
+        showToast(errorMessage, "error");
+      }
     } finally {
       setWishlistLoading(false);
     }

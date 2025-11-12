@@ -228,25 +228,54 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
             imageUrl = img; // Fallback
           }
           
-          // If it's a relative path, convert to full URL for display
-          if (imageUrl && !imageUrl.startsWith('http://') && !imageUrl.startsWith('https://') && !imageUrl.startsWith('data:')) {
-            const apiURL = import.meta.env.VITE_API_URL || "https://skbakers.com/api";
-            // Remove /api from URL if present, then add /backend/uploads if needed
-            const baseURL = apiURL.replace('/api', '');
-            if (!imageUrl.startsWith('/')) {
-              imageUrl = '/' + imageUrl;
+          // CRITICAL: Check if it's a base64 image before converting to URL
+          // Base64 images should never be converted to URLs - they cause 414 errors
+          // Check for data:image/ anywhere in the string (not just at start)
+          const isBase64 = imageUrl && typeof imageUrl === 'string' && (
+            imageUrl.includes('data:image/') || 
+            imageUrl.includes(';base64,') ||
+            // Check if it's a long base64-like string (even if it has path prefixes)
+            (imageUrl.length > 200 && /data:image\/[^;]+;base64,/.test(imageUrl)) ||
+            // Check for raw base64 pattern (long string with base64 chars)
+            (imageUrl.length > 100 && /^[A-Za-z0-9+\/]+=*$/.test(imageUrl) && !imageUrl.includes('http') && !imageUrl.includes('.jpg') && !imageUrl.includes('.png') && !imageUrl.includes('.webp'))
+          );
+          
+          // If it's a relative path (not base64), convert to full URL for display
+          if (imageUrl && typeof imageUrl === 'string' && !imageUrl.startsWith('http://') && !imageUrl.startsWith('https://') && !isBase64) {
+            // Additional safety: if string contains base64-like patterns, don't construct URL
+            if (imageUrl.includes('base64') || (imageUrl.length > 500 && !imageUrl.includes('.'))) {
+              console.error('❌ EnhancedProductModal: Suspicious image string detected, skipping URL construction:', imageUrl.substring(0, 100));
+              imageUrl = null; // Set to null to prevent invalid URL
+            } else {
+              const apiURL = import.meta.env.VITE_API_URL || "https://skbakers.com/api";
+              // Remove /api from URL if present
+              const baseURL = apiURL.replace('/api', '');
+              if (!imageUrl.startsWith('/')) {
+                imageUrl = '/' + imageUrl;
+              }
+              imageUrl = baseURL + imageUrl;
             }
-            imageUrl = baseURL + imageUrl;
+          } else if (isBase64) {
+            // Base64 image - keep as-is, but log warning and set to null to prevent URL construction
+            console.warn('⚠️ EnhancedProductModal: Base64 image detected in product data. Backend should have converted this to a file.');
+            // Return null or placeholder instead of base64 to prevent 414 errors
+            imageUrl = null; // Set to null - the image won't display but won't cause 414 error
           }
           
           // Return as object format that ModernImageUpload expects
+          // CRITICAL: Only return image if URL is valid (not null)
+          if (!imageUrl) {
+            console.warn('⚠️ EnhancedProductModal: Skipping invalid image (URL is null)');
+            return null; // Will be filtered out
+          }
+
           return {
             url: imageUrl,
             preview: imageUrl,
             name: typeof img === 'object' && img.name ? img.name : 'Product Image',
-            isUrl: !imageUrl.startsWith('data:')
+            isUrl: imageUrl && typeof imageUrl === 'string' && !imageUrl.startsWith('data:')
           };
-        }) : [],
+        }).filter(img => img !== null) : [], // Filter out null images
         brand: product.brand || "",
         category: productCategory || "", // CRITICAL: Always set category, even if empty string
         // CRITICAL: Use extracted values to ensure consistency
@@ -708,9 +737,26 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
       newErrors.stock = "Stock quantity is required";
       console.error('❌ Validation Error: Stock quantity is required');
     }
-    if (!form.images || form.images.length === 0) {
+    // CRITICAL: Check if form.images exists and has valid images
+    // Images can be: File objects, URL strings, or objects with url/preview properties
+    const hasValidImages = form.images && form.images.length > 0 && form.images.some(img => {
+      if (typeof img === 'string') {
+        // String URL (not empty and not just whitespace)
+        return img.trim().length > 0;
+      } else if (img && typeof img === 'object') {
+        // Object with file, url, or preview property
+        return img.file instanceof File || 
+               (img.url && img.url.trim().length > 0) || 
+               (img.preview && img.preview.trim().length > 0);
+      }
+      return false;
+    });
+    
+    if (!hasValidImages) {
       newErrors.images = "At least one image is required";
       console.error('❌ Validation Error: At least one image is required');
+      console.error('❌ Validation Error: form.images:', form.images);
+      console.error('❌ Validation Error: form.images length:', form.images?.length || 0);
     }
 
     console.log('🔍 Form Validation:', {
@@ -793,33 +839,192 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
           try {
             console.log('📤 EnhancedProductModal: Uploading', filesToUpload.length, 'image files...');
             const fileObjects = filesToUpload.map(img => img.file);
-            const uploadResponse = await productAPI.uploadImages(fileObjects);
-            console.log('📤 EnhancedProductModal: Upload response:', uploadResponse);
             
-            if (uploadResponse.success && uploadResponse.images) {
-              // Extract URLs from upload response
-              const uploadedUrls = uploadResponse.images.map(img => {
-                // Response format: { url: 'https://...', path: '/uploads/...', name: '...' }
-                // Use url (full URL) for consistency - backend will normalize it
-                if (typeof img === 'string') {
-                  return img; // Already a URL string
-                } else if (img && typeof img === 'object') {
-                  return img.url || img.fullUrl || img.imageUrl || img.path || '';
-                }
-                return '';
-              }).filter(url => url); // Remove empty URLs
-              
-              processedImages = [...processedImages, ...uploadedUrls];
-              console.log('✅ EnhancedProductModal: Uploaded images:', uploadedUrls);
-              showToast(`${uploadedUrls.length} image(s) uploaded successfully`, 'success');
+            // Validate files before upload
+            const validFiles = fileObjects.filter(file => {
+              if (!file || !(file instanceof File)) {
+                console.warn('⚠️ Invalid file object:', file);
+                return false;
+              }
+              return true;
+            });
+            
+            if (validFiles.length === 0) {
+              throw new Error('No valid files to upload');
+            }
+            
+            const uploadResponse = await productAPI.uploadImages(validFiles);
+            console.log('📤 EnhancedProductModal: Upload response:', uploadResponse);
+            console.log('🔍 EnhancedProductModal: Upload response FULL STRUCTURE:', JSON.stringify(uploadResponse, null, 2));
+
+            // CRITICAL: Simplified response unwrapping logic
+            // productAPI.uploadImages returns response.data (already unwrapped by axios)
+            // Expected: { success: true, message: "...", data: { images: [...], count: N } }
+
+            let responseData = uploadResponse;
+
+            // Log the raw response first
+            console.log('🔍 EnhancedProductModal: Raw uploadResponse:', uploadResponse);
+            console.log('🔍 EnhancedProductModal: uploadResponse type:', typeof uploadResponse);
+            console.log('🔍 EnhancedProductModal: uploadResponse keys:', uploadResponse ? Object.keys(uploadResponse) : 'null');
+            console.log('🔍 EnhancedProductModal: uploadResponse.data:', uploadResponse?.data);
+            console.log('🔍 EnhancedProductModal: uploadResponse.data?.images:', uploadResponse?.data?.images);
+            console.log('🔍 EnhancedProductModal: uploadResponse.data?.images length:', uploadResponse?.data?.images?.length);
+
+            // Validate response structure
+            if (!responseData || typeof responseData !== 'object') {
+              throw new Error('Invalid response format from server');
+            }
+
+            // CRITICAL: Check success flag at the correct level
+            // Backend sends: { success: true, message: "...", data: { images: [...] } }
+            const isSuccess = responseData.success === true;
+
+            console.log('🔍 EnhancedProductModal: isSuccess:', isSuccess);
+            console.log('🔍 EnhancedProductModal: responseData.success:', responseData.success);
+            console.log('🔍 EnhancedProductModal: responseData.message:', responseData.message);
+
+            // CRITICAL: Simplified image extraction logic
+            // Backend sends: { success: true, message: "...", data: { images: [...], count: N } }
+            let images = [];
+
+            // Strategy 1: Check data.images (PRIMARY expected structure)
+            if (responseData.data && Array.isArray(responseData.data.images)) {
+              images = responseData.data.images;
+              console.log('✅ EnhancedProductModal: Found images in responseData.data.images, count:', images.length);
+            }
+            // Strategy 2: Check responseData.images (flat structure)
+            else if (Array.isArray(responseData.images)) {
+              images = responseData.images;
+              console.log('✅ EnhancedProductModal: Found images in responseData.images, count:', images.length);
+            }
+            // Strategy 3: Check if data itself is an array of images
+            else if (Array.isArray(responseData.data) && responseData.data.length > 0 &&
+                     responseData.data[0] && typeof responseData.data[0] === 'object' &&
+                     (responseData.data[0].url || responseData.data[0].path || responseData.data[0].fullUrl)) {
+              images = responseData.data;
+              console.log('✅ EnhancedProductModal: Found images in responseData.data (direct array), count:', images.length);
+            }
+
+            // Log what we found
+            console.log('🔍 EnhancedProductModal: Extracted images count:', images.length);
+            if (images.length > 0) {
+              console.log('🔍 EnhancedProductModal: First image structure:', images[0]);
             } else {
-              console.error('❌ EnhancedProductModal: Upload failed:', uploadResponse.message);
-              showToast(uploadResponse.message || 'Failed to upload some images', 'error');
+              console.error('❌ EnhancedProductModal: No images found in response!');
+              console.error('❌ Response structure:', {
+                hasData: !!responseData.data,
+                dataType: typeof responseData.data,
+                dataIsArray: Array.isArray(responseData.data),
+                dataKeys: responseData.data && typeof responseData.data === 'object' ? Object.keys(responseData.data) : 'N/A',
+                fullResponse: JSON.stringify(responseData, null, 2)
+              });
+            }
+            
+            // CRITICAL: Check if upload was successful AND we have images
+            if (!isSuccess) {
+              // Upload failed according to backend
+              const errorMessage = responseData.message || 'Upload failed - no success flag in response';
+              console.error('❌ EnhancedProductModal: Backend returned failure:', errorMessage);
+              throw new Error(errorMessage);
+            }
+
+            if (images.length === 0) {
+              // Upload succeeded but no images in response
+              console.error('❌ EnhancedProductModal: Upload succeeded but no images found in response!');
+              console.error('❌ Response data keys:', responseData.data ? Object.keys(responseData.data) : 'No data object');
+              throw new Error('Upload succeeded but no images were returned. Please check server logs.');
+            }
+
+            // SUCCESS: Process the uploaded images
+            if (images.length > 0) {
+              console.log('✅ EnhancedProductModal: Processing', images.length, 'image(s) from response');
+              
+              // Extract URLs from upload response
+              const uploadedUrls = images.map((img, index) => {
+                try {
+                  // Response format: { url: 'https://...', path: '/uploads/...', fullUrl: 'https://...', name: '...' }
+                  if (typeof img === 'string') {
+                    // Already a URL string
+                    return img;
+                  } else if (img && typeof img === 'object') {
+                    // Try multiple possible fields in order of preference
+                    const url = img.fullUrl || img.url || img.imageUrl || img.path || '';
+                    
+                    if (!url) {
+                      console.warn(`⚠️ EnhancedProductModal: Image ${index} has no URL field:`, img);
+                      return '';
+                    }
+                    
+                    // If it's a relative path, convert to full URL
+                    if (url.startsWith('/') && !url.startsWith('http://') && !url.startsWith('https://')) {
+                      const baseUrl = import.meta.env.VITE_API_URL || 'https://skbakers.com';
+                      // Remove /api if present
+                      const cleanBaseUrl = baseUrl.replace('/api', '');
+                      const fullUrl = cleanBaseUrl + url;
+                      console.log(`🔗 EnhancedProductModal: Converted relative path to full URL: ${url} -> ${fullUrl}`);
+                      return fullUrl;
+                    }
+                    
+                    return url;
+                  }
+                  return '';
+                } catch (err) {
+                  console.error(`❌ EnhancedProductModal: Error processing image ${index}:`, err, img);
+                  return '';
+                }
+              }).filter(url => {
+                // Filter out empty URLs and base64 strings
+                if (!url || url.trim() === '') return false;
+                if (url.includes('data:image/') || url.includes(';base64,')) {
+                  console.warn('⚠️ EnhancedProductModal: Skipping base64 image:', url.substring(0, 50));
+                  return false;
+                }
+                return true;
+              });
+              
+              if (uploadedUrls.length > 0) {
+                processedImages = [...processedImages, ...uploadedUrls];
+                console.log('✅ EnhancedProductModal: Successfully processed', uploadedUrls.length, 'image(s):', uploadedUrls);
+                
+                // CRITICAL: Update form.images state with uploaded URLs so validation passes
+                // Convert URLs to the format expected by ModernImageUpload component
+                const uploadedImageObjects = uploadedUrls.map((url, idx) => ({
+                  url: url,
+                  preview: url,
+                  name: `Uploaded Image ${idx + 1}`,
+                  isUrl: true
+                }));
+                
+                // Merge with existing images (excluding the files that were just uploaded)
+                setForm(prev => ({
+                  ...prev,
+                  images: [
+                    ...prev.images.filter(img => 
+                      !(img && typeof img === 'object' && img.file && img.file instanceof File)
+                    ),
+                    ...uploadedImageObjects
+                  ]
+                }));
+                
+                console.log('✅ EnhancedProductModal: Updated form.images state with', uploadedUrls.length, 'uploaded image(s)');
+                showToast(`${uploadedUrls.length} image(s) uploaded successfully`, 'success');
+              } else {
+                console.error('❌ EnhancedProductModal: No valid URLs extracted from', images.length, 'image objects');
+                console.error('❌ Images array:', images);
+                throw new Error('No valid image URLs were extracted from the response');
+              }
             }
           } catch (uploadError) {
             console.error('❌ EnhancedProductModal: Image upload error:', uploadError);
-            showToast(uploadError.message || 'Failed to upload images', 'error');
-            // Continue with existing images even if upload fails
+            console.error('❌ EnhancedProductModal: Error stack:', uploadError.stack);
+            const errorMessage = uploadError.message || uploadError.response?.data?.message || 'Failed to upload images';
+            showToast(errorMessage, 'error');
+            
+            // CRITICAL: Stop form submission if upload fails
+            setIsLoading(false);
+            setIsSubmitting(false);
+            return; // Exit early - don't continue with form submission
           }
         }
         

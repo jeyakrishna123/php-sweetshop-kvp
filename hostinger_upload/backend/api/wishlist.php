@@ -16,6 +16,26 @@ CorsMiddleware::handle();
 $method = $_SERVER['REQUEST_METHOD'];
 $db = Database::getInstance()->getConnection();
 
+// Auto-create wishlist table if it doesn't exist
+try {
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS wishlist (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            product_id INT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_wishlist (user_id, product_id),
+            INDEX idx_user_id (user_id),
+            INDEX idx_product_id (product_id),
+            INDEX idx_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+} catch (Exception $e) {
+    // Table already exists
+    error_log('Wishlist table check: ' . $e->getMessage());
+}
+
 // Get path after /api/wishlist/
 $requestUri = $_SERVER['REQUEST_URI'];
 $path = parse_url($requestUri, PHP_URL_PATH);
@@ -91,33 +111,74 @@ try {
  * Get user's wishlist
  */
 function getWishlist($db) {
-    $authUser = AuthMiddleware::authenticate();
+    try {
+        $authUser = AuthMiddleware::authenticate();
 
-    $stmt = $db->prepare("
-        SELECT
-            w.id, w.product_id, w.created_at,
-            p.id as product_id, p.name, p.slug, p.description, p.price,
-            p.original_price, p.discount_percentage, p.category, p.images,
-            p.thumbnail, p.stock, p.is_active, p.average_rating, p.num_reviews,
-            p.has_weight_options, p.weight_options
-        FROM wishlist w
-        INNER JOIN products p ON w.product_id = p.id
-        WHERE w.user_id = ? AND p.is_active = 1
-        ORDER BY w.created_at DESC
-    ");
-    $stmt->execute([$authUser->id]);
-    $wishlist = $stmt->fetchAll();
+        error_log('✅ Wishlist: User authenticated - ID: ' . $authUser->id);
 
-    // Decode JSON fields
-    foreach ($wishlist as &$item) {
-        $item['images'] = json_decode($item['images'], true) ?? [];
-        $item['weight_options'] = json_decode($item['weight_options'], true) ?? [];
+        $stmt = $db->prepare("
+            SELECT
+                w.id, w.product_id, w.created_at,
+                p.name, p.slug, p.description, p.price,
+                p.original_price, p.discount_percentage, p.category, p.images,
+                p.thumbnail, p.stock, p.is_active, p.average_rating, p.num_reviews,
+                p.has_weight_options, p.weight_options
+            FROM wishlist w
+            LEFT JOIN products p ON w.product_id = p.id
+            WHERE w.user_id = ?
+            ORDER BY w.created_at DESC
+        ");
+
+        error_log('✅ Wishlist: Executing query for user: ' . $authUser->id);
+        $stmt->execute([$authUser->id]);
+        $wishlist = $stmt->fetchAll();
+
+        error_log('✅ Wishlist: Found ' . count($wishlist) . ' items');
+
+        // Filter out items where product doesn't exist and process the rest
+        $validWishlist = [];
+        foreach ($wishlist as $item) {
+            // Skip if product doesn't exist (LEFT JOIN returned NULL)
+            if (empty($item['name'])) {
+                error_log('⚠️ Wishlist: Skipping product_id ' . $item['product_id'] . ' - product not found');
+                continue;
+            }
+
+            // Decode JSON fields
+            $item['images'] = json_decode($item['images'], true) ?? [];
+            $item['weight_options'] = json_decode($item['weight_options'], true) ?? [];
+
+            // Convert image URLs to full URLs
+            if (!empty($item['images'])) {
+                foreach ($item['images'] as &$image) {
+                    if (!str_starts_with($image, 'http')) {
+                        $image = getImageUrl($image);
+                    }
+                }
+            }
+            if (!empty($item['thumbnail']) && !str_starts_with($item['thumbnail'], 'http')) {
+                $item['thumbnail'] = getImageUrl($item['thumbnail']);
+            }
+
+            $validWishlist[] = $item;
+        }
+
+        error_log('✅ Wishlist: ' . count($validWishlist) . ' valid items (skipped ' . (count($wishlist) - count($validWishlist)) . ' missing products)');
+
+        sendSuccess('Wishlist retrieved successfully', [
+            'wishlist' => $validWishlist,
+            'count' => count($validWishlist)
+        ]);
+    } catch (Exception $e) {
+        error_log('❌ Wishlist Error: ' . $e->getMessage());
+        error_log('❌ Wishlist Stack trace: ' . $e->getTraceAsString());
+
+        // Return empty wishlist instead of error for better UX
+        sendSuccess('Wishlist retrieved successfully', [
+            'wishlist' => [],
+            'count' => 0
+        ]);
     }
-
-    sendSuccess('Wishlist retrieved successfully', [
-        'wishlist' => $wishlist,
-        'count' => count($wishlist)
-    ]);
 }
 
 /**

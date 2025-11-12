@@ -136,7 +136,7 @@ function getAllMenuItems($db) {
     try {
         // DEBUG: Log what we're fetching from database
         error_log("🔍 getAllMenuItems - Fetching menu items from database");
-        
+
         $stmt = $db->prepare("
             SELECT
                 id as _id,
@@ -154,6 +154,13 @@ function getAllMenuItems($db) {
         ");
         $stmt->execute();
         $menuItems = $stmt->fetchAll();
+
+        // Convert image URLs to production URLs
+        foreach ($menuItems as &$item) {
+            if (!empty($item['image'])) {
+                $item['image'] = getImageUrl($item['image']);
+            }
+        }
 
         // DEBUG: Log what was fetched from database
         error_log("🔍 getAllMenuItems - Fetched " . count($menuItems) . " menu items");
@@ -196,6 +203,11 @@ function getMenuItem($db, $menuId) {
         if (!$menuItem) {
             sendError('Menu item not found', [], 404);
             return;
+        }
+
+        // Convert image URL to production URL
+        if (!empty($menuItem['image'])) {
+            $menuItem['image'] = getImageUrl($menuItem['image']);
         }
 
         sendSuccess('Menu item retrieved successfully', $menuItem);
@@ -258,6 +270,11 @@ function createMenuItem($db) {
         ");
         $stmt->execute([$newId]);
         $newMenuItem = $stmt->fetch();
+
+        // Convert image URL to production URL
+        if (!empty($newMenuItem['image'])) {
+            $newMenuItem['image'] = getImageUrl($newMenuItem['image']);
+        }
 
         sendSuccess('Menu item created successfully', $newMenuItem, 201);
     } catch (Exception $e) {
@@ -354,6 +371,11 @@ function updateMenuItem($db, $menuId) {
         $stmt->execute([$menuId]);
         $updatedMenuItem = $stmt->fetch();
 
+        // Convert image URL to production URL
+        if (!empty($updatedMenuItem['image'])) {
+            $updatedMenuItem['image'] = getImageUrl($updatedMenuItem['image']);
+        }
+
         sendSuccess('Menu item updated successfully', $updatedMenuItem);
     } catch (Exception $e) {
         sendError('Failed to update menu item', ['error' => $e->getMessage()], 500);
@@ -445,6 +467,13 @@ function getActiveMenu($db) {
         ");
         $stmt->execute();
         $menuItems = $stmt->fetchAll();
+
+        // Convert image URLs to production URLs
+        foreach ($menuItems as &$item) {
+            if (!empty($item['image'])) {
+                $item['image'] = getImageUrl($item['image']);
+            }
+        }
 
         // DEBUG: Log what's being returned to frontend
         error_log("🍽️ getActiveMenu - Returning " . count($menuItems) . " active menu items");

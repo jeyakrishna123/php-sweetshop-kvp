@@ -124,6 +124,35 @@ try {
 }
 
 /**
+ * Helper function to filter base64 images from product images array
+ * Converts base64 to files or removes invalid images
+ */
+function filterBase64Images($images) {
+    if (!is_array($images)) {
+        return [];
+    }
+    
+    $validImages = [];
+    foreach ($images as $image) {
+        // Check if it's a base64 image (shouldn't be in database, but handle it)
+        if (is_string($image) && (strpos($image, 'data:image/') === 0 || (strlen($image) > 100 && preg_match('/^[A-Za-z0-9+\/]+=*$/', $image) && strpos($image, '/') === false && strpos($image, 'http') === false))) {
+            // Try to convert base64 to file
+            $uploadedPath = uploadBase64Image($image, 'products');
+            if ($uploadedPath) {
+                $validImages[] = $uploadedPath;
+                error_log("⚠️ filterBase64Images - Found base64 image, converted to: " . $uploadedPath);
+            } else {
+                error_log("⚠️ filterBase64Images - Found base64 image but conversion failed, skipping");
+            }
+        } else {
+            // Valid image path/URL - keep it
+            $validImages[] = $image;
+        }
+    }
+    return $validImages;
+}
+
+/**
  * Get all products with pagination and filters
  */
 function getAllProducts($db) {
@@ -278,9 +307,13 @@ function getAllProducts($db) {
     error_log("🔍 GET ALL PRODUCTS - Found " . count($products) . " products");
     error_log("🔍 GET ALL PRODUCTS - Total count: $total");
 
-    // Decode JSON fields
+    // Decode JSON fields and filter out base64 images (they should be files, not base64 strings)
     foreach ($products as &$product) {
         $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
+        
+        // CRITICAL: Filter out any base64 images that might have been stored incorrectly
+        $product['images'] = filterBase64Images($product['images']);
+        
         $product['product_types'] = $product['product_types'] ? json_decode($product['product_types'], true) : null;
         $product['specifications'] = $product['specifications'] ? json_decode($product['specifications'], true) : null;
         $product['tags'] = $product['tags'] ? json_decode($product['tags'], true) : null;
@@ -319,8 +352,12 @@ function getProductById($db, $id) {
         sendError('Product not found', [], 404);
     }
 
-    // Decode JSON fields - handle null values properly
+    // Decode JSON fields - handle null values properly and filter base64 images
     $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
+    
+    // CRITICAL: Filter out any base64 images that might have been stored incorrectly
+    $product['images'] = filterBase64Images($product['images']);
+    
     $product['product_types'] = $product['product_types'] ? json_decode($product['product_types'], true) : null;
     $product['specifications'] = $product['specifications'] ? json_decode($product['specifications'], true) : [];
     $product['tags'] = $product['tags'] ? json_decode($product['tags'], true) : [];
@@ -362,7 +399,10 @@ function getFeaturedProducts($db) {
     $products = $stmt->fetchAll();
 
     foreach ($products as &$product) {
-        $product['images'] = json_decode($product['images'], true);
+        $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
+        
+        // Filter out base64 images
+        $product['images'] = filterBase64Images($product['images']);
     }
 
     sendSuccess('Featured products retrieved successfully', ['products' => $products]);
@@ -386,7 +426,10 @@ function getBestsellers($db) {
     $products = $stmt->fetchAll();
 
     foreach ($products as &$product) {
-        $product['images'] = json_decode($product['images'], true);
+        $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
+        
+        // Filter out base64 images
+        $product['images'] = filterBase64Images($product['images']);
     }
 
     sendSuccess('Bestsellers retrieved successfully', ['products' => $products]);
@@ -419,7 +462,8 @@ function searchProducts($db) {
     $products = $stmt->fetchAll();
 
     foreach ($products as &$product) {
-        $product['images'] = json_decode($product['images'], true);
+        $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
+        $product['images'] = filterBase64Images($product['images']);
     }
 
     sendSuccess('Search results', ['products' => $products, 'query' => $query]);
@@ -443,7 +487,8 @@ function getProductsByCategory($db, $category) {
     $products = $stmt->fetchAll();
 
     foreach ($products as &$product) {
-        $product['images'] = json_decode($product['images'], true);
+        $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
+        $product['images'] = filterBase64Images($product['images']);
     }
 
     sendSuccess('Products retrieved successfully', ['products' => $products]);
@@ -467,7 +512,8 @@ function getProductsByFlavor($db, $flavor) {
     $products = $stmt->fetchAll();
 
     foreach ($products as &$product) {
-        $product['images'] = json_decode($product['images'], true);
+        $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
+        $product['images'] = filterBase64Images($product['images']);
     }
 
     sendSuccess('Products retrieved successfully', ['products' => $products]);
@@ -500,7 +546,8 @@ function getProductsByType($db, $type) {
     $products = $stmt->fetchAll();
 
     foreach ($products as &$product) {
-        $product['images'] = json_decode($product['images'], true);
+        $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
+        $product['images'] = filterBase64Images($product['images']);
     }
 
     sendSuccess('Products retrieved successfully', ['products' => $products]);
@@ -558,14 +605,36 @@ function createProduct($db) {
     }
 
     $slug = generateSlug($data['name']);
-    $images = isset($data['images']) ? json_encode($data['images']) : json_encode([]);
+    
+    // Process images - normalizeImagePath handles base64 conversion automatically
+    $processedImages = [];
+    if (isset($data['images']) && is_array($data['images'])) {
+        foreach ($data['images'] as $image) {
+            // normalizeImagePath will detect and convert base64 images, or normalize URLs/paths
+            $normalizedPath = normalizeImagePath($image, 'products');
+            if ($normalizedPath) {
+                $processedImages[] = $normalizedPath;
+                error_log("✅ CREATE PRODUCT - Processed image: " . (is_string($image) && strpos($image, 'data:image/') === 0 ? 'base64 converted' : 'normalized') . " -> " . $normalizedPath);
+            } else {
+                // If normalization fails, skip this image (don't add invalid images)
+                error_log("⚠️ CREATE PRODUCT - Failed to normalize image, skipping");
+            }
+        }
+    }
+    
+    if (empty($processedImages)) {
+        sendError('At least one product image is required', [], 400);
+        return;
+    }
+    
+    $images = json_encode($processedImages);
     $productTypes = isset($data['productTypes']) ? json_encode($data['productTypes']) : null;
     $specifications = isset($data['specifications']) ? json_encode($data['specifications']) : null;
     $tags = isset($data['tags']) ? json_encode($data['tags']) : null;
     $weightOptions = isset($data['weightOptions']) ? json_encode($data['weightOptions']) : null;
 
-    // Use first image as thumbnail if thumbnail not provided
-    $thumbnail = isset($data['thumbnail']) ? $data['thumbnail'] : (isset($data['images'][0]) ? $data['images'][0] : null);
+    // Use first processed image as thumbnail if thumbnail not provided
+    $thumbnail = isset($data['thumbnail']) ? normalizeImagePath($data['thumbnail'], 'products') : ($processedImages[0] ?? null);
 
     $stmt = $db->prepare("
         INSERT INTO products (
@@ -659,7 +728,7 @@ function updateProduct($db, $id) {
 
     $allowedFields = [
         'name', 'description', 'price', 'original_price', 'discount_percentage',
-        'category', 'sub_category', 'menu_option', 'cake_flavor', 'is_new', 'brand', 'stock', 'thumbnail',
+        'category', 'sub_category', 'menu_option', 'cake_flavor', 'is_new', 'brand', 'stock',
         'sku', 'weight', 'has_weight_options', 'is_active'
     ];
 
@@ -669,6 +738,8 @@ function updateProduct($db, $id) {
             $params[] = sanitizeInput($data[$field]);
         }
     }
+    
+    // Note: thumbnail is handled separately below to support base64 conversion
 
     // Handle featured field - both isFeatured and isBestseller should set featured = 1
     if (isset($data['isFeatured']) || isset($data['isBestseller']) || isset($data['featured'])) {
@@ -677,10 +748,46 @@ function updateProduct($db, $id) {
         $params[] = $featured;
     }
 
-    // Handle JSON fields
+    // Handle JSON fields - normalizeImagePath handles base64 conversion automatically
     if (isset($data['images'])) {
-        $fields[] = "images = ?";
-        $params[] = json_encode($data['images']);
+        $processedImages = [];
+        if (is_array($data['images'])) {
+            foreach ($data['images'] as $image) {
+                // normalizeImagePath will detect and convert base64 images, or normalize URLs/paths
+                $normalizedPath = normalizeImagePath($image, 'products');
+                if ($normalizedPath) {
+                    $processedImages[] = $normalizedPath;
+                    error_log("✅ UPDATE PRODUCT - Processed image: " . (is_string($image) && strpos($image, 'data:image/') === 0 ? 'base64 converted' : 'normalized') . " -> " . $normalizedPath);
+                } else {
+                    // If normalization fails, skip this image (don't add invalid images)
+                    error_log("⚠️ UPDATE PRODUCT - Failed to normalize image, skipping");
+                }
+            }
+        }
+        
+        if (!empty($processedImages)) {
+            $fields[] = "images = ?";
+            $params[] = json_encode($processedImages);
+            
+            // Update thumbnail if images were processed and thumbnail not explicitly set
+            if (!isset($data['thumbnail'])) {
+                $fields[] = "thumbnail = ?";
+                $params[] = $processedImages[0];
+            }
+        }
+    }
+    
+    // Handle thumbnail separately if provided
+    if (isset($data['thumbnail'])) {
+        // normalizeImagePath will detect and convert base64 thumbnails automatically
+        $normalizedThumbnail = normalizeImagePath($data['thumbnail'], 'products');
+        if ($normalizedThumbnail) {
+            $fields[] = "thumbnail = ?";
+            $params[] = $normalizedThumbnail;
+            error_log("✅ UPDATE PRODUCT - Processed thumbnail: " . (is_string($data['thumbnail']) && strpos($data['thumbnail'], 'data:image/') === 0 ? 'base64 converted' : 'normalized') . " -> " . $normalizedThumbnail);
+        } else {
+            error_log("⚠️ UPDATE PRODUCT - Failed to normalize thumbnail, keeping existing");
+        }
     }
     if (isset($data['productTypes'])) {
         $fields[] = "product_types = ?";

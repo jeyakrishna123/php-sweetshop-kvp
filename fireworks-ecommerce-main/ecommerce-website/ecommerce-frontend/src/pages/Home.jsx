@@ -182,7 +182,6 @@ const MenuItemCard = ({ item, index, colorConfig, navigate }) => {
               src={imageUrl}
               alt={item.name}
               className="w-full h-full object-cover object-center"
-              crossOrigin="anonymous"
               onError={handleImageError}
               onLoad={handleImageLoad}
               loading="eager"

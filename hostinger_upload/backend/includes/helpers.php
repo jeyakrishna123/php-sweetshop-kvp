@@ -405,21 +405,112 @@ function validateImageUpload($file) {
  * Upload image
  */
 function uploadImage($file, $directory = 'products') {
+    // Check if UPLOAD_DIR is defined
+    if (!defined('UPLOAD_DIR')) {
+        error_log("❌ uploadImage - UPLOAD_DIR constant not defined!");
+        return false;
+    }
+    
     $uploadDir = UPLOAD_DIR . $directory . '/';
+    error_log("🔍 uploadImage - Upload directory: $uploadDir");
+    error_log("🔍 uploadImage - Absolute path: " . realpath($uploadDir) ?: 'PATH DOES NOT EXIST');
 
+    // PRODUCTION: Check if parent uploads directory exists
+    if (!file_exists(UPLOAD_DIR)) {
+        error_log("❌ PRODUCTION ISSUE - UPLOAD_DIR does not exist: " . UPLOAD_DIR);
+        error_log("🔍 Attempting to create UPLOAD_DIR: " . UPLOAD_DIR);
+        if (!mkdir(UPLOAD_DIR, 0755, true)) {
+            error_log("❌ PRODUCTION ISSUE - Failed to create UPLOAD_DIR. Check permissions!");
+            error_log("❌ Current user: " . get_current_user());
+            error_log("❌ Directory owner check needed - may need chown www-data:www-data");
+            return false;
+        }
+        error_log("✅ Created UPLOAD_DIR: " . UPLOAD_DIR);
+    }
+    
+    // Create directory if it doesn't exist
     if (!file_exists($uploadDir)) {
-        mkdir($uploadDir, 0755, true);
+        error_log("⚠️ uploadImage - Directory doesn't exist, creating: $uploadDir");
+        if (!mkdir($uploadDir, 0755, true)) {
+            error_log("❌ uploadImage - Failed to create directory: $uploadDir");
+            error_log("❌ PRODUCTION ISSUE - Cannot create directory. Check:");
+            error_log("   1. Parent directory permissions");
+            error_log("   2. PHP user has write access");
+            error_log("   3. Disk space available");
+            return false;
+        }
+        error_log("✅ uploadImage - Directory created successfully");
+    }
+    
+    // Check if directory is writable
+    if (!is_writable($uploadDir)) {
+        error_log("❌ uploadImage - Directory not writable: $uploadDir");
+        error_log("❌ PRODUCTION ISSUE - Directory exists but is not writable!");
+        error_log("🔍 Current permissions: " . substr(sprintf('%o', fileperms($uploadDir)), -4));
+        error_log("🔍 Fix with: chmod 755 $uploadDir");
+        error_log("🔍 Or: chmod 777 $uploadDir (less secure)");
+        
+        // Try to fix permissions
+        if (!chmod($uploadDir, 0755)) {
+            error_log("❌ uploadImage - Failed to set directory permissions");
+            error_log("❌ PRODUCTION ISSUE - Cannot chmod directory. May need root/sudo access.");
+            return false;
+        }
+        error_log("✅ Fixed directory permissions to 755");
     }
 
-    $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+    // Validate file
+    if (!isset($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+        error_log("❌ uploadImage - Invalid file upload: " . json_encode($file));
+        return false;
+    }
+
+    $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    
+    // Validate extension
+    $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    if (!in_array($extension, $allowedExtensions)) {
+        error_log("❌ uploadImage - Invalid file extension: $extension");
+        return false;
+    }
+    
     $filename = uniqid() . '_' . time() . '.' . $extension;
     $filepath = $uploadDir . $filename;
+    
+    error_log("🔍 uploadImage - Moving file to: $filepath");
+    error_log("🔍 uploadImage - Temp file exists: " . (file_exists($file['tmp_name']) ? 'YES' : 'NO'));
+    error_log("🔍 uploadImage - Temp file size: " . (file_exists($file['tmp_name']) ? filesize($file['tmp_name']) . ' bytes' : 'N/A'));
+    error_log("🔍 uploadImage - Target directory writable: " . (is_writable($uploadDir) ? 'YES' : 'NO'));
 
     if (move_uploaded_file($file['tmp_name'], $filepath)) {
-        return '/uploads/' . $directory . '/' . $filename;
+        // PRODUCTION: Verify file was actually saved
+        if (file_exists($filepath) && filesize($filepath) > 0) {
+            $relativePath = '/uploads/' . $directory . '/' . $filename;
+            error_log("✅ uploadImage - File uploaded successfully: $relativePath");
+            error_log("✅ uploadImage - File verified on disk: " . filesize($filepath) . " bytes");
+            return $relativePath;
+        } else {
+            error_log("❌ PRODUCTION ISSUE - move_uploaded_file returned true but file does not exist or is empty!");
+            error_log("❌ Target path: $filepath");
+            error_log("❌ File exists: " . (file_exists($filepath) ? 'YES' : 'NO'));
+            if (file_exists($filepath)) {
+                error_log("❌ File size: " . filesize($filepath) . " bytes");
+            }
+            return false;
+        }
+    } else {
+        $lastError = error_get_last();
+        error_log("❌ uploadImage - Failed to move uploaded file");
+        error_log("❌ PRODUCTION ISSUE - move_uploaded_file() failed!");
+        error_log("❌ Error: " . ($lastError ? $lastError['message'] : 'Unknown error'));
+        error_log("❌ Source: " . $file['tmp_name']);
+        error_log("❌ Destination: $filepath");
+        error_log("❌ Check:");
+        error_log("   1. Disk space: " . (disk_free_space($uploadDir) ?: 'Unknown'));
+        error_log("   2. Directory permissions");
+        error_log("   3. PHP user permissions");
+        return false;
     }
-
-    return false;
 }
 
 /**
@@ -428,27 +519,37 @@ function uploadImage($file, $directory = 'products') {
  */
 function uploadBase64Image($base64String, $directory = 'products') {
     if (empty($base64String)) {
+        error_log("❌ uploadBase64Image - Empty base64 string provided");
         return false;
     }
-    
+
+    // Check if UPLOAD_DIR is defined
+    if (!defined('UPLOAD_DIR')) {
+        error_log("❌ uploadBase64Image - UPLOAD_DIR constant not defined!");
+        return false;
+    }
+
     // Check if it's a base64 data URI
     if (preg_match('/^data:image\/(\w+);base64,(.+)$/', $base64String, $matches)) {
         $imageType = strtolower($matches[1]); // jpeg, png, webp, gif
         $base64Data = $matches[2];
+        error_log("🔍 uploadBase64Image - Detected data URI with type: $imageType");
     } else {
         // Assume it's raw base64 without data URI prefix
         // Try to detect image type from the base64 data
         $decoded = base64_decode($base64String, true);
         if ($decoded === false) {
-            error_log("❌ uploadBase64Image - Invalid base64 string");
+            error_log("❌ uploadBase64Image - Invalid base64 string (decode failed)");
             return false;
         }
-        
+
         // Detect MIME type from binary data
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $mimeType = finfo_buffer($finfo, $decoded);
         finfo_close($finfo);
-        
+
+        error_log("🔍 uploadBase64Image - Detected MIME type: $mimeType");
+
         // Map MIME type to extension
         $mimeMap = [
             'image/jpeg' => 'jpg',
@@ -456,57 +557,77 @@ function uploadBase64Image($base64String, $directory = 'products') {
             'image/webp' => 'webp',
             'image/gif' => 'gif'
         ];
-        
+
         $imageType = $mimeMap[$mimeType] ?? 'jpg'; // Default to jpg
         $base64Data = $base64String;
     }
-    
+
     // Validate image type
     $allowedTypes = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
     if (!in_array($imageType, $allowedTypes)) {
         error_log("❌ uploadBase64Image - Invalid image type: " . $imageType);
         return false;
     }
-    
+
     // Decode base64 data
     $imageData = base64_decode($base64Data, true);
     if ($imageData === false) {
-        error_log("❌ uploadBase64Image - Failed to decode base64");
+        error_log("❌ uploadBase64Image - Failed to decode base64 data");
         return false;
     }
-    
+
+    error_log("🔍 uploadBase64Image - Decoded image size: " . strlen($imageData) . " bytes");
+
     // Validate it's actually an image
     $tempFile = tmpfile();
     $tempPath = stream_get_meta_data($tempFile)['uri'];
     file_put_contents($tempPath, $imageData);
-    
+
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
     $detectedMime = finfo_file($finfo, $tempPath);
     finfo_close($finfo);
     fclose($tempFile);
-    
+
+    error_log("🔍 uploadBase64Image - Validated MIME type: $detectedMime");
+
     if (!in_array($detectedMime, ALLOWED_IMAGE_TYPES)) {
         error_log("❌ uploadBase64Image - Detected invalid MIME type: " . $detectedMime);
         return false;
     }
-    
+
     // Create upload directory if it doesn't exist
     $uploadDir = UPLOAD_DIR . $directory . '/';
+    error_log("🔍 uploadBase64Image - Upload directory: $uploadDir");
+
     if (!file_exists($uploadDir)) {
-        mkdir($uploadDir, 0755, true);
+        error_log("⚠️ uploadBase64Image - Directory doesn't exist, creating: $uploadDir");
+        if (!mkdir($uploadDir, 0755, true)) {
+            error_log("❌ uploadBase64Image - Failed to create directory: $uploadDir");
+            return false;
+        }
+        error_log("✅ uploadBase64Image - Directory created successfully");
     }
-    
+
+    // Check if directory is writable
+    if (!is_writable($uploadDir)) {
+        error_log("❌ uploadBase64Image - Directory not writable: $uploadDir");
+        return false;
+    }
+
     // Generate unique filename
     $extension = ($imageType === 'jpeg') ? 'jpg' : $imageType;
     $filename = uniqid() . '_' . time() . '.' . $extension;
     $filepath = $uploadDir . $filename;
-    
+
+    error_log("🔍 uploadBase64Image - Saving to: $filepath");
+
     // Save image to file
-    if (file_put_contents($filepath, $imageData)) {
-        error_log("✅ uploadBase64Image - Saved base64 image to: /uploads/" . $directory . "/" . $filename);
+    $result = file_put_contents($filepath, $imageData);
+    if ($result !== false) {
+        error_log("✅ uploadBase64Image - Saved base64 image to: /uploads/" . $directory . "/" . $filename . " (Size: $result bytes)");
         return '/uploads/' . $directory . '/' . $filename;
     } else {
-        error_log("❌ uploadBase64Image - Failed to save file: " . $filepath);
+        error_log("❌ uploadBase64Image - Failed to save file: " . $filepath . " (file_put_contents returned false)");
         return false;
     }
 }
@@ -669,10 +790,41 @@ function sendOrderStatusEmail($customerEmail, $customerName, $orderId, $newStatu
 
 /**
  * Get image URL - Convert relative paths to absolute production URLs
+ * CRITICAL: Never convert base64 images to URLs - they should be converted to files first
  */
 function getImageUrl($imagePath) {
     if (empty($imagePath)) {
         return null; // Return null instead of empty string
+    }
+    
+    // CRITICAL: Check if it's a base64 image string - DO NOT convert to URL
+    // Base64 images should never be passed to this function - they should be converted to files first
+    // Check for data:image/ ANYWHERE in string (not just at start) - handles path prefixes
+    if (is_string($imagePath)) {
+        // Check for data URI format anywhere in string (handles path prefixes like /uploads/products/data:image/...)
+        if (strpos($imagePath, 'data:image/') !== false || strpos($imagePath, ';base64,') !== false) {
+            error_log("⚠️ getImageUrl - Base64 data URI detected! This should have been converted to a file first: " . substr($imagePath, 0, 100) . "...");
+            // Return null to prevent creating invalid URLs
+            return null;
+        }
+        
+        // Check for base64 pattern in strings with path prefixes
+        // e.g., /uploads/products/data:image/webp;base64,...
+        if (strlen($imagePath) > 200 && preg_match('/data:image\/[^;]+;base64,/', $imagePath)) {
+            error_log("⚠️ getImageUrl - Base64 pattern with path prefix detected! This should have been converted to a file first");
+            // Return null to prevent creating invalid URLs
+            return null;
+        }
+        
+        // Check for raw base64 string (long string matching base64 pattern)
+        if (strlen($imagePath) > 100 && preg_match('/^[A-Za-z0-9+\/]+=*$/', $imagePath)) {
+            // Only treat as base64 if it doesn't look like a file path or URL
+            if (strpos($imagePath, '/') === false && strpos($imagePath, '\\') === false && strpos($imagePath, 'http') === false) {
+                error_log("⚠️ getImageUrl - Raw base64 string detected! This should have been converted to a file first");
+                // Return null to prevent creating invalid URLs
+                return null;
+            }
+        }
     }
     
     // If already an absolute URL, return as is
@@ -705,27 +857,52 @@ function normalizeImagePath($imagePath, $directory = 'products') {
     }
     
     // CRITICAL: Check if it's a base64 image string
-    // Base64 images start with "data:image/" or are long base64 strings (at least 100 chars, typical for images)
+    // Base64 images can have path prefixes like /uploads/products/data:image/...
+    // Check for data:image/ ANYWHERE in the string (not just at start)
     $isBase64 = false;
-    if (strpos($imagePath, 'data:image/') === 0) {
+    
+    // Check for data URI format anywhere in string
+    if (strpos($imagePath, 'data:image/') !== false || strpos($imagePath, ';base64,') !== false) {
         $isBase64 = true;
-    } else if (strlen($imagePath) > 100 && preg_match('/^[A-Za-z0-9+\/]+=*$/', $imagePath)) {
-        // Only treat as base64 if it's a long string (images are typically >100 chars when base64 encoded)
-        // and matches base64 pattern, but doesn't look like a file path or URL
+        error_log("🔍 normalizeImagePath - Detected base64 pattern (data:image/ or ;base64,) in string");
+    } 
+    // Check for base64 pattern in strings with path prefixes
+    // e.g., /uploads/products/data:image/webp;base64,...
+    else if (strlen($imagePath) > 200 && preg_match('/data:image\/[^;]+;base64,/', $imagePath)) {
+        $isBase64 = true;
+        error_log("🔍 normalizeImagePath - Detected base64 pattern with path prefix");
+    }
+    // Check for raw base64 string (long string matching base64 pattern)
+    else if (strlen($imagePath) > 100 && preg_match('/^[A-Za-z0-9+\/]+=*$/', $imagePath)) {
+        // Only treat as base64 if it doesn't look like a file path or URL
         if (strpos($imagePath, '/') === false && strpos($imagePath, '\\') === false && strpos($imagePath, 'http') === false) {
             $isBase64 = true;
+            error_log("🔍 normalizeImagePath - Detected raw base64 string");
         }
     }
     
     if ($isBase64) {
-        error_log("🔍 normalizeImagePath - Detected base64 image, converting to file...");
+        error_log("🔍 normalizeImagePath - Detected base64 image (length: " . strlen($imagePath) . " chars), converting to file...");
+        
+        // CRITICAL: If base64 has path prefix, extract just the base64 part
+        // e.g., /uploads/products/data:image/webp;base64,... -> data:image/webp;base64,...
+        $base64String = $imagePath;
+        if (strpos($imagePath, 'data:image/') !== false) {
+            // Find where data:image/ starts
+            $dataImagePos = strpos($imagePath, 'data:image/');
+            $base64String = substr($imagePath, $dataImagePos);
+            error_log("🔍 normalizeImagePath - Extracted base64 from path prefix: " . substr($base64String, 0, 50) . "...");
+        }
+        
         // Convert base64 to file
-        $uploadedPath = uploadBase64Image($imagePath, $directory);
+        $uploadedPath = uploadBase64Image($base64String, $directory);
         if ($uploadedPath) {
             error_log("✅ normalizeImagePath - Base64 converted to: " . $uploadedPath);
             return $uploadedPath;
         } else {
-            error_log("❌ normalizeImagePath - Failed to convert base64 image");
+            error_log("❌ normalizeImagePath - Failed to convert base64 image - returning NULL (will cause validation error)");
+            // CRITICAL: Return null so the calling code knows conversion failed
+            // The calling code should NOT save the product if this returns null
             return null;
         }
     }

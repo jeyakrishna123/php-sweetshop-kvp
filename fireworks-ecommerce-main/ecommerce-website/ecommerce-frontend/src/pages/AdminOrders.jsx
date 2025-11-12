@@ -398,6 +398,19 @@ const AdminOrders = () => {
     setSelectedOrderForBill(null);
   };
 
+  // Helper to detect base64 images
+  const isBase64Image = (str) => {
+    if (!str || typeof str !== 'string') return false;
+    if (str.startsWith('data:image/')) return true;
+    // Check for raw base64 string (long string matching base64 pattern)
+    if (str.length > 100 && /^[A-Za-z0-9+\/]+=*$/.test(str)) {
+      if (!str.includes('/') && !str.includes('\\') && !str.includes('http')) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   // Helper function to get proper image URL
   const getImageUrl = (item) => {
     console.log('🔍 getImageUrl called with item:', item);
@@ -424,6 +437,12 @@ const AdminOrders = () => {
     if (!imagePath) {
       console.log('❌ No valid image found, using Unsplash placeholder');
       return "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=200&h=200&fit=crop";
+    }
+
+    // CRITICAL: Never convert base64 images to URLs
+    if (isBase64Image(imagePath)) {
+      console.warn('⚠️ AdminOrders: Base64 image detected, returning as-is');
+      return imagePath; // Return base64 as-is for img src
     }
 
     // If it's already a full URL, return as is

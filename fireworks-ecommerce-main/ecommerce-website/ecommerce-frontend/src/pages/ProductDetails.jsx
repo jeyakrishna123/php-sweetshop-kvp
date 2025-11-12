@@ -298,6 +298,12 @@ const ProductDetails = () => {
   };
 
   const handleWishlistToggle = async () => {
+    // Prevent multiple simultaneous requests
+    if (wishlistLoading) {
+      console.log('⏳ Wishlist operation already in progress');
+      return;
+    }
+
     if (!user) {
       setIsSignupModalOpen(true);
       return;
@@ -322,12 +328,24 @@ const ProductDetails = () => {
         // Add to wishlist
         console.log('❤️ Adding to wishlist, product._id:', product._id, 'type:', typeof product._id);
         console.log('❤️ Full product object:', product);
-        const response = await axios.post('/api/wishlist/add', {
-          productId: product._id
-        });
-        console.log('✅ Added to wishlist:', response.data);
-        setIsWishlisted(true);
-        showToast('Added to wishlist', 'success');
+
+        try {
+          const response = await axios.post('/api/wishlist/add', {
+            productId: product._id
+          });
+          console.log('✅ Added to wishlist:', response.data);
+          setIsWishlisted(true);
+          showToast('Added to wishlist', 'success');
+        } catch (addError) {
+          // Handle 409 separately - it means already in wishlist
+          if (addError.response?.status === 409) {
+            console.log('⚠️ Product already in wishlist, syncing state');
+            setIsWishlisted(true);  // Sync state with backend
+            showToast('Already in wishlist', 'info');
+          } else {
+            throw addError;  // Re-throw other errors to outer catch
+          }
+        }
       }
     } catch (error) {
       console.error('❌ Wishlist toggle failed:', error);
@@ -337,12 +355,10 @@ const ProductDetails = () => {
         status: error.response?.status
       });
 
-      // User-friendly error messages
-      if (error.response?.status === 409) {
-        showToast('Already in wishlist', 'info');
-      } else if (error.response?.status === 404) {
+      // User-friendly error messages (409 already handled in inner catch)
+      if (error.response?.status === 404) {
         showToast('Product not found', 'error');
-      } else {
+      } else if (error.response?.status !== 409) {
         showToast('Failed to update wishlist', 'error');
       }
     } finally {
