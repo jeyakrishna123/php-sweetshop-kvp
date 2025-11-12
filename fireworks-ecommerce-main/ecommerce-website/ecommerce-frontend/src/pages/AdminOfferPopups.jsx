@@ -522,25 +522,27 @@ const AdminOfferPopups = () => {
           console.log('✅ Image upload response received');
           console.log('🔍 Full response data:', JSON.stringify(response.data, null, 2));
 
-          // Backend sends: { success: true, data: { imageUrl: '...' } }
+          // CRITICAL: Backend sends: { success: true, data: { imageUrl: '...', fullUrl: '...' } }
+          // Use fullUrl (which has /backend/ prefix) instead of constructing URL manually
+          const fullImageUrl = response.data.data?.fullUrl || response.data.fullUrl;
           const imageUrl = response.data.data?.imageUrl || response.data.imageUrl;
 
-          // Check if imageUrl exists
-          if (!imageUrl) {
-            console.log('⚠️ No imageUrl in response, keeping data URL preview');
+          // Check if fullImageUrl exists
+          if (!fullImageUrl && !imageUrl) {
+            console.log('⚠️ No imageUrl or fullUrl in response, keeping data URL preview');
             console.log('⚠️ Response structure:', Object.keys(response.data));
             showToast('Image preview created (upload will be processed on save)', 'warning');
             return;
           }
 
+          // Use fullUrl from backend (already has correct /backend/ prefix)
+          // Fallback to constructing URL only if fullUrl not available
+          const finalImageUrl = fullImageUrl ||
+            (imageUrl.startsWith('http') ? imageUrl : `${getApiConfig().BASE_URL}/backend${imageUrl}`);
+
           console.log('✅ Image URL from server:', imageUrl);
-
-          // Construct the full image URL with null safety
-          const fullImageUrl = imageUrl.startsWith('http')
-            ? imageUrl
-            : `${getApiConfig().BASE_URL}${imageUrl}`;
-
-          console.log('🔗 Constructed full image URL:', fullImageUrl);
+          console.log('✅ Full URL from server:', fullImageUrl);
+          console.log('🔗 Final image URL:', finalImageUrl);
 
           // Test the image URL before setting it
           const testImg = new Image();
@@ -549,12 +551,13 @@ const AdminOfferPopups = () => {
             // Update with the uploaded URL
             setFormData(prev => ({
               ...prev,
-              popupImage: fullImageUrl,
-              popupImagePreview: fullImageUrl
+              popupImage: finalImageUrl,
+              popupImagePreview: finalImageUrl
             }));
           };
           testImg.onerror = () => {
             console.log('❌ Image URL is not accessible, keeping data URL');
+            console.log('❌ Failed URL:', finalImageUrl);
             // Keep the data URL if the uploaded URL doesn't work
             setFormData(prev => ({
               ...prev,
@@ -562,7 +565,7 @@ const AdminOfferPopups = () => {
               popupImagePreview: prev.popupImagePreview // Keep the data URL
             }));
           };
-          testImg.src = fullImageUrl;
+          testImg.src = finalImageUrl;
           showToast('Image uploaded successfully', 'success');
         } else {
           throw new Error(response.data.message || 'Failed to upload image');

@@ -142,7 +142,7 @@ function uploadProductImage() {
 }
 
 /**
- * Upload banner image
+ * Upload banner image - SAME PATTERN AS PRODUCTS
  */
 function uploadBannerImage() {
     if (!isset($_FILES['image'])) {
@@ -159,15 +159,23 @@ function uploadBannerImage() {
         return;
     }
 
-    // Upload image to banners directory
+    // Upload image to banners directory - SAME AS PRODUCTS
     $imagePath = uploadImage($file, 'banners');
 
     if ($imagePath) {
-        // Use production URL with HTTPS
-        $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+        // Use getImageUrl() helper - SAME AS PRODUCTS
+        $fullUrl = getImageUrl($imagePath);
+
+        if (!$fullUrl) {
+            // Fallback if getImageUrl returns null
+            $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+            $fullUrl = $baseUrl . '/backend' . $imagePath;
+            error_log("⚠️ getImageUrl returned null, using fallback: $fullUrl");
+        }
+
         sendSuccess('Image uploaded successfully', [
             'imageUrl' => $imagePath,
-            'fullUrl' => $baseUrl . $imagePath
+            'fullUrl' => $fullUrl
         ], 201);
     } else {
         sendError('Failed to upload image', [], 500);
@@ -202,11 +210,21 @@ function uploadPopupImage() {
 
     if ($imagePath) {
         error_log("✅ Image uploaded successfully: $imagePath");
-        // Use production URL with HTTPS
-        $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+        // CRITICAL: Use getImageUrl() to get correct full URL with /backend/ prefix
+        $fullUrl = getImageUrl($imagePath);
+
+        if (!$fullUrl) {
+            // Fallback if getImageUrl returns null
+            $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+            $fullUrl = $baseUrl . '/backend' . $imagePath;
+            error_log("⚠️ getImageUrl returned null, using fallback: $fullUrl");
+        }
+
+        error_log("✅ Popup image URL: $fullUrl");
+
         sendSuccess('Popup image uploaded successfully', [
             'imageUrl' => $imagePath,
-            'fullUrl' => $baseUrl . $imagePath
+            'fullUrl' => $fullUrl
         ], 201);
     } else {
         error_log("❌ uploadImage() returned false - file upload failed");

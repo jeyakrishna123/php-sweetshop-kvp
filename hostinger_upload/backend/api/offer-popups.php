@@ -38,8 +38,10 @@ try {
         case '':
             if ($method === 'GET') {
                 // Always return active popups for public access
+                error_log("🔍 offer-popups: GET request for active popups");
                 getActiveOfferPopups($db);
             } elseif ($method === 'POST') {
+                error_log("🔍 offer-popups: POST request to create popup");
                 createOfferPopup($db);
             }
             break;
@@ -94,7 +96,13 @@ try {
             }
     }
 } catch (Exception $e) {
-    sendError('Server error', ['error' => $e->getMessage()], 500);
+    error_log("❌❌❌ offer-popups FATAL ERROR:");
+    error_log("Message: " . $e->getMessage());
+    error_log("File: " . $e->getFile());
+    error_log("Line: " . $e->getLine());
+    error_log("Trace: " . $e->getTraceAsString());
+
+    sendError('Server error', ['error' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()], 500);
 }
 
 /**
@@ -239,7 +247,8 @@ function createOfferPopup($db) {
     error_log("✅ Validation passed - using title: $title");
 
     $description = isset($data['description']) ? sanitizeInput($data['description']) : null;
-    $imageUrl = isset($data['imageUrl']) ? sanitizeInput($data['imageUrl']) : null;
+    // Normalize image URL to relative path (strips /backend/, converts full URLs, handles base64)
+    $imageUrl = isset($data['imageUrl']) ? normalizeImagePath(sanitizeInput($data['imageUrl']), 'popups') : null;
     $discountPercentage = isset($data['discountPercentage']) ? (float)$data['discountPercentage'] : null;
     $buttonText = isset($data['buttonText']) ? sanitizeInput($data['buttonText']) : 'Shop Now';
     $buttonLink = isset($data['buttonLink']) ? sanitizeInput($data['buttonLink']) : null;
@@ -336,7 +345,8 @@ function updateOfferPopup($db, $popupId) {
     }
     if (isset($data['imageUrl'])) {
         $updates[] = "image_url = ?";
-        $params[] = sanitizeInput($data['imageUrl']);
+        // Normalize image URL to relative path (strips /backend/, converts full URLs, handles base64)
+        $params[] = normalizeImagePath(sanitizeInput($data['imageUrl']), 'popups');
     }
     if (isset($data['couponCode'])) {
         $updates[] = "coupon_code = ?";

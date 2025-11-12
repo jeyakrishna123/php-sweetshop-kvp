@@ -255,44 +255,30 @@ function createBanner($db) {
         sendError('Title is required', [], 400);
     }
 
-    // Handle image uploads
+    // Handle image uploads - USE SAME HELPER AS PRODUCTS
     $mobileImageUrl = null;
     $desktopImageUrl = null;
     $imageUrl = null; // Main image URL
 
-    // Process mobile image if uploaded
+    // Process mobile image if uploaded - SAME AS PRODUCTS
     if (isset($_FILES['mobileImage']) && $_FILES['mobileImage']['error'] === UPLOAD_ERR_OK) {
-        $uploadDir = __DIR__ . '/../uploads/banners/';
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
-        }
-
-        $extension = strtolower(pathinfo($_FILES['mobileImage']['name'], PATHINFO_EXTENSION));
-        $filename = uniqid() . '_' . time() . '.' . $extension;
-        $filepath = $uploadDir . $filename;
-
-        if (move_uploaded_file($_FILES['mobileImage']['tmp_name'], $filepath)) {
-            // Use relative path that will be converted to full URL by getImageUrl
-            $mobileImageUrl = '/backend/uploads/banners/' . $filename;
+        // Use uploadImage() helper (same as products use)
+        $mobileImageUrl = uploadImage($_FILES['mobileImage'], 'banners');
+        if ($mobileImageUrl) {
             error_log("✅ Mobile image uploaded: $mobileImageUrl");
+        } else {
+            error_log("❌ Failed to upload mobile image");
         }
     }
 
-    // Process desktop image if uploaded
+    // Process desktop image if uploaded - SAME AS PRODUCTS
     if (isset($_FILES['desktopImage']) && $_FILES['desktopImage']['error'] === UPLOAD_ERR_OK) {
-        $uploadDir = __DIR__ . '/../uploads/banners/';
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
-        }
-
-        $extension = strtolower(pathinfo($_FILES['desktopImage']['name'], PATHINFO_EXTENSION));
-        $filename = uniqid() . '_' . time() . '.' . $extension;
-        $filepath = $uploadDir . $filename;
-
-        if (move_uploaded_file($_FILES['desktopImage']['tmp_name'], $filepath)) {
-            // Use relative path that will be converted to full URL by getImageUrl
-            $desktopImageUrl = '/backend/uploads/banners/' . $filename;
+        // Use uploadImage() helper (same as products use)
+        $desktopImageUrl = uploadImage($_FILES['desktopImage'], 'banners');
+        if ($desktopImageUrl) {
             error_log("✅ Desktop image uploaded: $desktopImageUrl");
+        } else {
+            error_log("❌ Failed to upload desktop image");
         }
     }
 

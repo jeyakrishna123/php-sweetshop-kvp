@@ -202,11 +202,21 @@ function uploadPopupImage() {
 
     if ($imagePath) {
         error_log("✅ Image uploaded successfully: $imagePath");
-        // Use production URL with HTTPS
-        $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+        // CRITICAL: Use getImageUrl() to get correct full URL with /backend/ prefix
+        $fullUrl = getImageUrl($imagePath);
+
+        if (!$fullUrl) {
+            // Fallback if getImageUrl returns null
+            $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+            $fullUrl = $baseUrl . '/backend' . $imagePath;
+            error_log("⚠️ getImageUrl returned null, using fallback: $fullUrl");
+        }
+
+        error_log("✅ Popup image URL: $fullUrl");
+
         sendSuccess('Popup image uploaded successfully', [
             'imageUrl' => $imagePath,
-            'fullUrl' => $baseUrl . $imagePath
+            'fullUrl' => $fullUrl
         ], 201);
     } else {
         error_log("❌ uploadImage() returned false - file upload failed");

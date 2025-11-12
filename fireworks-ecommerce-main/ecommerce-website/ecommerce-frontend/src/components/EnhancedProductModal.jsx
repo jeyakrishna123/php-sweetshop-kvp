@@ -256,10 +256,11 @@ export default function EnhancedProductModal({ product, onSave, onClose, categor
               imageUrl = baseURL + imageUrl;
             }
           } else if (isBase64) {
-            // Base64 image - keep as-is, but log warning and set to null to prevent URL construction
-            console.warn('⚠️ EnhancedProductModal: Base64 image detected in product data. Backend should have converted this to a file.');
-            // Return null or placeholder instead of base64 to prevent 414 errors
-            imageUrl = null; // Set to null - the image won't display but won't cause 414 error
+            // Base64 image - keep for display in edit mode
+            // The base64 is already in the database, displaying it is safe
+            // When updating, the backend will convert it to a proper file
+            console.warn('⚠️ EnhancedProductModal: Base64 image detected in product data - keeping for display in edit mode');
+            // Keep imageUrl as-is for display (don't set to null)
           }
           
           // Return as object format that ModernImageUpload expects

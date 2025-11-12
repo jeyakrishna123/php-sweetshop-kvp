@@ -49,10 +49,23 @@ export const getImageUrl = (imagePath) => {
     return imagePath;
   }
 
-  // For relative paths, use the Vite proxy (CORS-friendly)
-  // Vite will proxy /uploads requests to the backend
+  // For relative paths, construct proper URL
+  // In development: Vite proxy will handle /uploads
+  // In production: Need to add /backend prefix
   if (imagePath.startsWith('/uploads/')) {
-    return imagePath; // Vite proxy will handle this
+    if (import.meta.env.PROD) {
+      // Production: Add /backend prefix
+      return `https://skbakers.com/backend${imagePath}`;
+    } else {
+      // Development: Use Vite proxy
+      return imagePath;
+    }
+  }
+
+  // For paths that already have /backend
+  if (imagePath.startsWith('/backend/uploads/')) {
+    const backendUrl = import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000';
+    return `${backendUrl}${imagePath}`;
   }
 
   // For other paths, construct the full URL
@@ -65,22 +78,23 @@ export const getImageUrl = (imagePath) => {
 export const getResponsiveImageUrl = (imagePath, fallbackUrl = null) => {
   const url = getImageUrl(imagePath);
   if (url) return url;
-  
-  // Return fallback or default placeholder
-  return fallbackUrl || 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=400&fit=crop&q=80&fm=jpg';
+
+  // Return fallback or default placeholder (using data URI to avoid external dependencies)
+  return fallbackUrl || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"%3E%3Crect width="400" height="400" fill="%23f3f4f6"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23666" font-size="20"%3ENo Image%3C/text%3E%3C/svg%3E';
 };
 
 // Utility function to handle image errors with better fallbacks
 export const handleImageError = (e, fallbackUrl = null) => {
-  const defaultFallback = 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=400&fit=crop&q=80&fm=jpg';
+  const defaultFallback = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"%3E%3Crect width="400" height="400" fill="%23f3f4f6"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23666" font-size="20"%3ENo Image%3C/text%3E%3C/svg%3E';
   e.target.src = fallbackUrl || defaultFallback;
 };
 
 // Utility function to get banner image URL
 export const getBannerImageUrl = (banner) => {
   if (!banner || !banner.imageUrl) {
-    return 'https://via.placeholder.com/1200x400?text=Banner+Image';
+    // Use SVG data URI instead of external placeholder
+    return 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400"%3E%3Crect width="1200" height="400" fill="%23f3f4f6"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23666" font-size="24"%3EBanner Image%3C/text%3E%3C/svg%3E';
   }
-  
+
   return getImageUrl(banner.imageUrl);
 };
