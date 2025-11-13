@@ -102,6 +102,13 @@ function getActiveBanners($db) {
     $stmt->execute();
     $banners = $stmt->fetchAll();
 
+    // Convert image paths to full URLs (same as products)
+    foreach ($banners as &$banner) {
+        $banner['imageUrl'] = getImageUrl($banner['imageUrl']);
+        $banner['mobileImageUrl'] = getImageUrl($banner['mobileImageUrl']);
+        $banner['desktopImageUrl'] = getImageUrl($banner['desktopImageUrl']);
+    }
+
     sendSuccess('Active banners retrieved successfully', ['banners' => $banners]);
 }
 
@@ -122,6 +129,13 @@ function getAllBanners($db) {
     ");
     $stmt->execute();
     $banners = $stmt->fetchAll();
+
+    // Convert image paths to full URLs (same as products)
+    foreach ($banners as &$banner) {
+        $banner['imageUrl'] = getImageUrl($banner['imageUrl']);
+        $banner['mobileImageUrl'] = getImageUrl($banner['mobileImageUrl']);
+        $banner['desktopImageUrl'] = getImageUrl($banner['desktopImageUrl']);
+    }
 
     sendSuccess('All banners retrieved successfully', [
         'banners' => $banners,
@@ -146,6 +160,11 @@ function getBannerById($db, $bannerId) {
     if (!$banner) {
         sendError('Banner not found', [], 404);
     }
+
+    // Convert image paths to full URLs (same as products)
+    $banner['image_url'] = getImageUrl($banner['image_url']);
+    $banner['mobile_image_url'] = getImageUrl($banner['mobile_image_url']);
+    $banner['desktop_image_url'] = getImageUrl($banner['desktop_image_url']);
 
     sendSuccess('Banner retrieved successfully', ['banner' => $banner]);
 }
@@ -238,6 +257,11 @@ function createBanner($db) {
         $stmt->execute([$bannerId]);
         $banner = $stmt->fetch();
 
+        // Convert image paths to full URLs (same as products)
+        $banner['imageUrl'] = getImageUrl($banner['imageUrl']);
+        $banner['mobileImageUrl'] = getImageUrl($banner['mobileImageUrl']);
+        $banner['desktopImageUrl'] = getImageUrl($banner['desktopImageUrl']);
+
         sendSuccess('Banner created successfully', ['banner' => $banner], 201);
     } else {
         sendError('Failed to create banner', [], 500);
@@ -322,6 +346,11 @@ function updateBanner($db, $bannerId) {
         $stmt = $db->prepare("SELECT * FROM banners WHERE id = ?");
         $stmt->execute([$bannerId]);
         $banner = $stmt->fetch();
+
+        // Convert image paths to full URLs (same as products)
+        $banner['image_url'] = getImageUrl($banner['image_url']);
+        $banner['mobile_image_url'] = getImageUrl($banner['mobile_image_url']);
+        $banner['desktop_image_url'] = getImageUrl($banner['desktop_image_url']);
 
         sendSuccess('Banner updated successfully', ['banner' => $banner]);
     } else {

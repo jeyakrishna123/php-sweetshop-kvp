@@ -75,19 +75,11 @@ const ResponsiveBanner = () => {
         console.log('🌐 Using API URL:', apiUrl);
         const response = await axios.get(apiUrl);
         console.log('📡 API Response:', response.data);
-        
-        if (response.data.success && response.data.banners) {
-          console.log('✅ Banners fetched from API:', response.data.banners.length);
-          // Process banner URLs for production
-          const processedBanners = response.data.banners.map(banner => ({
-            ...banner,
-            desktopImageUrl: banner.desktopImageUrl ? (banner.desktopImageUrl.startsWith('http') ? banner.desktopImageUrl : `https://skbakers.com${banner.desktopImageUrl}`) : null,
-            mobileImageUrl: banner.mobileImageUrl ? (banner.mobileImageUrl.startsWith('http') ? banner.mobileImageUrl : `https://skbakers.com${banner.mobileImageUrl}`) : null,
-            imageUrl: banner.imageUrl ? (banner.imageUrl.startsWith('http') ? banner.imageUrl : `https://skbakers.com${banner.imageUrl}`) : null
-          }));
-          setBanners(processedBanners);
-          // Store in localStorage for fallback
-          localStorage.setItem('banners', JSON.stringify(processedBanners));
+
+        if (response.data.success && response.data.data && response.data.data.banners) {
+          console.log('✅ Banners fetched from API:', response.data.data.banners.length);
+          // Backend already returns full URLs - use directly (same as products)
+          setBanners(response.data.data.banners);
           return;
         }
       } catch (apiError) {
@@ -200,21 +192,10 @@ const ResponsiveBanner = () => {
         {/* Banner Images */}
         <div className="relative w-full h-full">
           {filteredBanners.map((banner, index) => {
-            // Use the image URL directly for external URLs, or process through getImageUrl for local ones
-            let imageUrl = '';
-            const targetImage = isMobile ? banner.mobileImageUrl : banner.desktopImageUrl;
-            
-            if (targetImage && targetImage.startsWith('http')) {
-              // External URL - use directly
-              imageUrl = targetImage;
-            } else if (banner.imageUrl && banner.imageUrl.startsWith('http')) {
-              // Fallback to main imageUrl if it's external
-              imageUrl = banner.imageUrl;
-            } else {
-              // Local URL - process through getImageUrl
-              const baseImageUrl = getImageUrl(targetImage) || getImageUrl(banner.imageUrl);
-              imageUrl = baseImageUrl ? `${baseImageUrl}?t=${Date.now()}` : '';
-            }
+            // Simple: Select mobile or desktop image (same as products)
+            const imageUrl = isMobile
+              ? (banner.mobileImageUrl || banner.imageUrl)
+              : (banner.desktopImageUrl || banner.imageUrl);
             
             console.log(`🖼️ Rendering banner ${index + 1}:`, {
               id: banner._id,
