@@ -11,6 +11,7 @@ import ReviewSystem from "../components/ReviewSystem";
 import ImageZoomModal from "../components/ImageZoomModal";
 import SignupModal from "../components/SignupModal";
 import NewProductCard from "../components/NewProductCard";
+import WelcomeOfferPopup from "../components/WelcomeOfferPopup";
 
 const ProductDetails = () => {
   const { id } = useParams();
@@ -885,6 +886,9 @@ const ProductDetails = () => {
             handleAddToCart();
           }}
         />
+
+        {/* Offer Popup - shows on page load */}
+        <WelcomeOfferPopup />
       </div>
     </div>
   );

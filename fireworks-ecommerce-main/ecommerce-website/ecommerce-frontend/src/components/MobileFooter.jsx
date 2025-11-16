@@ -27,12 +27,6 @@ const MobileFooter = () => {
       active: isActive('/products') || location.pathname.startsWith('/product/')
     },
     {
-      path: '/deals',
-      icon: 'flame',
-      label: 'Deals',
-      active: isActive('/deals')
-    },
-    {
       path: '/cart',
       icon: 'shopping-cart',
       label: 'Cart',

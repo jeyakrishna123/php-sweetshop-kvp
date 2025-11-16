@@ -194,29 +194,29 @@ const ReviewSystem = ({ productId, onReviewAdded }) => {
   }
 
   return (
-    <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/20">
-      {/* Premium Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center space-x-4">
-          <div className="p-3 bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl shadow-lg">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl p-4 sm:p-6 lg:p-8 border border-white/20">
+      {/* Premium Header - Mobile Responsive */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 space-y-4 sm:space-y-0">
+        <div className="flex items-center space-x-3 sm:space-x-4">
+          <div className="p-2 sm:p-3 bg-gradient-to-r from-pink-500 to-purple-600 rounded-xl sm:rounded-2xl shadow-lg flex-shrink-0">
+            <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
             </svg>
           </div>
           <div>
-            <h3 className="text-3xl font-black text-gray-900 bg-gradient-to-r from-gray-900 via-purple-900 to-pink-900 bg-clip-text text-transparent">
+            <h3 className="text-xl sm:text-2xl lg:text-3xl font-black text-gray-900 bg-gradient-to-r from-gray-900 via-purple-900 to-pink-900 bg-clip-text text-transparent">
               Customer Reviews
             </h3>
-            <p className="text-gray-600 font-medium">Share your experience with others</p>
+            <p className="text-sm sm:text-base text-gray-600 font-medium">Share your experience with others</p>
           </div>
         </div>
         {user && (
           <button
             onClick={() => setShowReviewForm(!showReviewForm)}
-            className="group bg-gradient-to-r from-pink-500 via-purple-600 to-pink-600 hover:from-pink-600 hover:via-purple-700 hover:to-pink-700 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-500 transform hover:scale-105 active:scale-95 shadow-2xl hover:shadow-3xl"
+            className="group bg-gradient-to-r from-pink-500 via-purple-600 to-pink-600 hover:from-pink-600 hover:via-purple-700 hover:to-pink-700 text-white px-4 sm:px-6 lg:px-8 py-3 sm:py-3.5 lg:py-4 rounded-xl sm:rounded-2xl font-bold text-sm sm:text-base lg:text-lg transition-all duration-500 transform hover:scale-105 active:scale-95 shadow-2xl hover:shadow-3xl w-full sm:w-auto"
           >
-            <span className="flex items-center">
-              <svg className="w-6 h-6 mr-3 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <span className="flex items-center justify-center">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
               </svg>
               {showReviewForm ? 'Cancel Review' : 'Write a Review'}
@@ -225,39 +225,39 @@ const ReviewSystem = ({ productId, onReviewAdded }) => {
         )}
       </div>
 
-      {/* Premium Review Statistics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+      {/* Premium Review Statistics - Mobile Responsive */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-10 lg:mb-12">
         {/* Overall Rating */}
-        <div className="bg-gradient-to-br from-gray-50 to-white p-8 rounded-3xl border border-gray-100 shadow-lg">
-          <div className="flex items-center space-x-6 mb-6">
-            <div className="text-6xl font-black text-gray-900 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+        <div className="bg-gradient-to-br from-gray-50 to-white p-4 sm:p-6 lg:p-8 rounded-2xl sm:rounded-3xl border border-gray-100 shadow-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-6 mb-4 sm:mb-6">
+            <div className="text-5xl sm:text-6xl font-black text-gray-900 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent text-center sm:text-left">
               {statistics?.averageRating || 0}
             </div>
-            <div>
-              <div className="mb-2">
+            <div className="text-center sm:text-left">
+              <div className="mb-2 flex justify-center sm:justify-start">
                 {renderStars(Math.round(statistics?.averageRating || 0))}
               </div>
-              <p className="text-lg font-semibold text-gray-700">
+              <p className="text-base sm:text-lg font-semibold text-gray-700">
                 Based on {statistics?.totalReviews || 0} reviews
               </p>
             </div>
           </div>
           <div className="space-y-2">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center justify-center sm:justify-start space-x-2">
               <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-sm font-medium text-gray-600">Verified Reviews</span>
+              <span className="text-xs sm:text-sm font-medium text-gray-600">Verified Reviews</span>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center justify-center sm:justify-start space-x-2">
               <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
-              <span className="text-sm font-medium text-gray-600">Real Customer Feedback</span>
+              <span className="text-xs sm:text-sm font-medium text-gray-600">Real Customer Feedback</span>
             </div>
           </div>
         </div>
-        
+
         {/* Rating Distribution */}
-        <div className="bg-gradient-to-br from-gray-50 to-white p-8 rounded-3xl border border-gray-100 shadow-lg">
-          <h4 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-            <svg className="w-6 h-6 mr-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-gradient-to-br from-gray-50 to-white p-4 sm:p-6 lg:p-8 rounded-2xl sm:rounded-3xl border border-gray-100 shadow-lg">
+          <h4 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center justify-center sm:justify-start">
+            <svg className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
             Rating Distribution

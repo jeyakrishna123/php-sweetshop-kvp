@@ -633,6 +633,76 @@ export const bannerAPI = {
   }
 };
 
+// Offer Popup Management API - Uses /api/offer-popups endpoint directly (same pattern as Banner)
+const offerPopupAxios = axiosBase.create({
+  baseURL: `${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000')}/api/offer-popups`,
+  timeout: 30000, // Longer timeout for uploads
+});
 
+// Add auth interceptor to offer popup axios (same as Banner)
+addAuthInterceptor(offerPopupAxios);
+
+export const offerPopupAPI = {
+  // Get all offer popups
+  getAllOfferPopups: async () => {
+    try {
+      const response = await offerPopupAxios.get('/');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to fetch offer popups');
+    }
+  },
+
+  // Create new offer popup (sends JSON with imageUrl field)
+  createOfferPopup: async (popupData) => {
+    try {
+      console.log('📤 Creating offer popup with JSON data');
+      const response = await offerPopupAxios.post('/', popupData, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      console.log('✅ Offer popup created:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Offer popup creation failed:', error.response?.data);
+      throw new Error(error.response?.data?.message || 'Failed to create offer popup');
+    }
+  },
+
+  // Update offer popup
+  updateOfferPopup: async (id, popupData) => {
+    try {
+      const response = await offerPopupAxios.put(`/${id}`, popupData, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to update offer popup');
+    }
+  },
+
+  // Delete offer popup
+  deleteOfferPopup: async (id) => {
+    try {
+      const response = await offerPopupAxios.delete(`/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to delete offer popup');
+    }
+  },
+
+  // Toggle offer popup status
+  toggleOfferPopupStatus: async (id) => {
+    try {
+      const response = await offerPopupAxios.patch(`/${id}/toggle`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to toggle offer popup status');
+    }
+  }
+};
 
 export default adminAPI;

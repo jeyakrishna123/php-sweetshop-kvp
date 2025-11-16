@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import ProductCard from "../components/ProductCard";
 import SearchFilter from "../components/SearchFilter";
 import ResponsiveBanner from "../components/ResponsiveBanner";
+import WelcomeOfferPopup from "../components/WelcomeOfferPopup";
 import axios from "../axios";
 
 const ProductListing = () => {
@@ -354,18 +355,6 @@ const ProductListing = () => {
             </div>
             
             <div className="flex flex-wrap items-center justify-between sm:justify-end space-x-2 sm:space-x-4 mt-4 sm:mt-0 gap-2">
-              {/* Refresh Button */}
-              <button
-                onClick={fetchProducts}
-                disabled={loading}
-                className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
-              >
-                <svg className={`w-3 h-3 sm:w-4 sm:h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span className="hidden sm:inline">{loading ? 'Refreshing...' : 'Refresh'}</span>
-              </button>
-              
               {/* View Mode Toggle */}
               <div className="flex border border-gray-300 rounded-lg">
                 <button
@@ -563,6 +552,9 @@ const ProductListing = () => {
           </div>
         </div>
       </div>
+
+      {/* Offer Popup - shows on page load */}
+      <WelcomeOfferPopup />
     </div>
   );
 };
