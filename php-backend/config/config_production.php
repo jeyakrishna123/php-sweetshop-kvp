@@ -56,6 +56,7 @@ define('RAZORPAY_KEY_SECRET', '');
 define('APP_NAME', 'SK Bakers E-Commerce');
 define('APP_VERSION', '2.0.0');
 define('APP_ENV', 'production');
+define('ENVIRONMENT', 'production'); // Required for OTP security check
 
 // Base URL - Production domain
 define('BASE_URL', 'https://skbakers.com');

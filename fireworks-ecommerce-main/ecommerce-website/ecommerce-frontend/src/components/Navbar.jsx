@@ -9,7 +9,7 @@ import AdvancedSearch from "./AdvancedSearch";
 
 const Navbar = () => {
   const cartContext = useCart();
-  const { cartCount = 0 } = cartContext || {};
+  const { cartCount = 0, cartItemCount = 0 } = cartContext || {};
   const { wishlistCount = 0 } = useWishlist() || {};
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -341,10 +341,10 @@ const Navbar = () => {
             </div>
 
             {/* Mobile Search Bar - Only visible on smaller screens */}
-            <div className="lg:hidden flex-1 max-w-xs mx-2">
+            <div className="lg:hidden flex-1 mx-2 min-w-0">
               <form onSubmit={handleSearch} className="relative w-full flex">
-                <div className="relative flex-1">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <div className="relative flex-1 min-w-0">
+                  <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
                     <Icon name="search" className="w-4 h-4 text-gray-400" />
                   </div>
                   <input
@@ -353,12 +353,12 @@ const Navbar = () => {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search..."
-                    className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                    className="w-full pl-8 pr-2 py-2 text-sm border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-r-lg transition-colors duration-200 text-sm"
+                  className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-r-lg transition-colors duration-200 text-sm flex-shrink-0"
                 >
                   Search
                 </button>
@@ -387,7 +387,7 @@ const Navbar = () => {
                 )}
               </button>
 
-              {/* Cart Icon - Desktop/Windows View Only (visible on md and above, hidden on mobile) */}
+              {/* Cart Icon - Visible on Desktop, Hidden on Mobile (footer has cart icon) */}
               <button 
                 onClick={(e) => {
                   e.preventDefault();
@@ -395,14 +395,14 @@ const Navbar = () => {
                   console.log('🛒 Cart button clicked');
                   handleNavigation("/cart");
                 }}
-                className="relative hidden md:flex p-2 text-gray-600 hover:text-red-600 transition-colors duration-200 group"
+                className="relative p-1.5 sm:p-2 text-gray-600 hover:text-red-600 transition-colors duration-200 group hidden md:block"
                 style={{ minHeight: '44px', minWidth: '44px' }}
-                title="Shopping Cart"
+                title={`Cart (${cartItemCount} items)`}
               >
-                <Icon name="cart" className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform duration-200" />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center text-[10px] sm:text-xs font-bold shadow-lg border-2 border-white ring-2 ring-red-600">
-                    {cartCount > 99 ? '99+' : cartCount}
+                <Icon name="shopping-cart" className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform duration-200" />
+                {cartItemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center text-[10px] sm:text-xs font-bold shadow-lg border-2 border-white ring-2 ring-red-600 animate-pulse">
+                    {cartItemCount > 99 ? '99+' : cartItemCount}
                   </span>
                 )}
               </button>

@@ -677,7 +677,9 @@ const ProductDetails = () => {
               {/* Weight Selection */}
               {product.hasWeightOptions && productWeightOptions && productWeightOptions.length > 0 && (
                 <div>
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-700 mb-3 sm:mb-4">Select Weight</h3>
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-700 mb-3 sm:mb-4">
+                    Select Weight <span className="text-red-500">*</span>
+                  </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-3 sm:mb-4">
                     {productWeightOptions.map((option, index) => (
                       <button
@@ -685,7 +687,7 @@ const ProductDetails = () => {
                         onClick={() => handleWeightSelect(option)}
                         className={`p-4 rounded-lg border-2 transition-all duration-200 ${
                           selectedWeight && selectedWeight.weight === option.weight
-                            ? 'border-red-500 bg-red-50 text-red-800'
+                            ? 'border-red-500 bg-red-50 text-red-800 ring-2 ring-red-200'
                             : 'border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50'
                         }`}
                       >
@@ -696,9 +698,13 @@ const ProductDetails = () => {
                       </button>
                     ))}
                   </div>
-                  {selectedWeight && (
-                    <div className="text-sm text-gray-600">
-                      Selected: {selectedWeight.weight} Kg
+                  {selectedWeight ? (
+                    <div className="text-sm text-green-600 font-medium">
+                      ✓ Selected: {selectedWeight.weight} Kg - ₹{selectedWeight.price}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-amber-600 font-medium">
+                      ⚠ Please select a weight option to add to cart
                     </div>
                   )}
                 </div>
@@ -744,6 +750,7 @@ const ProductDetails = () => {
                       ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}
+                  title={product.hasWeightOptions && !selectedWeight ? 'Please select a weight option first' : product.stock === 0 ? 'Product is out of stock' : 'Add product to cart'}
                 >
                   {addingToCart ? (
                     <span className="flex items-center justify-center">

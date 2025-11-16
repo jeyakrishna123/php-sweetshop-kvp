@@ -4,8 +4,10 @@
  */
 
 // Error reporting (set to 0 in production)
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+error_reporting(0); // Disable error display in production
+ini_set('display_errors', 0); // Hide errors from users
+ini_set('log_errors', 1); // Log errors to file
+ini_set('error_log', __DIR__ . '/../logs/php-error.log');
 
 // Timezone
 date_default_timezone_set('Asia/Kolkata');
@@ -48,11 +50,12 @@ define('RAZORPAY_KEY_SECRET', '');
 // Application settings
 define('APP_NAME', 'SK Bakers E-Commerce');
 define('APP_VERSION', '2.0.0');
-define('APP_ENV', 'development'); // 'development' or 'production'
+define('APP_ENV', 'production'); // 'development' or 'production'
+define('ENVIRONMENT', 'production'); // Required for OTP security check
 
-// Base URL - Update this for your domain
-define('BASE_URL', 'http://localhost/php-backend');
-define('API_BASE_URL', BASE_URL . '/api');
+// Base URL - Production domain
+define('BASE_URL', 'https://skbakers.com');
+define('API_BASE_URL', 'https://skbakers.com/api');
 
 // Session settings
 ini_set('session.cookie_httponly', 1);
