@@ -1,13 +1,38 @@
 import axios from "axios";
 
+// Force production URL for production builds
+const getBaseURL = () => {
+  // Check for window flag set by index.html script (runs before React)
+  if (typeof window !== 'undefined' && window.__PRODUCTION_API_URL__) {
+    return window.__PRODUCTION_API_URL__;
+  }
+  // Check for explicit VITE_API_URL
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // Check if we're on production domain
+  if (typeof window !== 'undefined' && window.location.hostname === 'skbakers.com') {
+    return 'https://skbakers.com';
+  }
+  // Check if we're in production mode
+  if (import.meta.env.PROD || import.meta.env.MODE === 'production') {
+    return 'https://skbakers.com';
+  }
+  // Default to localhost for development
+  return 'http://localhost:8000';
+};
+
 const instance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000'), // Production or development backend
+  baseURL: getBaseURL(), // Production or development backend
 });
 
 // Debug: Log the base URL being used
-console.log('🔧 Axios instance created with baseURL:', import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000'));
+const baseURL = getBaseURL();
+console.log('🔧 Axios instance created with baseURL:', baseURL);
 console.log('🔧 Environment variables:', {
   VITE_API_URL: import.meta.env.VITE_API_URL,
+  PROD: import.meta.env.PROD,
+  MODE: import.meta.env.MODE,
   VITE_ENV: import.meta.env.VITE_ENV
 });
 

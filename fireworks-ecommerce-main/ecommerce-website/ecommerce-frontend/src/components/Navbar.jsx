@@ -340,11 +340,11 @@ const Navbar = () => {
               </form>
             </div>
 
-            {/* Mobile Search Bar - Only visible on smaller screens */}
+            {/* Mobile Search Bar - Only visible on smaller screens - User Friendly Design */}
             <div className="lg:hidden flex-1 mx-2 min-w-0">
-              <form onSubmit={handleSearch} className="relative w-full flex">
+              <form onSubmit={handleSearch} className="relative w-full flex items-center gap-1">
                 <div className="relative flex-1 min-w-0">
-                  <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                     <Icon name="search" className="w-4 h-4 text-gray-400" />
                   </div>
                   <input
@@ -352,15 +352,36 @@ const Navbar = () => {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search..."
-                    className="w-full pl-8 pr-2 py-2 text-sm border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                    placeholder="Search cakes, pastries..."
+                    className={`w-full pl-10 ${searchQuery ? 'pr-10' : 'pr-3'} py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 bg-white shadow-sm`}
+                    style={{ minHeight: '44px' }}
                   />
+                  {/* Clear button - shows when there's text */}
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery("");
+                        if (searchInputRef.current) {
+                          searchInputRef.current.focus();
+                        }
+                      }}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center z-10 text-gray-400 hover:text-gray-600 transition-colors"
+                      aria-label="Clear search"
+                      style={{ minHeight: '44px', minWidth: '44px' }}
+                    >
+                      <Icon name="x" className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
                 <button
                   type="submit"
-                  className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-r-lg transition-colors duration-200 text-sm flex-shrink-0"
+                  className="px-4 py-2.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-lg transition-all duration-200 flex-shrink-0 shadow-md hover:shadow-lg flex items-center justify-center"
+                  style={{ minHeight: '44px', minWidth: '44px' }}
+                  aria-label="Search"
                 >
-                  Search
+                  <Icon name="search" className="w-5 h-5 sm:hidden" />
+                  <span className="hidden sm:inline text-sm font-medium">Search</span>
                 </button>
               </form>
             </div>

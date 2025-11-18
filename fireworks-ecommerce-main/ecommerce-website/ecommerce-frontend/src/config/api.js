@@ -1,7 +1,8 @@
 // API Configuration
 export const API_CONFIG = {
   // Backend API base URL (PHP Backend)
-  BASE_URL: import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000',
+  // Force production URL if VITE_API_URL is set, otherwise check PROD mode
+  BASE_URL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000'),
 
   // API endpoints
   ENDPOINTS: {
@@ -33,13 +34,13 @@ export const API_CONFIG = {
 export const getApiConfig = () => {
   return {
     ...API_CONFIG,
-    BASE_URL: import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000',
+    BASE_URL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000'),
     TIMEOUT: API_CONFIG.TIMEOUT
   };
 };
 
 // Banner API URL
 export const getBannerApiUrl = () => {
-  const baseUrl = import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000';
+  const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000');
   return `${baseUrl}/api/banners/active`;
 };

@@ -650,15 +650,15 @@ function getBestsellers($db) {
     
     try {
         $stmt = $db->prepare("
-            SELECT p.id, p.name, p.description, p.price, p.original_price, p.stock, 
-                   p.images, p.thumbnail, p.is_featured, p.is_bestseller, p.is_new, 
-                   p.is_active, p.sku, p.weight, p.average_rating, p.num_reviews, 
+            SELECT p.id, p.name, p.description, p.price, p.original_price, p.stock,
+                   p.images, p.thumbnail, p.is_featured, p.is_bestseller, p.is_new,
+                   p.is_active, p.sku, p.weight, p.average_rating, p.num_reviews,
                    p.sold_count, p.view_count, p.created_at, p.updated_at,
                    c.name as category_name, c.slug as category_slug
             FROM products p
             LEFT JOIN categories c ON p.category_id = c.id
-            WHERE p.is_bestseller = 1 AND p.is_active = 1
-            ORDER BY p.sold_count DESC, p.created_at DESC
+            WHERE p.is_active = 1 AND (p.is_bestseller = 1 OR p.is_featured = 1 OR p.sold_count > 0)
+            ORDER BY p.is_featured DESC, p.is_bestseller DESC, p.sold_count DESC, p.created_at DESC
             LIMIT ? OFFSET ?
         ");
         $stmt->execute([$pagination['limit'], $pagination['offset']]);
@@ -667,7 +667,7 @@ function getBestsellers($db) {
         // Get total count for pagination
         $countStmt = $db->prepare("
             SELECT COUNT(*) as total FROM products p
-            WHERE p.is_bestseller = 1 AND p.is_active = 1
+            WHERE p.is_active = 1 AND (p.is_bestseller = 1 OR p.is_featured = 1 OR p.sold_count > 0)
         ");
         $countStmt->execute();
         $total = $countStmt->fetch()['total'];
@@ -697,7 +697,18 @@ function getBestsellers($db) {
             $product['category'] = $product['category_name'] ?? null;
         }
 
-        $response = createPaginationResponse($products, $total, $pagination['page'], $pagination['limit']);
+        // Return products in 'products' key for frontend compatibility
+        $response = [
+            'products' => $products,
+            'pagination' => [
+                'currentPage' => $pagination['page'],
+                'totalPages' => ceil($total / $pagination['limit']),
+                'totalItems' => $total,
+                'itemsPerPage' => $pagination['limit'],
+                'hasNextPage' => $pagination['page'] < ceil($total / $pagination['limit']),
+                'hasPrevPage' => $pagination['page'] > 1
+            ]
+        ];
         sendSuccess('Bestsellers retrieved successfully', $response);
         
     } catch (PDOException $e) {
@@ -1192,9 +1203,17 @@ function createProduct($db) {
         // Map frontend camelCase to database snake_case
         // Both isFeatured and isBestseller should mark product as featured
         $featured = ($data['isFeatured'] ?? 0) || ($data['isBestseller'] ?? 0) ? 1 : ($data['featured'] ?? 0);
-        $isNew = $data['isNew'] ?? 0;
+        $isBestseller = ($data['isBestseller'] ?? 0) ? 1 : 0; // Convert boolean to integer
+        $isNew = ($data['isNew'] ?? 0) ? 1 : 0; // Convert boolean to integer
         $hasWeightOptions = $data['hasWeightOptions'] ?? 0;
         $isActive = $data['isActive'] ?? 1; // Default to active (1) if not specified
+
+        // DEBUG: Log the values
+        error_log("🔍 CREATE PRODUCT - isNew from request: " . ($data['isNew'] ?? 'NOT SET'));
+        error_log("🔍 CREATE PRODUCT - \$isNew variable: " . $isNew);
+        error_log("🔍 CREATE PRODUCT - isBestseller: " . ($data['isBestseller'] ?? 'NOT SET'));
+        error_log("🔍 CREATE PRODUCT - isFeatured: " . ($data['isFeatured'] ?? 'NOT SET'));
+        error_log("🔍 CREATE PRODUCT - \$featured variable: " . $featured);
 
         // Get category_id from category name
         $categoryId = null;
@@ -1250,6 +1269,11 @@ function createProduct($db) {
             $data['sku'] ?? null,
             $weight
         ];
+
+        // DEBUG: Log what we're about to insert
+        error_log("🔍 CREATE PRODUCT - Execute params for is_new (index 10): " . $executeParams[10]);
+        error_log("🔍 CREATE PRODUCT - Execute params for is_bestseller (index 9): " . $executeParams[9]);
+        error_log("🔍 CREATE PRODUCT - Execute params for is_featured (index 8): " . $executeParams[8]);
         
         // Add sub_category if column exists
         if ($hasSubCategory) {

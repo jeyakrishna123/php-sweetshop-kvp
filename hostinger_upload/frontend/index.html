@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/sk-bakers-logo.png" />
-    <link rel="apple-touch-icon" href="/sk-bakers-logo.png" />
+    <link rel="icon" type="image/png" href="./sk-bakers-logo.png" />
+    <link rel="apple-touch-icon" href="./sk-bakers-logo.png" />
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
@@ -35,7 +35,7 @@
     <meta property="og:url" content="https://skbakers.com/" />
     <meta property="og:title" content="SK Bakers - Fresh Cakes & Sweet Delights in Kovilpatti" />
     <meta property="og:description" content="Order fresh cakes, pastries, and sweet delights from SK Bakers in Kovilpatti. Home delivery available!" />
-    <meta property="og:image" content="/sk-bakers-logo.png" />
+    <meta property="og:image" content="./sk-bakers-logo.png" />
     <meta property="og:locale" content="en_IN" />
     <meta property="og:site_name" content="SK Bakers" />
 
@@ -106,12 +106,36 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/index.css"
     />
-    <script type="module" crossorigin src="./assets/index-Dp4k-zl6.js"></script>
+    <!-- Force Production API URL - MUST LOAD BEFORE REACT APP -->
+    <script>
+      // Force production API URL for all requests
+      (function() {
+        'use strict';
+        // Override axios baseURL before React loads
+        window.__FORCE_PRODUCTION_API__ = true;
+        window.__PRODUCTION_API_URL__ = 'https://skbakers.com';
+        
+        // Override fetch to redirect localhost to production
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+          if (typeof url === 'string') {
+            if (url.includes('localhost:8000')) {
+              url = url.replace('http://localhost:8000', 'https://skbakers.com');
+            } else if (url.startsWith('/api/') && !url.startsWith('http')) {
+              url = 'https://skbakers.com' + url;
+            }
+          }
+          return originalFetch.call(this, url, options);
+        };
+      })();
+    </script>
+    <script type="module" crossorigin src="./assets/index-B8OaQwUC.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/vendor-C8w-UNLI.js">
     <link rel="modulepreload" crossorigin href="./assets/router-Bie5Mwwm.js">
-    <link rel="stylesheet" crossorigin href="./assets/index-BPQd0W0x.css">
+    <link rel="stylesheet" crossorigin href="./assets/index-DsbBtUpE.css">
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"></div>
+
   </body>
 </html>

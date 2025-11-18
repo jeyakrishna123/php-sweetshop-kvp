@@ -2,9 +2,31 @@ import axios from '../axios';
 import axiosBase from 'axios';
 import { getApiConfig } from '../config/api.js';
 
+// Get base URL using same logic as axios.js (checks window variables, domain, etc.)
+const getBaseURL = () => {
+  // Check for window flag set by index.html script (runs before React)
+  if (typeof window !== 'undefined' && window.__PRODUCTION_API_URL__) {
+    return window.__PRODUCTION_API_URL__;
+  }
+  // Check for explicit VITE_API_URL
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // Check if we're on production domain
+  if (typeof window !== 'undefined' && window.location.hostname === 'skbakers.com') {
+    return 'https://skbakers.com';
+  }
+  // Check if we're in production mode
+  if (import.meta.env.PROD || import.meta.env.MODE === 'production') {
+    return 'https://skbakers.com';
+  }
+  // Default to localhost for development
+  return 'http://localhost:8000';
+};
+
 // Create axios instance for admin routes (PHP Backend)
 const adminAPI = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000')}/api/admin`,
+  baseURL: `${getBaseURL()}/api/admin`,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -13,7 +35,7 @@ const adminAPI = axios.create({
 
 // Create axios instance for product routes (PHP Backend)
 const productAxios = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000')}/api/products`,
+  baseURL: `${getBaseURL()}/api/products`,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -22,7 +44,7 @@ const productAxios = axios.create({
 
 // Create axios instance for order routes (PHP Backend)
 const orderAxios = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000')}/api/orders`,
+  baseURL: `${getBaseURL()}/api/orders`,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -31,7 +53,7 @@ const orderAxios = axios.create({
 
 // Create axios instance for user routes (PHP Backend)
 const userAxios = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000')}/api/users`,
+  baseURL: `${getBaseURL()}/api/users`,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -150,8 +172,7 @@ export const productAPI = {
       console.log('📤 Sending FormData to /upload-images...');
       
       // Get base URL - use same logic as adminAPI instance
-      const baseURL = import.meta.env.VITE_API_URL || 
-                     (import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000');
+      const baseURL = getBaseURL();
       
       console.log('🔍 Upload API Base URL:', baseURL);
       
@@ -543,7 +564,7 @@ export const categoryAPI = {
 
 // Banner Management API - Uses /api/banners endpoint directly
 const bannerAxios = axiosBase.create({
-  baseURL: `${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000')}/api/banners`,
+  baseURL: `${getBaseURL()}/api/banners`,
   timeout: 30000, // Longer timeout for uploads
 });
 
@@ -635,7 +656,7 @@ export const bannerAPI = {
 
 // Offer Popup Management API - Uses /api/offer-popups endpoint directly (same pattern as Banner)
 const offerPopupAxios = axiosBase.create({
-  baseURL: `${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000')}/api/offer-popups`,
+  baseURL: `${getBaseURL()}/api/offer-popups`,
   timeout: 30000, // Longer timeout for uploads
 });
 

@@ -32,17 +32,14 @@ RewriteEngine On
 
 # Force correct MIME types - CRITICAL
 <IfModule mod_headers.c>
-    # Force JavaScript MIME type for ALL JS files (including assets)
+    # Force JavaScript MIME type for ALL JS files (including assets and rewritten paths)
     <FilesMatch "\.(js|mjs)$">
         Header set Content-Type "application/javascript; charset=utf-8"
         Header set X-Content-Type-Options "nosniff"
         Header set Cache-Control "public, max-age=31536000"
     </FilesMatch>
     
-    # Note: LocationMatch doesn't work in .htaccess on most shared hosting
-    # FilesMatch should handle MIME types for all JS/CSS files by extension
-    
-    # Force CSS MIME type
+    # Force CSS MIME type for ALL CSS files (including assets and rewritten paths)
     <FilesMatch "\.css$">
         Header set Content-Type "text/css; charset=utf-8"
         Header set X-Content-Type-Options "nosniff"
@@ -68,22 +65,37 @@ RewriteEngine On
     Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
 </IfModule>
 
+# CRITICAL: Additional MIME type handling for rewritten paths
+# This ensures /frontend/assets/ files get correct MIME types even after rewrite
+<IfModule mod_mime.c>
+    # These AddType directives work for all paths, including rewritten ones
+    # Already set above, but ensuring they're active
+</IfModule>
+
 # CRITICAL: Serve static assets directly - Must come before catch-all rules
 # Handle ALL static files FIRST - This is the most important rule
 
-# Serve ANY existing file with these extensions directly (includes /assets/ and /frontend/assets/)
+# STEP 1: Check if file exists at /frontend/assets/ path (for direct access)
+RewriteCond %{REQUEST_URI} ^/frontend/assets/(.+)$
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteCond %{REQUEST_URI} \.(js|mjs|css|png|jpg|jpeg|gif|ico|svg|webp|woff|woff2|ttf|eot|json|map)$ [NC]
+RewriteRule ^frontend/assets/(.+)$ - [L]
+
+# STEP 2: Rewrite /admin/assets/ to /frontend/assets/ and serve if exists
+RewriteCond %{REQUEST_URI} ^/admin/assets/(.+)$
+RewriteCond %{DOCUMENT_ROOT}/frontend/assets/$1 -f
+RewriteRule ^admin/assets/(.+)$ /frontend/assets/$1 [L]
+
+# STEP 3: Rewrite /assets/ to /frontend/assets/ and serve if exists
+RewriteCond %{REQUEST_URI} ^/assets/(.+)$
+RewriteCond %{DOCUMENT_ROOT}/frontend/assets/$1 -f
+RewriteRule ^assets/(.+)$ /frontend/assets/$1 [L]
+
+# STEP 4: Serve ANY other existing file with these extensions directly
+# This catches files in root, frontend/, etc. that weren't caught above
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteCond %{REQUEST_URI} \.(js|mjs|css|png|jpg|jpeg|gif|ico|svg|webp|woff|woff2|ttf|eot|json|map)$ [NC]
 RewriteRule ^(.*)$ - [L]
-
-# CRITICAL: Rewrite /admin/assets/ to /frontend/assets/ BEFORE admin routing
-# This handles requests like /admin/assets/index-Da2rp_AC.css -> /frontend/assets/index-Da2rp_AC.css
-RewriteCond %{REQUEST_URI} ^/admin/assets/(.+)$
-RewriteRule ^admin/assets/(.+)$ /frontend/assets/$1 [L]
-
-# Rewrite /assets/ to /frontend/assets/ (happens before catch-all if file doesn't exist as /assets/)
-RewriteCond %{REQUEST_URI} ^/assets/(.+)$
-RewriteRule ^assets/(.+)$ /frontend/assets/$1 [L]
 
 # Handle specific frontend JavaScript files (must come before API routing)
 RewriteCond %{REQUEST_URI} ^/otp_input_fix\.js$
@@ -91,6 +103,21 @@ RewriteRule ^otp_input_fix\.js$ /frontend/otp_input_fix.js [L]
 
 RewriteCond %{REQUEST_URI} ^/mobile_api_connectivity_fix\.js$
 RewriteRule ^mobile_api_connectivity_fix\.js$ /mobile_api_connectivity_fix.js [L]
+
+# Handle frontend image files (billlogo.webp, logo.webp, etc.)
+# These files are in /frontend/ but referenced from root
+RewriteCond %{REQUEST_URI} ^/billlogo\.webp$
+RewriteCond %{DOCUMENT_ROOT}/frontend/billlogo.webp -f
+RewriteRule ^billlogo\.webp$ /frontend/billlogo.webp [L]
+
+RewriteCond %{REQUEST_URI} ^/logo\.webp$
+RewriteCond %{DOCUMENT_ROOT}/frontend/logo.webp -f
+RewriteRule ^logo\.webp$ /frontend/logo.webp [L]
+
+# Handle sk-bakers-logo.png (can be in root or frontend)
+RewriteCond %{REQUEST_URI} ^/sk-bakers-logo\.png$
+RewriteCond %{DOCUMENT_ROOT}/frontend/sk-bakers-logo.png -f
+RewriteRule ^sk-bakers-logo\.png$ /frontend/sk-bakers-logo.png [L]
 
 # API routing - Handle all /api/* requests
 RewriteCond %{REQUEST_URI} ^/api/(.*)$
@@ -100,6 +127,10 @@ RewriteRule ^api/(.*)$ /backend/index.php [QSA,L]
 RewriteCond %{REQUEST_URI} ^/backend/uploads/(.*)$
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteRule ^backend/uploads/(.*)$ /backend/uploads/$1 [L]
+
+# CRITICAL: Serve frontend/assets/ files directly with correct MIME types
+# This ensures /frontend/assets/* files are served correctly (no rewrite, just serve)
+# Files in /frontend/assets/ are served directly by Apache with correct MIME types from AddType directives above
 
 # Admin panel routing - Exclude /admin/assets/ from this rule
 RewriteCond %{REQUEST_URI} ^/admin/(.*)$
@@ -116,6 +147,7 @@ RewriteRule ^$ /frontend/index.html [L]
 
 # Handle all other requests to main site (SPA routing)
 # Exclude static files, API, backend, admin, and assets
+# CRITICAL: Check file existence in frontend/assets/ before serving HTML
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_URI} !^/api/
@@ -124,6 +156,7 @@ RewriteCond %{REQUEST_URI} !^/admin/assets/
 RewriteCond %{REQUEST_URI} !^/admin/
 RewriteCond %{REQUEST_URI} !^/assets/
 RewriteCond %{REQUEST_URI} !^/frontend/assets/
+RewriteCond %{REQUEST_URI} !^/frontend/
 RewriteCond %{REQUEST_URI} !\.(js|mjs|css|png|jpg|jpeg|gif|ico|svg|webp|woff|woff2|ttf|eot|json|map)$ [NC]
 RewriteRule ^(.*)$ /frontend/index.html [QSA,L]
 
