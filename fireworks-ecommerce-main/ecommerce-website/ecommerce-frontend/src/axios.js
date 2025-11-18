@@ -23,7 +23,7 @@ const getBaseURL = () => {
 };
 
 const instance = axios.create({
-  baseURL: getBaseURL(), // Production or development backend
+  baseURL: getBaseURL(), // Initial baseURL (will be updated dynamically)
 });
 
 // Debug: Log the base URL being used
@@ -36,9 +36,17 @@ console.log('🔧 Environment variables:', {
   VITE_ENV: import.meta.env.VITE_ENV
 });
 
-// Add request interceptor to include token in all requests
+// Add request interceptor to include token in all requests AND update baseURL dynamically
 instance.interceptors.request.use(
   (config) => {
+    // CRITICAL: Update baseURL dynamically on each request to ensure production URL
+    // This ensures window.__PRODUCTION_API_URL__ is checked even if it was set after module load
+    const currentBaseURL = getBaseURL();
+    if (config.baseURL !== currentBaseURL) {
+      config.baseURL = currentBaseURL;
+      console.log('🔄 Updated axios baseURL to:', currentBaseURL);
+    }
+    
     console.log('🔍 Axios Request:', config.method?.toUpperCase(), config.url);
     console.log('🔍 Axios Base URL:', config.baseURL);
     console.log('🔍 Axios Full URL:', `${config.baseURL}${config.url}`);

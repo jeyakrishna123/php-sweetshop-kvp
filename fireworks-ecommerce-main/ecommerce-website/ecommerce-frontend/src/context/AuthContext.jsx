@@ -1,10 +1,10 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import axios from '../axios'; // Use the configured axios instance with production URL detection
 import { API_CONFIG } from '../config/api';
 import { jwtDecode } from 'jwt-decode';
 
-// Configure axios base URL for backend API
-axios.defaults.baseURL = API_CONFIG.BASE_URL;
+// Note: axios.defaults.baseURL is already set in ../axios.js with production URL detection
+// No need to override it here - the axios instance from axios.js already has the correct baseURL
 
 // Set up axios interceptor to include token in all requests
 axios.interceptors.request.use(
