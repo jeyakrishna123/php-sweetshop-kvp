@@ -106,36 +106,27 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/index.css"
     />
-    <!-- Force Production API URL - MUST LOAD BEFORE REACT APP -->
+    <!-- Set production API URL before React loads (runs immediately) -->
     <script>
-      // Force production API URL for all requests
+      // CRITICAL: Set production API URL before React/axios loads
+      // This ensures all API calls use the correct production URL
       (function() {
-        'use strict';
-        // Override axios baseURL before React loads
-        window.__FORCE_PRODUCTION_API__ = true;
-        window.__PRODUCTION_API_URL__ = 'https://skbakers.com';
-        
-        // Override fetch to redirect localhost to production
-        const originalFetch = window.fetch;
-        window.fetch = function(url, options) {
-          if (typeof url === 'string') {
-            if (url.includes('localhost:8000')) {
-              url = url.replace('http://localhost:8000', 'https://skbakers.com');
-            } else if (url.startsWith('/api/') && !url.startsWith('http')) {
-              url = 'https://skbakers.com' + url;
-            }
-          }
-          return originalFetch.call(this, url, options);
-        };
+        // Check if we're on production domain
+        if (window.location.hostname === 'skbakers.com' || window.location.hostname === 'www.skbakers.com') {
+          window.__PRODUCTION_API_URL__ = 'https://skbakers.com';
+          console.log('✅ Production API URL set:', window.__PRODUCTION_API_URL__);
+        } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          window.__PRODUCTION_API_URL__ = 'http://localhost:8000';
+          console.log('✅ Development API URL set:', window.__PRODUCTION_API_URL__);
+        }
       })();
     </script>
-    <script type="module" crossorigin src="./assets/index-BhX16bmQ.js"></script>
+    <script type="module" crossorigin src="./assets/index-2wAICYkK.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/vendor-C8w-UNLI.js">
     <link rel="modulepreload" crossorigin href="./assets/router-Bie5Mwwm.js">
-    <link rel="stylesheet" crossorigin href="./assets/index-DsbBtUpE.css">
+    <link rel="stylesheet" crossorigin href="./assets/index-BKc8USQd.css">
   </head>
   <body>
-    <div id="root"></div>
-
+    <div id="root"></div>
   </body>
 </html>

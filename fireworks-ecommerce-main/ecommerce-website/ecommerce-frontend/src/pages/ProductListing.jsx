@@ -157,19 +157,38 @@ const ProductListing = () => {
         }
       }
       
-      // Add other filters to params (excluding category and menuOption which are handled separately)
+      // Add subCategory filter if present (must be added before other filters)
+      // URLSearchParams automatically handles URL encoding
+      if (filters.subCategory && filters.subCategory !== "" && filters.subCategory !== "all") {
+        const trimmedSubCategory = filters.subCategory.trim();
+        params.append("subCategory", trimmedSubCategory);
+        console.log('🔍 ProductListing: Added subCategory to params:', trimmedSubCategory);
+      }
+      
+      // Add menuOption filter if present
+      // URLSearchParams automatically handles URL encoding
+      if (filters.menuOption && filters.menuOption !== "" && filters.menuOption !== "all") {
+        const trimmedMenuOption = filters.menuOption.trim();
+        params.append("menuOption", trimmedMenuOption);
+        console.log('🔍 ProductListing: Added menuOption to params:', trimmedMenuOption);
+      }
+      
+      // Add search parameter explicitly (must be added before other filters)
+      // URLSearchParams automatically handles URL encoding
+      if (filters.search && filters.search.trim() !== "") {
+        const searchValue = filters.search.trim();
+        params.append("search", searchValue);
+        console.log('🔍 ProductListing: Added search parameter:', searchValue);
+        console.log('🔍 ProductListing: Search parameter encoded:', encodeURIComponent(searchValue));
+      }
+      
+      // Add other filters to params (excluding category, subCategory, menuOption, and search which are handled separately)
       // Also exclude "all" values as the backend treats "all" as a literal value
       Object.entries(filters).forEach(([key, value]) => {
-        if (value && value !== "" && value !== "all" && key !== "category" && key !== "menuOption") {
+        if (value && value !== "" && value !== "all" && key !== "category" && key !== "subCategory" && key !== "menuOption" && key !== "search") {
           params.append(key, value);
         }
       });
-      
-      // Add menuOption filter if present
-      if (filters.menuOption && filters.menuOption !== "") {
-        params.append("menuOption", filters.menuOption);
-        console.log('🔍 ProductListing: Added menuOption to params:', filters.menuOption);
-      }
       
       // Fetch products with all filters
       console.log('🔍 ProductListing: Final params string:', params.toString());
@@ -177,9 +196,12 @@ const ProductListing = () => {
       const paramString = params.toString();
       const menuOptionCount = (paramString.match(/menuOption=/g) || []).length;
       console.log('🔍 ProductListing: menuOption appears', menuOptionCount, 'times in URL');
-      console.log('🔍 ProductListing: Full URL:', `${import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000'}/api/products?${params}`);
-      console.log('🔍 ProductListing: Axios baseURL:', axios.defaults.baseURL);
-      console.log('🔍 ProductListing: Request URL will be:', `${axios.defaults.baseURL}/api/products?${params}`);
+      // Get the actual baseURL from axios instance (for production compatibility)
+      const actualBaseURL = axios.defaults.baseURL || (import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000');
+      console.log('🔍 ProductListing: Full URL:', `${actualBaseURL}/api/products?${params}`);
+      console.log('🔍 ProductListing: Axios baseURL:', actualBaseURL);
+      console.log('🔍 ProductListing: Request URL will be:', `${actualBaseURL}/api/products?${params}`);
+      console.log('🔍 ProductListing: Search filter value:', filters.search);
       
       // Check if menuOption is being passed correctly
       console.log('🔍 ProductListing: menuOption filter value:', filters.menuOption);

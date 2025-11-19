@@ -106,6 +106,21 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/heroicons@2.0.18/24/outline/index.css"
     />
+    <!-- Set production API URL before React loads (runs immediately) -->
+    <script>
+      // CRITICAL: Set production API URL before React/axios loads
+      // This ensures all API calls use the correct production URL
+      (function() {
+        // Check if we're on production domain
+        if (window.location.hostname === 'skbakers.com' || window.location.hostname === 'www.skbakers.com') {
+          window.__PRODUCTION_API_URL__ = 'https://skbakers.com';
+          console.log('✅ Production API URL set:', window.__PRODUCTION_API_URL__);
+        } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          window.__PRODUCTION_API_URL__ = 'http://localhost:8000';
+          console.log('✅ Development API URL set:', window.__PRODUCTION_API_URL__);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

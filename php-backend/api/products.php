@@ -182,12 +182,14 @@ function getAllProducts($db) {
     }
 
     // Filter by search query
-    if (isset($_GET['search']) && !empty($_GET['search'])) {
-        $searchTerm = '%' . sanitizeInput($_GET['search']) . '%';
-        $where[] = '(name LIKE ? OR description LIKE ? OR tags LIKE ?)';
+    if (isset($_GET['search']) && !empty(trim($_GET['search']))) {
+        $searchTerm = '%' . sanitizeInput(trim($_GET['search'])) . '%';
+        // Search in name, description, and tags (tags is JSON, so search in JSON string representation)
+        $where[] = '(name LIKE ? OR description LIKE ? OR CAST(tags AS CHAR) LIKE ?)';
         $params[] = $searchTerm;
         $params[] = $searchTerm;
         $params[] = $searchTerm;
+        error_log("🔍 GET ALL PRODUCTS - Search filter applied: " . trim($_GET['search']));
     }
 
     // Filter by category
@@ -196,20 +198,34 @@ function getAllProducts($db) {
         $params[] = sanitizeInput($_GET['category']);
     }
 
+    // Filter by flavor (cake_flavor) - support both 'flavor' and 'cake_flavor' parameters
+    $flavorParam = $_GET['flavor'] ?? $_GET['cake_flavor'] ?? null;
+    if ($flavorParam && !empty(trim($flavorParam))) {
+        $where[] = 'cake_flavor = ?';
+        $params[] = sanitizeInput(trim($flavorParam));
+        error_log("🔍 GET ALL PRODUCTS - Filtering by flavor: " . trim($flavorParam));
+    }
+
     // Filter by sub_category - STRICT MATCHING ONLY
     // Only show products that have the exact subcategory set
-    if (isset($_GET['subCategory']) && !empty($_GET['subCategory'])) {
-        $subCat = sanitizeInput($_GET['subCategory']);
+    // Support both camelCase (subCategory) and snake_case (sub_category) for compatibility
+    $subCategoryParam = $_GET['subCategory'] ?? $_GET['sub_category'] ?? null;
+    if ($subCategoryParam && !empty(trim($subCategoryParam)) && trim($subCategoryParam) !== 'all') {
+        $subCat = sanitizeInput(trim($subCategoryParam));
         $where[] = 'sub_category = ?';
         $params[] = $subCat;
+        error_log("🔍 GET ALL PRODUCTS - Filtering by subCategory: " . $subCat);
     }
 
     // Filter by menu_option - STRICT MATCHING ONLY
     // Only show products that have the exact menu option set
-    if (isset($_GET['menuOption']) && !empty($_GET['menuOption'])) {
-        $menuOpt = sanitizeInput($_GET['menuOption']);
+    // Support both camelCase (menuOption) and snake_case (menu_option) for compatibility
+    $menuOptionParam = $_GET['menuOption'] ?? $_GET['menu_option'] ?? null;
+    if ($menuOptionParam && !empty(trim($menuOptionParam)) && trim($menuOptionParam) !== 'all') {
+        $menuOpt = sanitizeInput(trim($menuOptionParam));
         $where[] = 'menu_option = ?';
         $params[] = $menuOpt;
+        error_log("🔍 GET ALL PRODUCTS - Filtering by menuOption: " . $menuOpt);
     }
 
     // Filter by brand (seller)
@@ -265,20 +281,34 @@ function getAllProducts($db) {
     $order = ($sortOrder === 'asc') ? 'ASC' : 'DESC';
 
     // Map frontend sort options to database columns
+    // Handle both simple and compound sort options (e.g., "price-low", "price-high")
     $sortMapping = [
         'relevance' => 'created_at',     // Most recent first
         'price' => 'price',
+        'price-low' => 'price',        // Price: Low to High
+        'price-high' => 'price',       // Price: High to Low
         'rating' => 'average_rating',
         'name' => 'name',
+        'name-desc' => 'name',          // Name: Z to A
         'newest' => 'created_at',
+        'oldest' => 'created_at',      // Oldest First
         'popularity' => 'sold_count'
     ];
 
     $orderBy = isset($sortMapping[$sortBy]) ? $sortMapping[$sortBy] : 'created_at';
 
-    // Special case: for relevance and newest, always DESC (newest first)
+    // Determine sort order based on sortBy value
     if ($sortBy === 'relevance' || $sortBy === 'newest') {
-        $order = 'DESC';
+        $order = 'DESC'; // Newest first
+    } elseif ($sortBy === 'price-low' || $sortBy === 'name') {
+        $order = 'ASC'; // Low to High, A to Z
+    } elseif ($sortBy === 'price-high' || $sortBy === 'name-desc' || $sortBy === 'oldest') {
+        $order = 'DESC'; // High to Low, Z to A, Oldest first
+    } elseif ($sortBy === 'rating' || $sortBy === 'popularity') {
+        $order = 'DESC'; // Highest rating/popularity first
+    } else {
+        // Default: use sortOrder parameter if provided
+        $order = ($sortOrder === 'asc') ? 'ASC' : 'DESC';
     }
 
     error_log("🔍 GET ALL PRODUCTS - WHERE: $whereClause");
@@ -287,6 +317,7 @@ function getAllProducts($db) {
     error_log("🔍 GET ALL PRODUCTS - LIMIT: $limit, OFFSET: $offset");
     error_log("🔍 GET ALL PRODUCTS - Is Admin: " . ($isAdmin ? 'YES' : 'NO'));
     error_log("🔍 GET ALL PRODUCTS - Filters: " . json_encode($_GET));
+    error_log("🔍 GET ALL PRODUCTS - Search query: " . (isset($_GET['search']) ? $_GET['search'] : 'NONE'));
 
     $stmt = $db->prepare("
         SELECT id, name, slug, description, price, original_price, discount_percentage,
