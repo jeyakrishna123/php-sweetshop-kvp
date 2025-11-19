@@ -254,11 +254,11 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* Main Header */}
+      {/* Main Header - Fixed Height and Alignment */}
       <nav className="bg-white/95 backdrop-blur-md shadow-lg sticky z-50 border-b border-gray-100" style={{ top: '36px' }}>
-        <div className="w-full max-w-none px-1.5 sm:px-3 lg:px-6 overflow-visible">
-          <div className="flex items-center justify-between h-14 sm:h-16 lg:h-20 gap-1 sm:gap-2">
-             {/* Logo Section - Mobile Optimized with SK BAKERS Logo - Smaller on Mobile */}
+        <div className="w-full max-w-none px-2 sm:px-3 md:px-4 lg:px-6 overflow-visible">
+          <div className="flex items-center justify-between gap-1.5 sm:gap-2 md:gap-3" style={{ minHeight: '56px', height: '56px' }}>
+             {/* Logo Section - Fixed Size */}
              <div className="flex items-center flex-shrink-0">
                <Link to="/" className="block">
                  <Logo 
@@ -267,7 +267,7 @@ const Navbar = () => {
                    onClick={() => handleNavigation("/")}
                  />
                </Link>
-               <span className="hidden sm:inline-block ml-1 text-xs sm:text-sm font-semibold text-gray-800">SK BAKERS</span>
+               <span className="hidden md:inline-block ml-1.5 text-sm font-semibold text-gray-800">SK BAKERS</span>
              </div>
 
             {/* Desktop Navigation - Hidden since links are in category nav below */}
@@ -318,8 +318,8 @@ const Navbar = () => {
 
             {/* Desktop Search Bar - Perfectly Aligned */}
             <div className="hidden lg:flex flex-1 max-w-md mx-4 xl:mx-8 items-center">
-              <form onSubmit={handleSearch} className="relative w-full flex items-stretch h-10">
-                <div className="relative flex-1 flex items-center">
+              <form onSubmit={handleSearch} className="relative w-full flex items-center" style={{ height: '40px' }}>
+                <div className="relative flex-1 flex items-center h-full">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                     <Icon name="search" className="w-5 h-5 text-gray-400" />
                   </div>
@@ -330,24 +330,22 @@ const Navbar = () => {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search cakes, pastries..."
                     className="w-full h-full pl-10 pr-4 py-0 text-sm border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 bg-white"
-                    style={{ height: '40px' }}
                   />
                 </div>
                 <button
                   type="submit"
-                  className="px-4 py-0 bg-red-600 hover:bg-red-700 text-white rounded-r-lg transition-colors duration-200 flex items-center justify-center font-medium text-sm whitespace-nowrap"
-                  style={{ height: '40px' }}
+                  className="px-4 h-full bg-red-600 hover:bg-red-700 text-white rounded-r-lg transition-colors duration-200 flex items-center justify-center font-medium text-sm whitespace-nowrap"
                 >
                   Search
                 </button>
               </form>
             </div>
 
-            {/* Mobile Search Bar - Prominent and User-Friendly */}
-            <div className="lg:hidden flex-1 min-w-[120px] max-w-full mx-1 sm:mx-2 flex items-center">
-              <form onSubmit={handleSearch} className="relative w-full flex items-center gap-1.5 sm:gap-2">
-                <div className="relative flex-1 min-w-[100px] flex items-center">
-                  <div className="absolute inset-y-0 left-0 pl-2.5 sm:pl-3 flex items-center pointer-events-none z-10">
+            {/* Mobile Search Bar - Fixed Width and Alignment */}
+            <div className="lg:hidden flex items-center" style={{ width: 'calc(100% - 200px)', maxWidth: '280px', minWidth: '140px' }}>
+              <form onSubmit={handleSearch} className="relative w-full flex items-center gap-1.5" style={{ height: '36px' }}>
+                <div className="relative flex-1 min-w-0 flex items-center h-full">
+                  <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none z-10">
                     <Icon name="search" className="w-4 h-4 text-gray-400" />
                   </div>
                   <input
@@ -356,7 +354,7 @@ const Navbar = () => {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search..."
-                    className={`w-full h-9 sm:h-10 pl-8 sm:pl-10 ${searchQuery ? 'pr-8 sm:pr-10' : 'pr-2 sm:pr-3'} py-0 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 bg-white shadow-sm`}
+                    className={`w-full h-full pl-8 ${searchQuery ? 'pr-8' : 'pr-2.5'} py-0 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 bg-white shadow-sm`}
                   />
                   {/* Clear button - shows when there's text */}
                   {searchQuery && (
@@ -368,18 +366,18 @@ const Navbar = () => {
                           searchInputRef.current.focus();
                         }
                       }}
-                      className="absolute inset-y-0 right-0 pr-2 sm:pr-3 flex items-center z-10 text-gray-400 hover:text-gray-600 transition-colors"
+                      className="absolute inset-y-0 right-0 pr-2.5 flex items-center z-10 text-gray-400 hover:text-gray-600 transition-colors"
                       aria-label="Clear search"
                       style={{ height: '36px', minWidth: '28px' }}
                     >
-                      <Icon name="x" className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <Icon name="x" className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
                 <button
                   type="submit"
-                  className="px-2 sm:px-2.5 py-0 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-lg transition-all duration-200 flex-shrink-0 shadow-md hover:shadow-lg flex items-center justify-center"
-                  style={{ height: '36px', minWidth: '36px' }}
+                  className="px-2 h-full bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-lg transition-all duration-200 flex-shrink-0 shadow-md hover:shadow-lg flex items-center justify-center"
+                  style={{ minWidth: '36px' }}
                   aria-label="Search"
                 >
                   <Icon name="search" className="w-4 h-4" />
@@ -387,10 +385,10 @@ const Navbar = () => {
               </form>
             </div>
 
-            {/* Right Side Icons - Mobile Optimized - Compact */}
-            <div className="flex items-center space-x-1 sm:space-x-2 relative flex-shrink-0">
+            {/* Right Side Icons - Perfectly Aligned */}
+            <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 relative flex-shrink-0" style={{ height: '36px' }}>
 
-              {/* Wishlist - Mobile Optimized - Compact */}
+              {/* Wishlist - Consistent Size */}
               <button 
                 onClick={(e) => {
                   e.preventDefault();
@@ -398,10 +396,11 @@ const Navbar = () => {
                   console.log('❤️ Wishlist button clicked');
                   handleNavigation("/wishlist");
                 }}
-                className="relative p-1 sm:p-1.5 text-gray-600 hover:text-red-600 transition-colors duration-200 group"
-                style={{ minHeight: '36px', minWidth: '36px' }}
+                className="relative flex items-center justify-center text-gray-600 hover:text-red-600 transition-colors duration-200 group rounded-lg hover:bg-red-50"
+                style={{ height: '36px', width: '36px', minWidth: '36px' }}
+                title="Wishlist"
               >
-                <Icon name="heart" className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform duration-200" />
+                <Icon name="heart" className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
                 {wishlistCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center text-[10px] sm:text-xs font-bold shadow-lg border-2 border-white ring-2 ring-red-600 animate-pulse">
                     {wishlistCount > 99 ? '99+' : wishlistCount}
@@ -417,11 +416,11 @@ const Navbar = () => {
                   console.log('🛒 Cart button clicked');
                   handleNavigation("/cart");
                 }}
-                className="relative p-1.5 sm:p-2 text-gray-600 hover:text-red-600 transition-colors duration-200 group hidden md:block"
-                style={{ minHeight: '44px', minWidth: '44px' }}
+                className="relative flex items-center justify-center text-gray-600 hover:text-red-600 transition-colors duration-200 group hidden md:flex rounded-lg hover:bg-red-50"
+                style={{ height: '36px', width: '36px', minWidth: '36px' }}
                 title={`Cart (${cartItemCount} items)`}
               >
-                <Icon name="shopping-cart" className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform duration-200" />
+                <Icon name="shopping-cart" className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
                 {cartItemCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center text-[10px] sm:text-xs font-bold shadow-lg border-2 border-white ring-2 ring-red-600 animate-pulse">
                     {cartItemCount > 99 ? '99+' : cartItemCount}
@@ -474,14 +473,15 @@ const Navbar = () => {
                       }
                       setIsUserMenuOpen(!isUserMenuOpen);
                     }}
-                    className="flex items-center justify-center text-gray-600 hover:text-red-600 transition-all duration-200 p-1 rounded-lg hover:bg-red-50 group"
-                    style={{ minHeight: '36px', minWidth: '36px' }}
+                    className="flex items-center justify-center text-gray-600 hover:text-red-600 transition-all duration-200 rounded-lg hover:bg-red-50 group"
+                    style={{ height: '36px', width: '36px', minWidth: '36px' }}
+                    title={user.name}
                   >
-                    <div className="w-6 h-6 sm:w-7 sm:h-7 bg-white border-2 border-red-600 rounded-full flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-200">
-                      <Icon name="user" className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-600" />
+                    <div className="w-6 h-6 bg-white border-2 border-red-600 rounded-full flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-200">
+                      <Icon name="user" className="w-3.5 h-3.5 text-red-600" />
                     </div>
-                    <span className="hidden md:block ml-1 text-xs sm:text-sm font-medium max-w-20 truncate">{user.name}</span>
-                    <Icon name="chevronDown" className="w-3 h-3 sm:w-4 sm:h-4 transition-transform duration-200 group-hover:rotate-180 text-red-500 group-hover:text-red-600 hidden md:block" />
+                    <span className="hidden lg:block ml-1.5 text-xs font-medium max-w-20 truncate">{user.name}</span>
+                    <Icon name="chevronDown" className="w-3 h-3 transition-transform duration-200 group-hover:rotate-180 text-red-500 group-hover:text-red-600 hidden lg:block ml-0.5" />
                   </button>
                   
                   {/* User Dropdown Menu */}
@@ -612,38 +612,38 @@ const Navbar = () => {
                   )}
                 </div>
               ) : (
-                <div className="flex items-center space-x-1">
+                <div className="flex items-center gap-1.5">
                   <button 
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      console.log('🔑 Desktop Login button clicked');
+                      console.log('🔑 Login button clicked');
                       handleNavigation("/login");
                     }}
-                    className="flex items-center justify-center text-gray-600 hover:text-red-600 transition-colors duration-200 p-1 rounded-lg hover:bg-red-50 group"
-                    style={{ minHeight: '36px', minWidth: '36px' }}
+                    className="flex items-center justify-center gap-1.5 text-gray-700 hover:text-red-600 transition-colors duration-200 px-2.5 py-1.5 rounded-lg hover:bg-red-50 group border border-gray-300 hover:border-red-300"
+                    style={{ height: '36px', minHeight: '36px' }}
                     title="Login"
                   >
                     <Icon name="user" className="w-4 h-4 text-gray-600 group-hover:text-red-600 transition-colors duration-200" />
-                    <span className="hidden sm:inline ml-1 text-xs font-medium">Login</span>
+                    <span className="text-xs font-medium whitespace-nowrap">Login</span>
                   </button>
                   <button 
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      console.log('📝 Desktop Signup button clicked');
+                      console.log('📝 Signup button clicked');
                       handleNavigation("/signup");
                     }}
-                    className="bg-gradient-to-r from-red-600 to-red-700 text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg hover:shadow-lg transition-all duration-200 text-xs font-medium"
-                    style={{ minHeight: '36px' }}
+                    className="bg-gradient-to-r from-red-600 to-red-700 text-white px-2.5 py-1.5 rounded-lg hover:shadow-lg transition-all duration-200 text-xs font-medium whitespace-nowrap"
+                    style={{ height: '36px', minHeight: '36px' }}
+                    title="Sign Up"
                   >
-                    <span className="hidden sm:inline">Sign Up</span>
-                    <span className="sm:hidden">+</span>
+                    Sign Up
                   </button>
                 </div>
               )}
 
-              {/* Enhanced Mobile Menu Button */}
+              {/* Enhanced Mobile Menu Button - Consistent Size */}
               <button
                 onClick={(e) => {
                   e.preventDefault();
@@ -653,14 +653,13 @@ const Navbar = () => {
                   console.log('📱 Screen width:', window.innerWidth);
                   setIsMobileMenuOpen(!isMobileMenuOpen);
                 }}
-                className="lg:hidden mobile-menu-button nav-button p-1.5 sm:p-2 text-gray-600 hover:text-red-600 transition-all duration-300 rounded-lg hover:bg-gradient-to-r hover:from-red-50 hover:to-red-50 shadow-sm hover:shadow-lg group relative"
+                className="lg:hidden mobile-menu-button nav-button flex items-center justify-center text-gray-600 hover:text-red-600 transition-all duration-300 rounded-lg hover:bg-gradient-to-r hover:from-red-50 hover:to-red-50 shadow-sm hover:shadow-lg group relative"
                 aria-label="Toggle mobile menu"
                 style={{ 
+                  width: '36px',
+                  height: '36px',
                   minWidth: '36px',
-                  minHeight: '36px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
+                  minHeight: '36px'
                 }}
               >
                 <div className="relative w-5 h-5 sm:w-6 sm:h-6">
