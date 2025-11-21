@@ -120,8 +120,9 @@ RewriteCond %{DOCUMENT_ROOT}/frontend/sk-bakers-logo.png -f
 RewriteRule ^sk-bakers-logo\.png$ /frontend/sk-bakers-logo.png [L]
 
 # API routing - Handle all /api/* requests
+# CRITICAL: Preserve the full path including /api/ for backend routing
 RewriteCond %{REQUEST_URI} ^/api/(.*)$
-RewriteRule ^api/(.*)$ /backend/index.php [QSA,L]
+RewriteRule ^api/(.*)$ /backend/index.php?path=%{REQUEST_URI} [QSA,L]
 
 # Handle uploads directory (direct file access)
 RewriteCond %{REQUEST_URI} ^/backend/uploads/(.*)$

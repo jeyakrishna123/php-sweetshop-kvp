@@ -39,8 +39,29 @@ const ContactUs = () => {
         });
       }
     } catch (error) {
-      console.error('Error submitting contact form:', error);
-      showToast('Failed to send message. Please try again.', 'error');
+      // Enhanced error handling - show actual error details
+      let errorMessage = 'Failed to send message. Please try again.';
+      
+      if (error.response?.data) {
+        // Backend error response structure: { success: false, message: "...", errors: {...} }
+        errorMessage = error.response.data.message || errorMessage;
+        
+        // Include error details if available
+        if (error.response.data.errors && Object.keys(error.response.data.errors).length > 0) {
+          const errorDetails = Object.values(error.response.data.errors).join(', ');
+          errorMessage = `${errorMessage}: ${errorDetails}`;
+        } else if (error.response.data.error) {
+          // Include specific error details
+          errorMessage = `${errorMessage} (${error.response.data.error})`;
+        } else if (error.response.data.details) {
+          // Include detailed error information
+          errorMessage = `${errorMessage} - ${error.response.data.details}`;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      showToast(errorMessage, 'error');
     } finally {
       setLoading(false);
     }

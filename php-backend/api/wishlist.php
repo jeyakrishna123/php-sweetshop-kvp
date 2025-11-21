@@ -131,39 +131,72 @@ function getWishlist($db) {
 
         error_log('✅ Wishlist: Executing query for user: ' . $authUser->id);
         $stmt->execute([$authUser->id]);
-        $wishlist = $stmt->fetchAll();
+        $wishlist = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        error_log('✅ Wishlist: Found ' . count($wishlist) . ' items');
-
-        // Filter out items where product doesn't exist and process the rest
-        $validWishlist = [];
-        foreach ($wishlist as $item) {
-            // Skip if product doesn't exist (LEFT JOIN returned NULL)
-            if (empty($item['name'])) {
-                error_log('⚠️ Wishlist: Skipping product_id ' . $item['product_id'] . ' - product not found');
-                continue;
-            }
-
-            // Decode JSON fields
-            $item['images'] = json_decode($item['images'], true) ?? [];
-            $item['weight_options'] = json_decode($item['weight_options'], true) ?? [];
-
-            // Convert image URLs to full URLs
-            if (!empty($item['images'])) {
-                foreach ($item['images'] as &$image) {
-                    if (!str_starts_with($image, 'http')) {
-                        $image = getImageUrl($image);
-                    }
-                }
-            }
-            if (!empty($item['thumbnail']) && !str_starts_with($item['thumbnail'], 'http')) {
-                $item['thumbnail'] = getImageUrl($item['thumbnail']);
-            }
-
-            $validWishlist[] = $item;
+        error_log('✅ Wishlist: Found ' . count($wishlist) . ' items from database');
+        
+        // Log raw data for debugging
+        if (count($wishlist) > 0) {
+            error_log('✅ Wishlist: Raw first item: ' . json_encode($wishlist[0]));
         }
 
-        error_log('✅ Wishlist: ' . count($validWishlist) . ' valid items (skipped ' . (count($wishlist) - count($validWishlist)) . ' missing products)');
+        // Process all items - include missing products with a flag
+        $validWishlist = [];
+        foreach ($wishlist as $item) {
+            // Ensure product_id is set (from wishlist table)
+            if (empty($item['product_id'])) {
+                error_log('⚠️ Wishlist: Item missing product_id, skipping: ' . json_encode($item));
+                continue;
+            }
+            
+            // Check if product exists (name will be NULL if LEFT JOIN finds no product)
+            $productExists = !empty($item['name']) && $item['name'] !== null;
+            
+            if (!$productExists) {
+                error_log('⚠️ Wishlist: Product_id ' . $item['product_id'] . ' not found in products table - including with unavailable flag');
+                // Include item but mark as unavailable
+                $validItem = [
+                    'id' => (int)$item['id'],
+                    'product_id' => (int)$item['product_id'],
+                    'created_at' => $item['created_at'],
+                    'name' => 'Product Unavailable',
+                    'is_unavailable' => true,
+                    'images' => [],
+                    'thumbnail' => null,
+                    'price' => 0,
+                    'stock' => 0,
+                    'is_active' => 0,
+                    'average_rating' => 0,
+                    'num_reviews' => 0
+                ];
+            } else {
+                // Product exists - process normally
+                $validItem = $item;
+                $validItem['is_unavailable'] = false;
+                $validItem['product_id'] = (int)$validItem['product_id'];
+                $validItem['id'] = (int)$validItem['id'];
+                
+                // Decode JSON fields
+                $validItem['images'] = json_decode($validItem['images'], true) ?? [];
+                $validItem['weight_options'] = json_decode($validItem['weight_options'], true) ?? [];
+
+                // Convert image URLs to full URLs
+                if (!empty($validItem['images'])) {
+                    foreach ($validItem['images'] as &$image) {
+                        if (is_string($image) && !str_starts_with($image, 'http')) {
+                            $image = getImageUrl($image);
+                        }
+                    }
+                }
+                if (!empty($validItem['thumbnail']) && is_string($validItem['thumbnail']) && !str_starts_with($validItem['thumbnail'], 'http')) {
+                    $validItem['thumbnail'] = getImageUrl($validItem['thumbnail']);
+                }
+            }
+
+            $validWishlist[] = $validItem;
+        }
+
+        error_log('✅ Wishlist: ' . count($validWishlist) . ' items (including ' . count(array_filter($validWishlist, function($item) { return !empty($item['is_unavailable']); })) . ' unavailable products)');
 
         sendSuccess('Wishlist retrieved successfully', [
             'wishlist' => $validWishlist,

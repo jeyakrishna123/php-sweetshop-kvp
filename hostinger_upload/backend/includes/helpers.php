@@ -35,9 +35,27 @@ function sendSuccess($message = 'Success', $data = [], $statusCode = 200) {
  * Send error response
  */
 function sendError($message = 'Error', $errors = [], $statusCode = 400) {
+    // If errors array has 'details' or 'error', append to message for visibility
+    $fullMessage = $message;
+    if (is_array($errors) && !empty($errors)) {
+        $errorDetails = [];
+        if (isset($errors['details'])) {
+            $errorDetails[] = $errors['details'];
+        }
+        if (isset($errors['error']) && $errors['error'] !== $message) {
+            $errorDetails[] = $errors['error'];
+        }
+        if (isset($errors['file']) && isset($errors['line'])) {
+            $errorDetails[] = "File: " . basename($errors['file']) . ":" . $errors['line'];
+        }
+        if (!empty($errorDetails)) {
+            $fullMessage = $message . " | " . implode(" | ", $errorDetails);
+        }
+    }
+    
     sendResponse([
         'success' => false,
-        'message' => $message,
+        'message' => $fullMessage,
         'errors' => $errors,
         'timestamp' => date('c')
     ], $statusCode);
@@ -95,28 +113,43 @@ function sanitizeInput($data) {
  * Get request body as JSON
  */
 function getRequestBody() {
-    // First try to get from php://input
+    // Get Content-Type header
+    $contentType = $_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? '';
+    
+    // First try to get from php://input (for JSON and raw data)
     $input = file_get_contents('php://input');
-    $data = json_decode($input, true);
     
-    // If no data from input stream, try POST data
-    if (empty($data) && !empty($_POST)) {
-        $data = $_POST;
-    }
-    
-    // If still no data, try to get from raw input
-    if (empty($data)) {
-        $rawInput = file_get_contents('php://input');
-        if (!empty($rawInput)) {
-            $data = json_decode($rawInput, true);
+    // If Content-Type is application/json or input is JSON, decode it
+    if (stripos($contentType, 'application/json') !== false || !empty($input)) {
+        $data = json_decode($input, true);
+        
+        // If json_decode failed but we have input, try to decode again
+        if ($data === null && !empty($input) && json_last_error() !== JSON_ERROR_NONE) {
+            // Input might be JSON but with encoding issues - try to clean it
+            $cleanedInput = trim($input);
+            $data = json_decode($cleanedInput, true);
+        }
+        
+        // If we got valid JSON data, return it
+        if ($data !== null && json_last_error() === JSON_ERROR_NONE) {
+            return $data;
         }
     }
     
-    // Log for debugging (only in development or when debug mode is enabled)
-    // Removed verbose logging in production to prevent log file bloat
-    // Uncomment below for debugging if needed:
-    // error_log("getRequestBody() - Parsed data keys: " . json_encode(array_keys($data ?? [])));
+    // If no JSON data, try POST data (for form-encoded data)
+    if (empty($data) && !empty($_POST)) {
+        return $_POST;
+    }
     
+    // If still no data and we have input, try one more time to decode as JSON
+    if (empty($data) && !empty($input)) {
+        $data = json_decode($input, true);
+        if ($data !== null && json_last_error() === JSON_ERROR_NONE) {
+            return $data;
+        }
+    }
+    
+    // Return empty array if nothing worked
     return $data ?? [];
 }
 

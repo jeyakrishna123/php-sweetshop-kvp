@@ -282,12 +282,46 @@ function getAllProducts($db) {
 
     // Filter by category (using category_id)
     if (isset($_GET['category']) && !empty($_GET['category'])) {
+        $categoryName = sanitizeInput($_GET['category']);
         $where[] = 'p.category_id = (SELECT id FROM categories WHERE name = ? OR slug = ?)';
-        $params[] = sanitizeInput($_GET['category']);
-        $params[] = sanitizeInput($_GET['category']);
+        $params[] = $categoryName;
+        $params[] = $categoryName;
+        error_log("🔍 GET ALL PRODUCTS - Filtering by category: $categoryName");
     }
 
-    // Note: sub_category, menu_option, brand filters removed as they don't exist in current schema
+    // Check if sub_category column exists before filtering
+    $hasSubCategory = false;
+    try {
+        $colCheck = $db->query("SHOW COLUMNS FROM products LIKE 'sub_category'");
+        $hasSubCategory = $colCheck && $colCheck->rowCount() > 0;
+    } catch (Exception $e) {
+        // Column doesn't exist
+    }
+    
+    // Filter by subCategory if column exists and parameter is provided
+    if ($hasSubCategory && isset($_GET['subCategory']) && !empty($_GET['subCategory'])) {
+        $subCategory = sanitizeInput($_GET['subCategory']);
+        $where[] = 'p.sub_category = ?';
+        $params[] = $subCategory;
+        error_log("🔍 GET ALL PRODUCTS - Filtering by subCategory: $subCategory");
+    }
+    
+    // Check if menu_option column exists before filtering
+    $hasMenuOption = false;
+    try {
+        $colCheck2 = $db->query("SHOW COLUMNS FROM products LIKE 'menu_option'");
+        $hasMenuOption = $colCheck2 && $colCheck2->rowCount() > 0;
+    } catch (Exception $e) {
+        // Column doesn't exist
+    }
+    
+    // Filter by menuOption if column exists and parameter is provided
+    if ($hasMenuOption && isset($_GET['menuOption']) && !empty($_GET['menuOption'])) {
+        $menuOption = sanitizeInput($_GET['menuOption']);
+        $where[] = 'p.menu_option = ?';
+        $params[] = $menuOption;
+        error_log("🔍 GET ALL PRODUCTS - Filtering by menuOption: $menuOption");
+    }
 
     // Filter by price range
     if (isset($_GET['minPrice']) && !empty($_GET['minPrice'])) {
@@ -355,18 +389,10 @@ function getAllProducts($db) {
     error_log("🔍 GET ALL PRODUCTS - LIMIT: $limit, OFFSET: $offset");
     error_log("🔍 GET ALL PRODUCTS - Is Admin: " . ($isAdmin ? 'YES' : 'NO'));
     error_log("🔍 GET ALL PRODUCTS - Filters: " . json_encode($_GET));
+    error_log("🔍 GET ALL PRODUCTS - Has sub_category column: " . ($hasSubCategory ? 'YES' : 'NO'));
+    error_log("🔍 GET ALL PRODUCTS - Has menu_option column: " . ($hasMenuOption ? 'YES' : 'NO'));
 
-    // Check if sub_category and menu_option columns exist in products table
-    $hasSubCategory = false;
-    $hasMenuOption = false;
-    try {
-        $colCheck = $db->query("SHOW COLUMNS FROM products LIKE 'sub_category'");
-        $hasSubCategory = $colCheck && $colCheck->rowCount() > 0;
-        $colCheck2 = $db->query("SHOW COLUMNS FROM products LIKE 'menu_option'");
-        $hasMenuOption = $colCheck2 && $colCheck2->rowCount() > 0;
-    } catch (Exception $e) {
-        // Columns don't exist, continue without them
-    }
+    // Note: sub_category and menu_option column checks moved above to use in WHERE clause
     
     // Build SELECT clause based on available columns
     $selectFields = "p.id, p.name, p.description, p.price, p.original_price, p.stock, p.images, p.thumbnail,
@@ -397,6 +423,17 @@ function getAllProducts($db) {
 
     error_log("🔍 GET ALL PRODUCTS - Found " . count($products) . " products");
     error_log("🔍 GET ALL PRODUCTS - Total count: $total");
+    error_log("🔍 GET ALL PRODUCTS - WHERE clause applied: $whereClause");
+    error_log("🔍 GET ALL PRODUCTS - Filter parameters: " . json_encode($params));
+    
+    // CRITICAL: Verify filter is working - log first product's category if available
+    if (count($products) > 0) {
+        $firstProduct = $products[0];
+        error_log("🔍 GET ALL PRODUCTS - First product category: " . ($firstProduct['category_name'] ?? 'N/A'));
+        error_log("🔍 GET ALL PRODUCTS - First product sub_category: " . ($firstProduct['sub_category'] ?? 'N/A'));
+    } else {
+        error_log("⚠️ GET ALL PRODUCTS - No products found with current filters!");
+    }
 
     // Decode JSON fields and convert image URLs to production URLs
     // CRITICAL: Filter out base64 images that might be in the database

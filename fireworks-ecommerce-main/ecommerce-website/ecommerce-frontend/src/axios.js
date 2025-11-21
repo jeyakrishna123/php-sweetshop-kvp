@@ -50,6 +50,26 @@ instance.interceptors.request.use(
     console.log('🔍 Axios Request:', config.method?.toUpperCase(), config.url);
     console.log('🔍 Axios Base URL:', config.baseURL);
     console.log('🔍 Axios Full URL:', `${config.baseURL}${config.url}`);
+    
+    // CRITICAL: Set Content-Type for POST/PUT/PATCH requests
+    // Check both 'Content-Type' and 'content-type' (case-insensitive)
+    const method = config.method?.toLowerCase();
+    if (['post', 'put', 'patch'].includes(method)) {
+      const hasContentType = config.headers && (
+        config.headers['Content-Type'] || 
+        config.headers['content-type'] ||
+        Object.keys(config.headers).some(key => key.toLowerCase() === 'content-type')
+      );
+      
+      if (!hasContentType) {
+        // Ensure headers object exists
+        if (!config.headers) {
+          config.headers = {};
+        }
+        config.headers['Content-Type'] = 'application/json';
+      }
+    }
+    
     console.log('🔍 Axios Headers:', config.headers);
     
     const token = localStorage.getItem('token');

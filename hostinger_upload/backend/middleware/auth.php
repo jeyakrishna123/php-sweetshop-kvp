@@ -17,6 +17,7 @@ class AuthMiddleware {
 
         if (!$token) {
             sendError('Authentication required. No token provided', [], 401);
+            exit;
         }
 
         try {
@@ -30,17 +31,28 @@ class AuthMiddleware {
             return $decoded;
         } catch (Exception $e) {
             sendError('Invalid or expired token', ['error' => $e->getMessage()], 401);
+            exit;
         }
     }
 
     /**
      * Verify user is admin
      */
-    public static function requireAdmin() {
-        $user = self::authenticate();
+    public static function requireAdmin($user = null) {
+        if (!$user) {
+            $user = self::authenticate();
+        }
+
+        // Validate user object
+        if (!$user || !is_object($user) || !isset($user->role)) {
+            error_log('❌ requireAdmin: Invalid user object');
+            sendError('Authentication failed', ['error' => 'Invalid user object'], 401);
+            exit;
+        }
 
         if (!in_array($user->role, ['admin', 'superadmin'])) {
             sendError('Access denied. Admin privileges required', [], 403);
+            exit;
         }
 
         return $user;

@@ -258,16 +258,16 @@ const Navbar = () => {
       <nav className="bg-white/95 backdrop-blur-md shadow-lg sticky z-50 border-b border-gray-100" style={{ top: '36px' }}>
         <div className="w-full max-w-none px-2 sm:px-3 md:px-4 lg:px-6 overflow-visible">
           <div className="flex items-center justify-between gap-1.5 sm:gap-2 md:gap-3" style={{ minHeight: '56px', height: '56px' }}>
-             {/* Logo Section - Fixed Size */}
-             <div className="flex items-center flex-shrink-0">
-               <Link to="/" className="block">
+             {/* Logo Section - Fixed Size and Alignment */}
+             <div className="flex items-center flex-shrink-0 h-full overflow-visible">
+               <Link to="/" className="block h-full flex items-center overflow-visible">
                  <Logo 
                    size="default" 
                    showText={false}
                    onClick={() => handleNavigation("/")}
+                   className="overflow-visible"
                  />
                </Link>
-               <span className="hidden md:inline-block ml-1.5 text-sm font-semibold text-gray-800">SK BAKERS</span>
              </div>
 
             {/* Desktop Navigation - Hidden since links are in category nav below */}

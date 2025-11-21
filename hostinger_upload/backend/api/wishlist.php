@@ -112,72 +112,99 @@ try {
  */
 function getWishlist($db) {
     try {
+        // Authenticate and get user_id
         $authUser = AuthMiddleware::authenticate();
-
-        error_log('✅ Wishlist: User authenticated - ID: ' . $authUser->id);
-
+        $userId = (int)$authUser->id;
+        
+        // Query wishlist items for the authenticated user
         $stmt = $db->prepare("
             SELECT
                 w.id, w.product_id, w.created_at,
-                p.name, p.slug, p.description, p.price,
-                p.original_price, p.discount_percentage, p.category, p.images,
+                p.name, p.description, p.price,
+                p.original_price, p.discount_percentage, p.category_id, p.images,
                 p.thumbnail, p.stock, p.is_active, p.average_rating, p.num_reviews,
-                p.has_weight_options, p.weight_options
+                p.weight_options
             FROM wishlist w
             LEFT JOIN products p ON w.product_id = p.id
             WHERE w.user_id = ?
             ORDER BY w.created_at DESC
         ");
-
-        error_log('✅ Wishlist: Executing query for user: ' . $authUser->id);
-        $stmt->execute([$authUser->id]);
-        $wishlist = $stmt->fetchAll();
-
-        error_log('✅ Wishlist: Found ' . count($wishlist) . ' items');
-
-        // Filter out items where product doesn't exist and process the rest
+        
+        $stmt->execute([$userId]);
+        $wishlist = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Process all items - include missing products with a flag
         $validWishlist = [];
         foreach ($wishlist as $item) {
-            // Skip if product doesn't exist (LEFT JOIN returned NULL)
-            if (empty($item['name'])) {
-                error_log('⚠️ Wishlist: Skipping product_id ' . $item['product_id'] . ' - product not found');
+            // Ensure product_id is set (from wishlist table)
+            $productId = isset($item['product_id']) ? $item['product_id'] : (isset($item['id']) ? $item['id'] : null);
+            if (empty($productId) || $productId === null) {
                 continue;
             }
+            
+            // Ensure product_id is set in item for processing
+            if (!isset($item['product_id'])) {
+                $item['product_id'] = $productId;
+            }
+            
+            // Check if product exists (name will be NULL if LEFT JOIN finds no product)
+            $productExists = !empty($item['name']) && $item['name'] !== null;
+            
+            if (!$productExists) {
+                // Include item but mark as unavailable
+                $validItem = [
+                    'id' => (int)$item['id'],
+                    'product_id' => (int)$item['product_id'],
+                    'created_at' => $item['created_at'],
+                    'name' => 'Product Unavailable',
+                    'is_unavailable' => true,
+                    'images' => [],
+                    'thumbnail' => null,
+                    'price' => 0,
+                    'stock' => 0,
+                    'is_active' => 0,
+                    'average_rating' => 0,
+                    'num_reviews' => 0
+                ];
+            } else {
+                // Product exists - process normally
+                $validItem = $item;
+                $validItem['is_unavailable'] = false;
+                $validItem['product_id'] = (int)$validItem['product_id'];
+                $validItem['id'] = (int)$validItem['id'];
+                
+                // Decode JSON fields
+                $validItem['images'] = json_decode($validItem['images'], true) ?? [];
+                $validItem['weight_options'] = json_decode($validItem['weight_options'], true) ?? [];
 
-            // Decode JSON fields
-            $item['images'] = json_decode($item['images'], true) ?? [];
-            $item['weight_options'] = json_decode($item['weight_options'], true) ?? [];
-
-            // Convert image URLs to full URLs
-            if (!empty($item['images'])) {
-                foreach ($item['images'] as &$image) {
-                    if (!str_starts_with($image, 'http')) {
-                        $image = getImageUrl($image);
+                // Convert image URLs to full URLs
+                if (!empty($validItem['images'])) {
+                    foreach ($validItem['images'] as &$image) {
+                        if (is_string($image) && !str_starts_with($image, 'http')) {
+                            $image = getImageUrl($image);
+                        }
                     }
                 }
-            }
-            if (!empty($item['thumbnail']) && !str_starts_with($item['thumbnail'], 'http')) {
-                $item['thumbnail'] = getImageUrl($item['thumbnail']);
+                if (!empty($validItem['thumbnail']) && is_string($validItem['thumbnail']) && !str_starts_with($validItem['thumbnail'], 'http')) {
+                    $validItem['thumbnail'] = getImageUrl($validItem['thumbnail']);
+                }
             }
 
-            $validWishlist[] = $item;
+            $validWishlist[] = $validItem;
         }
 
-        error_log('✅ Wishlist: ' . count($validWishlist) . ' valid items (skipped ' . (count($wishlist) - count($validWishlist)) . ' missing products)');
-
-        sendSuccess('Wishlist retrieved successfully', [
+        $responseData = [
             'wishlist' => $validWishlist,
             'count' => count($validWishlist)
-        ]);
-    } catch (Exception $e) {
-        error_log('❌ Wishlist Error: ' . $e->getMessage());
-        error_log('❌ Wishlist Stack trace: ' . $e->getTraceAsString());
+        ];
 
-        // Return empty wishlist instead of error for better UX
-        sendSuccess('Wishlist retrieved successfully', [
-            'wishlist' => [],
-            'count' => 0
-        ]);
+        sendSuccess('Wishlist retrieved successfully', $responseData);
+    } catch (Exception $e) {
+        // Log error for debugging
+        error_log('Wishlist Error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+        
+        // Return proper error response
+        sendError('Failed to retrieve wishlist', ['error' => 'An error occurred while fetching your wishlist'], 500);
     }
 }
 
@@ -188,31 +215,19 @@ function addToWishlist($db) {
     $authUser = AuthMiddleware::authenticate();
     $data = getRequestBody();
 
-    // Debug logging
-    error_log('🔍 addToWishlist - Request data: ' . json_encode($data));
-    error_log('🔍 addToWishlist - Auth user ID: ' . $authUser->id);
-
     $errors = validateRequired($data, ['productId']);
     if (!empty($errors)) {
-        error_log('❌ addToWishlist - Validation errors: ' . json_encode($errors));
         sendError('Validation failed', $errors, 400);
     }
 
     $productId = (int)$data['productId'];
-    error_log('🔍 addToWishlist - Product ID (converted to int): ' . $productId);
 
     // Check if product exists and is active
     $stmt = $db->prepare("SELECT id, name FROM products WHERE id = ? AND is_active = 1");
     $stmt->execute([$productId]);
     $product = $stmt->fetch();
 
-    error_log('🔍 addToWishlist - Product found: ' . ($product ? 'YES' : 'NO'));
-    if ($product) {
-        error_log('🔍 addToWishlist - Product name: ' . $product['name']);
-    }
-
     if (!$product) {
-        error_log('❌ addToWishlist - Product not found or inactive for ID: ' . $productId);
         sendError('Product not found or inactive', [], 404);
     }
 
@@ -220,15 +235,12 @@ function addToWishlist($db) {
     $stmt = $db->prepare("SELECT id FROM wishlist WHERE user_id = ? AND product_id = ?");
     $stmt->execute([$authUser->id, $productId]);
     if ($stmt->fetch()) {
-        error_log('⚠️ addToWishlist - Product already in wishlist');
         sendError('Product already in wishlist', [], 409);
     }
 
     // Add to wishlist
     $stmt = $db->prepare("INSERT INTO wishlist (user_id, product_id) VALUES (?, ?)");
     if ($stmt->execute([$authUser->id, $productId])) {
-        error_log('✅ addToWishlist - Successfully added to wishlist');
-
         // Update user's wishlist count
         $stmt = $db->prepare("UPDATE users SET wishlist_count = wishlist_count + 1 WHERE id = ?");
         $stmt->execute([$authUser->id]);
@@ -241,7 +253,6 @@ function addToWishlist($db) {
             ]
         ], 201);
     } else {
-        error_log('❌ addToWishlist - Failed to insert into wishlist table');
         sendError('Failed to add to wishlist', [], 500);
     }
 }

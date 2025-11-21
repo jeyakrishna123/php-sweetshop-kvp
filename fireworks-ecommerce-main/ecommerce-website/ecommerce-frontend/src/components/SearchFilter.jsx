@@ -189,6 +189,7 @@ const SearchFilter = ({ products, filters, onFilterChange, onClearFilters }) => 
 
   // Sync localFilters with filters prop when it changes (e.g., from URL params)
   // CRITICAL: Don't sync search field if user is currently typing (prevents input reset)
+  
   useEffect(() => {
     if (filters) {
       // Update all filters except search (search is handled separately)

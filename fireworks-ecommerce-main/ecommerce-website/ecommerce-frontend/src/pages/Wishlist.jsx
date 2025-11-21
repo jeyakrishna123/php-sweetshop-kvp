@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useCart } from "../context/CartContext";
@@ -7,6 +7,7 @@ import axios from "../axios";
 
 const Wishlist = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { showToast } = useToast();
   const { dispatch } = useCart();
@@ -15,65 +16,93 @@ const Wishlist = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (!user) {
-      navigate("/login");
-      return;
-    }
-    fetchWishlist();
-  }, [user, navigate]);
-
-  const fetchWishlist = async () => {
+  const fetchWishlist = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      console.log('🔍 Wishlist: Fetching wishlist...');
       const response = await axios.get("/api/wishlist");
-      console.log('🔍 Wishlist: Response:', response.data);
 
       if (response.data && response.data.success) {
-        const wishlistData = response.data.data?.wishlist
-          || response.data.wishlist
-          || response.data.products
-          || [];
-
-        console.log('✅ Wishlist: Loaded', wishlistData.length, 'products');
-        setWishlist(wishlistData);
+        // Extract wishlist data from standardized response structure
+        // Backend returns: { success: true, data: { wishlist: [...], count: N } }
+        const wishlistData = response.data.data?.wishlist || [];
+        setWishlist(Array.isArray(wishlistData) ? wishlistData : []);
       } else {
-        console.warn('❌ Wishlist: Response not successful');
         setWishlist([]);
         setError("Failed to load wishlist");
       }
     } catch (error) {
-      console.error("❌ Wishlist: Error fetching wishlist:", error);
       setWishlist([]);
 
       if (error.response?.status === 404) {
         setError("Wishlist not found. Your wishlist is empty.");
       } else if (error.response?.status === 401) {
         setError("Please log in to view your wishlist.");
+      } else if (error.response?.data) {
+        setError(error.response.data.message || "Failed to load wishlist. Please try again.");
       } else {
-        setError("Failed to load wishlist. Please try again.");
+        setError(`Failed to load wishlist: ${error.message || "Please try again."}`);
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Consolidated useEffect: Fetch wishlist on mount, user change, location change, and visibility/focus
+  useEffect(() => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    // Only fetch if we're on the wishlist page
+    if (location.pathname !== '/wishlist') {
+      return;
+    }
+
+    // Initial fetch
+    fetchWishlist();
+
+    // Set up visibility and focus handlers for refresh
+    const handleVisibilityChange = () => {
+      if (!document.hidden && location.pathname === '/wishlist') {
+        fetchWishlist();
+      }
+    };
+
+    const handleFocus = () => {
+      if (location.pathname === '/wishlist') {
+        fetchWishlist();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [user, location.pathname, navigate, fetchWishlist]);
 
   const removeFromWishlist = async (productId) => {
     try {
-      console.log('🗑️ Removing from wishlist, product_id:', productId);
       const response = await axios.delete(`/api/wishlist/remove/${productId}`);
 
       if (response.data.success) {
-        setWishlist(prev => prev.filter(item => item.product_id !== productId));
+        // Remove from local state - handle both product_id and id
+        setWishlist(prev => prev.filter(item => {
+          const itemProductId = item.product_id || item.id;
+          return itemProductId !== productId && itemProductId !== parseInt(productId);
+        }));
         showToast("Product removed from wishlist", "success");
+        // Refresh wishlist to ensure sync
+        setTimeout(() => fetchWishlist(), 500);
       } else {
         showToast("Failed to remove product", "error");
       }
     } catch (error) {
-      console.error("❌ Error removing from wishlist:", error);
       showToast("Failed to remove product from wishlist", "error");
     }
   };
@@ -98,7 +127,6 @@ const Wishlist = () => {
 
       showToast("Product added to cart!", "success");
     } catch (error) {
-      console.error("Error adding to cart:", error);
       showToast("Failed to add product to cart", "error");
     }
   };
@@ -118,7 +146,6 @@ const Wishlist = () => {
         showToast("Failed to clear wishlist", "error");
       }
     } catch (error) {
-      console.error("Error clearing wishlist:", error);
       showToast("Failed to clear wishlist", "error");
     }
   };
@@ -211,25 +238,41 @@ const Wishlist = () => {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3 md:gap-4 lg:gap-5">
-            {wishlist.filter(item => item && item.product_id).map((item) => (
+            {wishlist.filter(item => {
+              // More lenient filtering - show items even if some data is missing
+              // Only filter out items that are completely invalid (no id and no product_id)
+              const hasProductId = item && (item.product_id || item.id);
+              return hasProductId;
+            }).map((item) => (
               <div
                 key={item.product_id || item.id}
                 className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg transition-all duration-200 hover:-translate-y-1 border border-gray-200 flex flex-col"
               >
                 {/* Product Image */}
                 <div className="relative aspect-square bg-gray-100">
-                  <img
-                    src={getImageUrl(item.images?.[0] || item.thumbnail || item.image)}
-                    alt={item.name || 'Product'}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.src = "https://via.placeholder.com/400x400/f3f4f6/9ca3af?text=No+Image";
-                    }}
-                  />
+                  {item.is_unavailable ? (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                      <div className="text-center p-4">
+                        <svg className="w-12 h-12 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p className="text-xs text-gray-500">Product Removed</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <img
+                      src={getImageUrl(item.images?.[0] || item.thumbnail || item.image)}
+                      alt={item.name || `Product ${item.product_id || item.id}`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = "https://via.placeholder.com/400x400/f3f4f6/9ca3af?text=No+Image";
+                      }}
+                    />
+                  )}
 
                   {/* Remove Button */}
                   <button
-                    onClick={() => removeFromWishlist(item.product_id)}
+                    onClick={() => removeFromWishlist(item.product_id || item.id)}
                     className="absolute top-1.5 right-1.5 p-1.5 bg-white rounded-full shadow-md hover:bg-gray-100 text-gray-700 hover:text-red-600 transition-all transform hover:scale-110 z-10"
                     title="Remove from wishlist"
                   >
@@ -248,8 +291,13 @@ const Wishlist = () => {
 
                 {/* Product Info */}
                 <div className="p-2 sm:p-3 flex-1 flex flex-col">
+                  {item.is_unavailable && (
+                    <div className="mb-1 px-2 py-1 bg-yellow-100 border border-yellow-300 rounded text-[10px] text-yellow-800 font-medium">
+                      Product No Longer Available
+                    </div>
+                  )}
                   <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2 text-[11px] sm:text-xs leading-tight">
-                    {item.name || 'Unnamed Product'}
+                    {item.name || `Product ${item.product_id || item.id}` || 'Unnamed Product'}
                   </h3>
 
                   {/* Rating */}
@@ -299,21 +347,30 @@ const Wishlist = () => {
                   <div className="mt-auto space-y-1">
                     <button
                       onClick={() => addToCart(item)}
-                      disabled={(item.stock || 0) === 0}
+                      disabled={(item.stock || 0) === 0 || item.is_unavailable}
                       className={`w-full px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs font-semibold rounded transition-colors ${
-                        (item.stock || 0) > 0
+                        (item.stock || 0) > 0 && !item.is_unavailable
                           ? 'bg-red-600 text-white hover:bg-red-700'
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       }`}
                     >
-                      Add to Cart
+                      {item.is_unavailable ? 'Unavailable' : 'Add to Cart'}
                     </button>
 
                     <button
-                      onClick={() => navigate(`/product/${item.product_id}`)}
-                      className="w-full px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                      onClick={() => {
+                        if (!item.is_unavailable) {
+                          navigate(`/product/${item.product_id}`);
+                        }
+                      }}
+                      disabled={item.is_unavailable}
+                      className={`w-full px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs font-medium rounded transition-colors ${
+                        item.is_unavailable
+                          ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                          : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                      }`}
                     >
-                      View Details
+                      {item.is_unavailable ? 'Product Removed' : 'View Details'}
                     </button>
                   </div>
 

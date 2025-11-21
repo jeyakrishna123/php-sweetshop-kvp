@@ -19,17 +19,22 @@ require_once __DIR__ . '/middleware/cors.php';
 CorsMiddleware::handle();
 
 // Get request URI and method
-$requestUri = $_SERVER['REQUEST_URI'];
+// CRITICAL: Handle both direct access and rewritten URLs from .htaccess
+$requestUri = $_SERVER['REQUEST_URI'] ?? '';
+// If path was passed via query string (from .htaccess rewrite), use it
+if (isset($_GET['path']) && !empty($_GET['path'])) {
+    $requestUri = $_GET['path'];
+}
 $method = $_SERVER['REQUEST_METHOD'];
 
 // Parse URL
 $path = parse_url($requestUri, PHP_URL_PATH);
+// Remove query string from path if present
+$path = strtok($path, '?');
 $pathParts = explode('/', trim($path, '/'));
 
-
-
-// Remove empty parts
-$pathParts = array_filter($pathParts);
+// Remove empty parts and re-index
+$pathParts = array_values(array_filter($pathParts));
 
 // Check if this is an API request - handle both /api/php-backend/api/ and /api/
 $resource = '';

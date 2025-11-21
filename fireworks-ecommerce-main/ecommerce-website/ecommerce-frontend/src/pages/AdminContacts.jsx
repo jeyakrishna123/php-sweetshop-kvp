@@ -33,21 +33,36 @@ const AdminContacts = () => {
   useEffect(() => {
     fetchContacts();
     fetchStats();
+    
+    // Refresh contacts every 30 seconds to show new submissions
+    const interval = setInterval(() => {
+      fetchContacts();
+      fetchStats();
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const fetchContacts = async () => {
     try {
       setLoading(true);
-      console.log('🔄 Fetching contacts from /api/contacts...');
+      console.log('🔍 [AdminContacts] Fetching contacts from /api/contacts...');
+      
       const response = await axios.get('/api/contacts');
-      console.log('📦 Contacts API Response:', response.data);
+      console.log('✅ [AdminContacts] Contacts API Response:', response.data);
 
-      if (response.data.success && Array.isArray(response.data.contacts)) {
-        const sortedContacts = response.data.contacts.sort((a, b) =>
-          new Date(b.createdAt) - new Date(a.createdAt)
-        );
-        console.log(`✅ Loaded ${sortedContacts.length} contacts`);
+      if (response.data.success) {
+        // Backend returns: { success: true, data: { contacts: [...], count: N } }
+        const contactsData = response.data.data?.contacts || response.data.contacts || [];
+        console.log('📊 [AdminContacts] Contacts Data:', contactsData);
+        console.log('📊 [AdminContacts] Contacts Count:', contactsData.length);
+        
+        const sortedContacts = Array.isArray(contactsData) 
+          ? contactsData.sort((a, b) => new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at))
+          : [];
+
         setContacts(sortedContacts);
+        console.log('✅ [AdminContacts] Contacts set successfully:', sortedContacts.length);
 
         // Calculate stats from loaded contacts
         const calculatedStats = {
@@ -58,85 +73,141 @@ const AdminContacts = () => {
           unread: sortedContacts.filter(c => !c.isRead).length,
           read: sortedContacts.filter(c => c.isRead).length
         };
-        console.log('📊 Stats calculated from contacts:', calculatedStats);
         setStats(calculatedStats);
-      } else if (response.data.success && response.data.data?.contacts) {
-        // Handle alternate response structure
-        const sortedContacts = response.data.data.contacts.sort((a, b) =>
-          new Date(b.createdAt) - new Date(a.createdAt)
-        );
-        console.log(`✅ Loaded ${sortedContacts.length} contacts (alternate structure)`);
-        setContacts(sortedContacts);
-
-        // Calculate stats from loaded contacts
-        const calculatedStats = {
-          total: sortedContacts.length,
-          new: sortedContacts.filter(c => c.status === 'new').length,
-          responded: sortedContacts.filter(c => c.status === 'responded').length,
-          closed: sortedContacts.filter(c => c.status === 'closed').length,
-          unread: sortedContacts.filter(c => !c.isRead).length,
-          read: sortedContacts.filter(c => c.isRead).length
-        };
-        console.log('📊 Stats calculated from contacts:', calculatedStats);
-        setStats(calculatedStats);
+        console.log('📊 [AdminContacts] Calculated Stats:', calculatedStats);
       } else {
-        // Response was successful but contacts data is missing or invalid
-        console.warn('⚠️ Response successful but no contacts array found:', response.data);
+        console.warn('⚠️ [AdminContacts] API returned success: false', response.data);
         setContacts([]);
       }
     } catch (error) {
-      console.error('❌ Error fetching contacts:', error);
-      console.error('❌ Error response:', error.response?.data);
-      console.error('❌ Error status:', error.response?.status);
-
-      // Handle 404 gracefully - API endpoint doesn't exist yet
-      if (error.response?.status === 404) {
-        console.log('🔍 Contacts API endpoint not found (404) - using empty state');
-        showToast('Contacts API not available - using local view', 'info');
-      } else if (error.response?.status === 401) {
-        console.log('🔐 Authentication error - user may need to log in');
+      console.error('❌ [AdminContacts] Error fetching contacts:', error);
+      console.error('❌ [AdminContacts] Error Response:', error.response);
+      console.error('❌ [AdminContacts] Error Response Data:', error.response?.data);
+      console.error('❌ [AdminContacts] Error Response Status:', error.response?.status);
+      
+      // Log full error details including expanded errors object
+      if (error.response?.data) {
+        console.error('❌ [AdminContacts] Full Error Response Data:', JSON.stringify(error.response.data, null, 2));
+        
+        // Log errors object separately with full expansion
+        if (error.response.data.errors) {
+          console.error('❌ [AdminContacts] Error Details (errors object):', error.response.data.errors);
+          console.error('❌ [AdminContacts] Error Details (expanded):', JSON.stringify(error.response.data.errors, null, 2));
+          
+          // Log each error property separately for visibility
+          if (typeof error.response.data.errors === 'object') {
+            Object.keys(error.response.data.errors).forEach(key => {
+              console.error(`❌ [AdminContacts] Error.${key}:`, error.response.data.errors[key]);
+            });
+          }
+        }
+        
+        // Log message separately
+        if (error.response.data.message) {
+          console.error('❌ [AdminContacts] Error Message:', error.response.data.message);
+        }
+      }
+      
+      if (error.response?.status === 401) {
+        console.error('❌ [AdminContacts] Authentication failed (401)');
         showToast('Authentication required', 'warning');
       } else {
-        showToast('Failed to fetch contacts', 'error');
+        // Enhanced error handling - show actual error details
+        const errorMessage = error.response?.data?.message || 
+                            error.response?.data?.error || 
+                            error.message || 
+                            'Failed to fetch contacts';
+        console.error('❌ [AdminContacts] Showing error toast:', errorMessage);
+        showToast(errorMessage, 'error');
       }
       setContacts([]);
     } finally {
       setLoading(false);
+      console.log('🏁 [AdminContacts] fetchContacts completed');
     }
   };
 
   const fetchStats = async () => {
     try {
-      console.log('🔄 Fetching stats from /api/contacts/stats/overview...');
+      console.log('🔍 [AdminContacts] Fetching stats from /api/contacts/stats/overview...');
+      
       const response = await axios.get('/api/contacts/stats/overview');
-      console.log('📊 Stats API Response:', response.data);
+      console.log('✅ [AdminContacts] Stats API Response:', response.data);
 
-      if (response.data.success && response.data.stats) {
-        console.log('✅ Stats loaded:', response.data.stats);
-        setStats(response.data.stats);
-      } else if (response.data.success && response.data.data?.stats) {
-        console.log('✅ Stats loaded (alternate structure):', response.data.data.stats);
-        setStats(response.data.data.stats);
+      if (response.data.success) {
+        // Backend returns: { success: true, data: { stats: {...} } }
+        const statsData = response.data.data?.stats || response.data.stats;
+        console.log('📊 [AdminContacts] Stats Data:', statsData);
+        
+        if (statsData) {
+          setStats(statsData);
+          console.log('✅ [AdminContacts] Stats set successfully:', statsData);
+        } else {
+          console.warn('⚠️ [AdminContacts] No stats data in response');
+        }
+      } else {
+        console.warn('⚠️ [AdminContacts] Stats API returned success: false', response.data);
       }
     } catch (error) {
-      console.error('❌ Error fetching stats:', error);
-      console.error('❌ Stats error response:', error.response?.data);
-      console.error('❌ Stats error status:', error.response?.status);
-
-      // Handle errors gracefully and ensure stats remain initialized
-      if (error.response?.status === 404) {
-        console.log('🔍 Stats API endpoint not found (404) - calculating from contacts');
-      } else if (error.response?.status === 401) {
-        console.log('🔐 Authentication error for stats - calculating from contacts');
+      console.error('❌ [AdminContacts] Error fetching stats:', error);
+      console.error('❌ [AdminContacts] Stats Error Response:', error.response);
+      console.error('❌ [AdminContacts] Stats Error Response Data:', error.response?.data);
+      console.error('❌ [AdminContacts] Stats Error Response Status:', error.response?.status);
+      
+      // Log full error details including expanded errors object
+      if (error.response?.data) {
+        console.error('❌ [AdminContacts] Stats Full Error Response Data:', JSON.stringify(error.response.data, null, 2));
+        
+        // Log errors object separately with full expansion
+        if (error.response.data.errors) {
+          console.error('❌ [AdminContacts] Stats Error Details (errors object):', error.response.data.errors);
+          console.error('❌ [AdminContacts] Stats Error Details (expanded):', JSON.stringify(error.response.data.errors, null, 2));
+          
+          // Log each error property separately for visibility
+          if (typeof error.response.data.errors === 'object') {
+            Object.keys(error.response.data.errors).forEach(key => {
+              console.error(`❌ [AdminContacts] Stats Error.${key}:`, error.response.data.errors[key]);
+            });
+          }
+        }
+        
+        // Log message separately
+        if (error.response.data.message) {
+          console.error('❌ [AdminContacts] Stats Error Message:', error.response.data.message);
+        }
       }
-
+      
+      // Enhanced error handling
+      if (error.response?.status === 401) {
+        console.error('❌ [AdminContacts] Stats Authentication failed (401)');
+        // Authentication error - don't show toast, just use fallback
+      } else {
+        // Log error but don't show toast (stats are not critical)
+        const errorMessage = error.response?.data?.message || 
+                            error.response?.data?.error || 
+                            error.message;
+        console.error('❌ [AdminContacts] Stats Error Message:', errorMessage);
+        // Only log, don't show toast to avoid spam
+      }
       // Calculate stats from contacts array as fallback
+      console.log('🔄 [AdminContacts] Calculating stats from contacts as fallback...');
       calculateStatsFromContacts();
     }
   };
 
   const calculateStatsFromContacts = () => {
-    console.log('📊 Calculating stats from contacts array...');
+    if (!contacts || contacts.length === 0) {
+      setStats({
+        total: 0,
+        new: 0,
+        read: 0,
+        unread: 0,
+        responded: 0,
+        closed: 0
+      });
+      return;
+    }
+    
     const calculatedStats = {
       total: contacts.length,
       new: contacts.filter(c => c.status === 'new').length,
@@ -145,7 +216,6 @@ const AdminContacts = () => {
       unread: contacts.filter(c => !c.isRead).length,
       read: contacts.filter(c => c.isRead).length
     };
-    console.log('✅ Calculated stats:', calculatedStats);
     setStats(calculatedStats);
   };
 
@@ -180,12 +250,7 @@ const AdminContacts = () => {
         setStats(calculatedStats);
       }
     } catch (error) {
-      console.error('Error marking contact as read:', error);
-
-      // Handle 404 gracefully - API endpoint doesn't exist yet
-      if (error.response?.status === 404) {
-        console.log('🔍 Mark as read API endpoint not found (404)');
-      }
+      // Silently handle errors - UI will update locally anyway
     }
   };
 
@@ -214,15 +279,7 @@ const AdminContacts = () => {
         setStats(calculatedStats);
       }
     } catch (error) {
-      console.error('Error updating contact status:', error);
-
-      // Handle 404 gracefully - API endpoint doesn't exist yet
-      if (error.response?.status === 404) {
-        console.log('🔍 Update status API endpoint not found (404)');
-        showToast('API not available - changes not saved', 'info');
-      } else {
-        showToast('Failed to update contact status', 'error');
-      }
+      showToast('Failed to update contact status', 'error');
     }
   };
 
@@ -236,18 +293,21 @@ const AdminContacts = () => {
       if (response.data.success) {
         setContacts(prev => prev.filter(contact => contact.id !== contactId));
         showToast('Contact deleted successfully', 'success');
-        fetchStats();
+        
+        // Recalculate stats after deletion
+        const updatedContacts = contacts.filter(contact => contact.id !== contactId);
+        const calculatedStats = {
+          total: updatedContacts.length,
+          new: updatedContacts.filter(c => c.status === 'new').length,
+          responded: updatedContacts.filter(c => c.status === 'responded').length,
+          closed: updatedContacts.filter(c => c.status === 'closed').length,
+          unread: updatedContacts.filter(c => !c.isRead).length,
+          read: updatedContacts.filter(c => c.isRead).length
+        };
+        setStats(calculatedStats);
       }
     } catch (error) {
-      console.error('Error deleting contact:', error);
-
-      // Handle 404 gracefully - API endpoint doesn't exist yet
-      if (error.response?.status === 404) {
-        console.log('🔍 Delete contact API endpoint not found (404)');
-        showToast('API not available - delete operation not supported', 'info');
-      } else {
-        showToast('Failed to delete contact', 'error');
-      }
+      showToast('Failed to delete contact', 'error');
     }
   };
 
@@ -509,13 +569,15 @@ const AdminContacts = () => {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredContacts.map((contact, index) => (
-                  <tr key={contact.id} className={`group hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-300 ${!contact.isRead ? 'bg-gradient-to-r from-blue-50/30 to-indigo-50/30 border-l-4 border-l-blue-500' : ''}`}>
+                  <tr key={contact.id || `contact-${index}`} className={`group hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-300 ${!contact.isRead ? 'bg-gradient-to-r from-blue-50/30 to-indigo-50/30 border-l-4 border-l-blue-500' : ''}`}>
                     {/* Contact Information */}
                     <td className="px-8 py-6">
                       <div className="flex items-start gap-4">
                         <div className="flex-shrink-0">
                           <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">
-                            {contact.fullName.charAt(0).toUpperCase()}
+                            {contact.fullName && contact.fullName.length > 0 
+                              ? contact.fullName.charAt(0).toUpperCase() 
+                              : '?'}
                           </div>
                           {!contact.isRead && (
                             <div className="relative -mt-2 -mr-2">
@@ -552,7 +614,9 @@ const AdminContacts = () => {
                           {contact.subject}
                         </div>
                         <div className="text-sm text-gray-600 leading-relaxed line-clamp-2">
-                          {contact.message.substring(0, 100)}...
+                          {contact.message && contact.message.length > 100 
+                            ? `${contact.message.substring(0, 100)}...` 
+                            : contact.message || 'No message'}
                         </div>
                       </div>
                     </td>
@@ -573,10 +637,14 @@ const AdminContacts = () => {
                     <td className="px-8 py-6 whitespace-nowrap">
                       <div className="text-center">
                         <div className="text-lg font-bold text-gray-900">
-                          {new Date(contact.createdAt).toLocaleDateString()}
+                          {contact.createdAt || contact.created_at 
+                            ? new Date(contact.createdAt || contact.created_at).toLocaleDateString()
+                            : 'N/A'}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {new Date(contact.createdAt).toLocaleTimeString()}
+                          {contact.createdAt || contact.created_at 
+                            ? new Date(contact.createdAt || contact.created_at).toLocaleTimeString()
+                            : ''}
                         </div>
                       </div>
                     </td>
@@ -735,12 +803,20 @@ const AdminContacts = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Submitted:</span>
-                      <span className="text-sm font-medium text-gray-900">{new Date(selectedContact.createdAt).toLocaleString()}</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {selectedContact.createdAt || selectedContact.created_at 
+                          ? new Date(selectedContact.createdAt || selectedContact.created_at).toLocaleString()
+                          : 'N/A'}
+                      </span>
                     </div>
-                    {selectedContact.updatedAt !== selectedContact.createdAt && (
+                    {(selectedContact.updatedAt || selectedContact.updated_at) && 
+                     (selectedContact.updatedAt !== selectedContact.createdAt && 
+                      selectedContact.updated_at !== selectedContact.created_at) && (
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">Last updated:</span>
-                        <span className="text-sm font-medium text-gray-900">{new Date(selectedContact.updatedAt).toLocaleString()}</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {new Date(selectedContact.updatedAt || selectedContact.updated_at).toLocaleString()}
+                        </span>
                       </div>
                     )}
                   </div>
