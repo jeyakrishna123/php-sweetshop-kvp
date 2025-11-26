@@ -11,8 +11,13 @@ class EmailService {
     private $smtpPassword;
     private $fromEmail;
     private $fromName;
+    private $lastError = null;
+    private $phpmailerLoaded = false;
     
     public function __construct() {
+        // Try to load PHPMailer
+        $this->loadPHPMailer();
+        
         // Load configuration with proper SMTP settings for Hostinger
         // All operations are safe and cannot throw exceptions
         try {
@@ -32,6 +37,70 @@ class EmailService {
             $this->fromEmail = 'noreply@skbakers.com';
             $this->fromName = 'SK Bakers';
         }
+    }
+    
+    /**
+     * Try to load PHPMailer from various possible locations
+     */
+    private function loadPHPMailer() {
+        // If already loaded, return
+        if ($this->phpmailerLoaded || class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+            $this->phpmailerLoaded = true;
+            return true;
+        }
+        
+        // Try different possible paths for PHPMailer
+        $possiblePaths = [
+            __DIR__ . '/../vendor/phpmailer/phpmailer/src/PHPMailer.php',
+            __DIR__ . '/../vendor/PHPMailer/PHPMailer/src/PHPMailer.php',
+            __DIR__ . '/../vendor/autoload.php',
+            __DIR__ . '/../../vendor/phpmailer/phpmailer/src/PHPMailer.php',
+            __DIR__ . '/../../vendor/autoload.php',
+        ];
+        
+        foreach ($possiblePaths as $path) {
+            if (file_exists($path)) {
+                try {
+                    require_once $path;
+                    // If it's autoload.php, also try to require Exception and SMTP
+                    if (strpos($path, 'autoload.php') !== false) {
+                        // Autoload should handle it, but ensure classes are available
+                        if (!class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+                            continue;
+                        }
+                    } else {
+                        // If we loaded PHPMailer.php directly, also load Exception and SMTP
+                        $basePath = dirname($path);
+                        if (file_exists($basePath . '/Exception.php')) {
+                            require_once $basePath . '/Exception.php';
+                        }
+                        if (file_exists($basePath . '/SMTP.php')) {
+                            require_once $basePath . '/SMTP.php';
+                        }
+                    }
+                    
+                    if (class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+                        $this->phpmailerLoaded = true;
+                        error_log("✅ EmailService - PHPMailer loaded successfully from: $path");
+                        return true;
+                    }
+                } catch (Throwable $e) {
+                    error_log("⚠️ EmailService - Failed to load PHPMailer from $path: " . $e->getMessage());
+                    continue;
+                }
+            }
+        }
+        
+        error_log("⚠️ EmailService - PHPMailer not found. Install via: composer require phpmailer/phpmailer");
+        $this->phpmailerLoaded = false;
+        return false;
+    }
+    
+    /**
+     * Check if PHPMailer is available
+     */
+    public function isPHPMailerAvailable() {
+        return $this->phpmailerLoaded || class_exists('PHPMailer\PHPMailer\PHPMailer');
     }
     
     /**
@@ -222,6 +291,222 @@ class EmailService {
             
         } catch (Throwable $e) {
             error_log("❌ EmailService - sendBasicEmail() exception: " . $e->getMessage());
+            
+            // In development, simulate success
+            if (isset($_SERVER['HTTP_HOST']) && 
+                (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false || 
+                 strpos($_SERVER['HTTP_HOST'], '127.0.0.1') !== false)) {
+                error_log("⚠️ EmailService - Development environment, simulating email success after exception");
+                return true;
+            }
+            
+            return false;
+        }
+    }
+    
+    /**
+     * Send email with PDF attachment
+     * @param string $to Recipient email
+     * @param string $subject Email subject
+     * @param string $message Email body (HTML)
+     * @param string $pdfData PDF file data (binary or base64)
+     * @param string $pdfFilename Filename for the PDF attachment
+     * @param bool $isBase64 Whether PDF data is base64 encoded
+     * @return bool Success status
+     */
+    public function sendEmailWithAttachment($to, $subject, $message, $pdfData, $pdfFilename = 'invoice.pdf', $isBase64 = true) {
+        // Validate inputs
+        if (empty($to) || empty($subject)) {
+            error_log("❌ EmailService - Invalid parameters for email with attachment");
+            return false;
+        }
+        
+        // Suppress all errors and warnings
+        $oldErrorLevel = error_reporting(E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR);
+        $displayErrors = ini_get('display_errors');
+        ini_set('display_errors', '0');
+        
+        try {
+            // Try PHPMailer first (it supports attachments)
+            if (class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+                $result = $this->sendEmailWithAttachmentPHPMailer($to, $subject, $message, $pdfData, $pdfFilename, $isBase64);
+            } else {
+                error_log("⚠️ EmailService - PHPMailer not available, cannot send attachment");
+                // Fallback: send email without attachment
+                $result = $this->sendEmail($to, $subject, $message, true);
+            }
+        } catch (Throwable $e) {
+            error_log("❌ EmailService - sendEmailWithAttachment exception: " . $e->getMessage());
+            // Fallback: send email without attachment
+            $result = $this->sendEmail($to, $subject, $message, true);
+        } finally {
+            error_reporting($oldErrorLevel);
+            ini_set('display_errors', $displayErrors);
+        }
+        
+        return $result ?? false;
+    }
+    
+    /**
+     * Get the last error message from email operations
+     */
+    public function getLastError() {
+        return $this->lastError;
+    }
+    
+    /**
+     * Send email with PDF attachment using PHPMailer
+     */
+    private function sendEmailWithAttachmentPHPMailer($to, $subject, $message, $pdfData, $pdfFilename, $isBase64) {
+        try {
+            if (!class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+                return false;
+            }
+            
+            $encryptionStartTLS = 'tls';
+            try {
+                $reflectionClass = new ReflectionClass('PHPMailer\PHPMailer\PHPMailer');
+                if ($reflectionClass->hasConstant('ENCRYPTION_STARTTLS')) {
+                    $encryptionStartTLS = $reflectionClass->getConstant('ENCRYPTION_STARTTLS');
+                }
+            } catch (Throwable $constError) {
+                $encryptionStartTLS = 'tls';
+            }
+            
+            $mail = new PHPMailer\PHPMailer\PHPMailer(false);
+            
+            // Server settings
+            $mail->isSMTP();
+            $mail->Host = $this->smtpHost;
+            $mail->SMTPAuth = !empty($this->smtpUsername) && !empty($this->smtpPassword);
+            $mail->Username = $this->smtpUsername;
+            $mail->Password = $this->smtpPassword;
+            $mail->SMTPSecure = $encryptionStartTLS;
+            $mail->Port = $this->smtpPort;
+            $mail->SMTPDebug = 0;
+            $mail->Timeout = 30;
+            $mail->CharSet = 'UTF-8';
+            
+            $mail->SMTPOptions = array(
+                'ssl' => array(
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                    'allow_self_signed' => true
+                )
+            );
+            
+            // Recipients
+            $mail->setFrom($this->fromEmail, $this->fromName);
+            $mail->addAddress($to);
+            
+            // Content
+            $mail->isHTML(true);
+            $mail->Subject = $subject;
+            $mail->Body = $message;
+            
+            // Add PDF attachment
+            if (!empty($pdfData)) {
+                try {
+                    if ($isBase64) {
+                        // Remove data URI prefix if present
+                        $pdfData = preg_replace('/^data:application\/pdf;base64,/', '', $pdfData);
+                        
+                        // Validate base64 format
+                        if (!preg_match('/^[A-Za-z0-9+\/]*={0,2}$/', $pdfData)) {
+                            error_log("❌ EmailService - Invalid base64 format in PDF data");
+                            throw new Exception("Invalid base64 format");
+                        }
+                        
+                        // Validate it's a valid PDF by decoding and checking header
+                        $pdfBinary = base64_decode($pdfData, true);
+                        if ($pdfBinary === false) {
+                            error_log("❌ EmailService - Failed to decode base64 PDF data");
+                            $pdfBinary = base64_decode($pdfData);
+                            if ($pdfBinary === false) {
+                                throw new Exception("Base64 decode failed");
+                            }
+                        }
+                        
+                        // Validate PDF binary data
+                        if (strlen($pdfBinary) > 0 && substr($pdfBinary, 0, 4) === '%PDF') {
+                            // CRITICAL: PHPMailer's addStringAttachment with 'base64' encoding expects
+                            // the STRING to already be base64 encoded, not binary data
+                            // So we pass the base64 string directly
+                            $mail->addStringAttachment($pdfData, $pdfFilename, 'base64', 'application/pdf');
+                            error_log("✅ EmailService - PDF attachment added: $pdfFilename (Base64 length: " . strlen($pdfData) . " chars, Binary size: " . strlen($pdfBinary) . " bytes)");
+                        } else {
+                            error_log("⚠️ EmailService - PDF validation failed (first 20 bytes: " . ($pdfBinary ? bin2hex(substr($pdfBinary, 0, 20)) : 'N/A') . ")");
+                            // Still try to attach it - might be valid PDF
+                            $mail->addStringAttachment($pdfData, $pdfFilename, 'base64', 'application/pdf');
+                            error_log("⚠️ EmailService - Attached PDF anyway (validation warning)");
+                        }
+                    } else {
+                        // Binary data provided directly - need to base64 encode it first
+                        if (strlen($pdfData) > 0) {
+                            if (substr($pdfData, 0, 4) === '%PDF') {
+                                // It's binary PDF data - encode to base64
+                                $pdfBase64 = base64_encode($pdfData);
+                                $mail->addStringAttachment($pdfBase64, $pdfFilename, 'base64', 'application/pdf');
+                                error_log("✅ EmailService - PDF attachment added (binary converted to base64): $pdfFilename (Size: " . strlen($pdfData) . " bytes)");
+                            } else {
+                                // Assume it's already base64 string
+                                $mail->addStringAttachment($pdfData, $pdfFilename, 'base64', 'application/pdf');
+                                error_log("✅ EmailService - PDF attachment added: $pdfFilename (Size: " . strlen($pdfData) . " chars)");
+                            }
+                        } else {
+                            throw new Exception("Empty PDF data");
+                        }
+                    }
+                } catch (Throwable $attachError) {
+                    error_log("❌ EmailService - Error adding PDF attachment: " . $attachError->getMessage());
+                    error_log("❌ EmailService - Stack trace: " . $attachError->getTraceAsString());
+                    // Don't fail completely - send email without attachment
+                    error_log("⚠️ EmailService - Continuing to send email without PDF attachment");
+                }
+            }
+            
+            // Send email
+            $sendResult = $mail->send();
+            
+            if ($sendResult) {
+                $this->lastError = null; // Clear error on success
+                error_log("✅ EmailService - Email with PDF attachment sent successfully to: $to");
+                return true;
+            } else {
+                $errorMsg = $mail->ErrorInfo ?? 'Unknown error';
+                $this->lastError = $errorMsg;
+                error_log("❌ EmailService - Failed to send email with attachment: $errorMsg");
+                error_log("❌ EmailService - PHPMailer ErrorInfo: " . ($mail->ErrorInfo ?? 'N/A'));
+                
+                // Log additional debugging info
+                if (method_exists($mail, 'getSMTPInstance')) {
+                    try {
+                        $smtp = $mail->getSMTPInstance();
+                        if ($smtp && method_exists($smtp, 'getError')) {
+                            $smtpError = $smtp->getError();
+                            error_log("❌ EmailService - SMTP Error: " . print_r($smtpError, true));
+                            if (!empty($smtpError)) {
+                                $this->lastError .= ' | SMTP: ' . print_r($smtpError, true);
+                            }
+                        }
+                    } catch (Exception $e) {
+                        // Ignore
+                    }
+                }
+                
+                // In development, simulate success
+                if (isset($_SERVER['HTTP_HOST']) && 
+                    (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false || 
+                     strpos($_SERVER['HTTP_HOST'], '127.0.0.1') !== false)) {
+                    error_log("⚠️ EmailService - Development environment, simulating email success");
+                    return true;
+                }
+                
+                return false;
+            }
+            
+        } catch (Throwable $e) {
+            error_log("❌ EmailService - sendEmailWithAttachmentPHPMailer exception: " . $e->getMessage());
             
             // In development, simulate success
             if (isset($_SERVER['HTTP_HOST']) && 

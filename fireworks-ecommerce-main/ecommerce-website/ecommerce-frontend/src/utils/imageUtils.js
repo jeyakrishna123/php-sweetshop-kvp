@@ -85,8 +85,36 @@ export const getResponsiveImageUrl = (imagePath, fallbackUrl = null) => {
 
 // Utility function to handle image errors with better fallbacks
 export const handleImageError = (e, fallbackUrl = null) => {
-  const defaultFallback = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"%3E%3Crect width="400" height="400" fill="%23f3f4f6"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23666" font-size="20"%3ENo Image%3C/text%3E%3C/svg%3E';
-  e.target.src = fallbackUrl || defaultFallback;
+  // Use data URI as ultimate fallback to prevent 404 errors
+  const dataUriFallback = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"%3E%3Crect width="400" height="400" fill="%23f3f4f6"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23666" font-size="20"%3ENo Image%3C/text%3E%3C/svg%3E';
+  
+  // Track if we've already tried the placeholder
+  const currentSrc = e.target.src || '';
+  const triedPlaceholder = currentSrc.includes('default-product.png');
+  
+  // If this is already the second error (placeholder also failed), use data URI immediately
+  if (triedPlaceholder) {
+    e.target.src = dataUriFallback;
+    e.target.onerror = null; // Prevent infinite loop
+    return;
+  }
+  
+  // If we have a custom fallback that's not external, use it
+  if (fallbackUrl && !fallbackUrl.includes('via.placeholder.com') && !fallbackUrl.includes('unsplash.com') && !fallbackUrl.includes('http')) {
+    e.target.src = fallbackUrl;
+    // Set up fallback for if custom fallback also fails
+    e.target.onerror = () => {
+      e.target.src = dataUriFallback;
+      e.target.onerror = null;
+    };
+    return;
+  }
+  
+  // Try local placeholder first (but skip if we know it doesn't exist)
+  // Since placeholder might not exist, go directly to data URI to avoid 404
+  // This prevents the 404 error for default-product.png
+  e.target.src = dataUriFallback;
+  e.target.onerror = null; // Prevent infinite loop
 };
 
 // Utility function to get banner image URL

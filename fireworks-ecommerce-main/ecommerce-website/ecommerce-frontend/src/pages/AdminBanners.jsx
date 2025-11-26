@@ -374,12 +374,12 @@ const AdminBanners = () => {
                               {/* Banner Image */}
                               <div className="flex-shrink-0">
                                 <img
-                                  src={`${getImageUrl(banner.mobileImageUrl || banner.desktopImageUrl || banner.imageUrl)}?t=${Date.now()}`}
+                                  src={`${getImageUrl(banner.mobileImageUrl || banner.desktopImageUrl || banner.imageUrl) || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="96" height="64" viewBox="0 0 96 64"%3E%3Crect width="96" height="64" fill="%23f3f4f6"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23666" font-size="10"%3ENo Image%3C/text%3E%3C/svg%3E'}?t=${Date.now()}`}
                                   alt={banner.title}
                                   className="w-24 h-16 object-cover rounded-lg"
                                   onError={(e) => {
                                     console.log('❌ Admin banner image failed to load:', e.target.src);
-                                    e.target.src = 'https://via.placeholder.com/96x64?text=No+Image';
+                                    e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="96" height="64" viewBox="0 0 96 64"%3E%3Crect width="96" height="64" fill="%23f3f4f6"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23666" font-size="10"%3ENo Image%3C/text%3E%3C/svg%3E';
                                   }}
                                 />
                                 {banner.deviceType === 'both' && (

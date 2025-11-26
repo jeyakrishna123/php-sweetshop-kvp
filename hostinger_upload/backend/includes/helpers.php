@@ -53,10 +53,12 @@ function sendError($message = 'Error', $errors = [], $statusCode = 400) {
         }
     }
     
+    // Include both 'errors' (for backward compatibility) and 'data' (for consistency with sendSuccess)
     sendResponse([
         'success' => false,
         'message' => $fullMessage,
         'errors' => $errors,
+        'data' => $errors, // Also include in 'data' for consistency
         'timestamp' => date('c')
     ], $statusCode);
 }
@@ -824,10 +826,13 @@ function sendOrderStatusEmail($customerEmail, $customerName, $orderId, $newStatu
 /**
  * Get image URL - Convert relative paths to absolute production URLs
  * CRITICAL: Never convert base64 images to URLs - they should be converted to files first
+ * Returns placeholder if image file doesn't exist
  */
 function getImageUrl($imagePath) {
     if (empty($imagePath)) {
-        return null; // Return null instead of empty string
+        // Return placeholder instead of null to prevent 404 errors
+        $placeholder = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+        return $placeholder . '/backend/uploads/products/default-product.png';
     }
     
     // CRITICAL: Check if it's a base64 image string - DO NOT convert to URL
@@ -837,16 +842,18 @@ function getImageUrl($imagePath) {
         // Check for data URI format anywhere in string (handles path prefixes like /uploads/products/data:image/...)
         if (strpos($imagePath, 'data:image/') !== false || strpos($imagePath, ';base64,') !== false) {
             error_log("⚠️ getImageUrl - Base64 data URI detected! This should have been converted to a file first: " . substr($imagePath, 0, 100) . "...");
-            // Return null to prevent creating invalid URLs
-            return null;
+            // Return placeholder instead of null
+            $placeholder = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+            return $placeholder . '/backend/uploads/products/default-product.png';
         }
         
         // Check for base64 pattern in strings with path prefixes
         // e.g., /uploads/products/data:image/webp;base64,...
         if (strlen($imagePath) > 200 && preg_match('/data:image\/[^;]+;base64,/', $imagePath)) {
             error_log("⚠️ getImageUrl - Base64 pattern with path prefix detected! This should have been converted to a file first");
-            // Return null to prevent creating invalid URLs
-            return null;
+            // Return placeholder instead of null
+            $placeholder = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+            return $placeholder . '/backend/uploads/products/default-product.png';
         }
         
         // Check for raw base64 string (long string matching base64 pattern)
@@ -854,8 +861,9 @@ function getImageUrl($imagePath) {
             // Only treat as base64 if it doesn't look like a file path or URL
             if (strpos($imagePath, '/') === false && strpos($imagePath, '\\') === false && strpos($imagePath, 'http') === false) {
                 error_log("⚠️ getImageUrl - Raw base64 string detected! This should have been converted to a file first");
-                // Return null to prevent creating invalid URLs
-                return null;
+                // Return placeholder instead of null
+                $placeholder = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+                return $placeholder . '/backend/uploads/products/default-product.png';
             }
         }
     }
@@ -872,7 +880,37 @@ function getImageUrl($imagePath) {
     
     // If starts with /, it's a root-relative path
     if (strpos($imagePath, '/') === 0) {
-        return defined('BASE_URL') ? BASE_URL . $imagePath : 'https://skbakers.com' . $imagePath;
+        $fullUrl = defined('BASE_URL') ? BASE_URL . $imagePath : 'https://skbakers.com' . $imagePath;
+        
+        // Always check if file exists on local filesystem (even for production URLs)
+        // Convert URL path to local file path
+        $localPath = null;
+        
+        // Extract the path part from URL (remove domain)
+        if (strpos($imagePath, '/backend/') === 0) {
+            // Path already has /backend/, use it directly
+            $localPath = __DIR__ . '/..' . $imagePath;
+        } elseif (strpos($imagePath, '/uploads/') === 0) {
+            // Path has /uploads/, add /backend prefix
+            $localPath = __DIR__ . '/../backend' . $imagePath;
+        } else {
+            // Try both possibilities
+            $localPath = __DIR__ . '/..' . $imagePath;
+            if (!file_exists($localPath) && strpos($imagePath, '/backend/') === false) {
+                $localPath = __DIR__ . '/../backend' . $imagePath;
+            }
+        }
+        
+        // Check if file exists on local filesystem
+        if ($localPath && !file_exists($localPath)) {
+            error_log("⚠️ getImageUrl - File not found on server: $localPath (URL: $fullUrl), using placeholder");
+            $placeholder = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+            // Return a placeholder image URL - use a data URI SVG to avoid 404s
+            // This will be handled by frontend onError handlers
+            return $placeholder . '/backend/uploads/products/default-product.png';
+        }
+        
+        return $fullUrl;
     }
     
     // Otherwise, prepend uploads directory

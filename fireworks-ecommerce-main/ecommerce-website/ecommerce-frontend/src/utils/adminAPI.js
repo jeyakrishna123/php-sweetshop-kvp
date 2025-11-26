@@ -242,11 +242,32 @@ export const orderAPI = {
   // Get all orders
   getAllOrders: async () => {
     try {
+      console.log('📡 orderAPI: Fetching all orders from /api/orders/all');
       // Use the correct orders endpoint instead of admin endpoint
       const response = await orderAxios.get('/all');
+      console.log('✅ orderAPI: Get all orders response:', response.data);
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Failed to fetch orders');
+      console.error('❌ orderAPI: Get all orders error:', error);
+      console.error('❌ orderAPI: Error response:', error.response);
+      console.error('❌ orderAPI: Error message:', error.message);
+      console.error('❌ orderAPI: Error code:', error.code);
+      
+      // Handle network errors
+      if (!error.response) {
+        const networkError = new Error('Network error: Unable to connect to server. Please check your internet connection.');
+        networkError.isNetworkError = true;
+        networkError.originalError = error;
+        throw networkError;
+      }
+      
+      // Handle HTTP errors
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch orders';
+      const detailedError = new Error(errorMessage);
+      detailedError.response = error.response;
+      detailedError.status = error.response?.status;
+      detailedError.data = error.response?.data;
+      throw detailedError;
     }
   },
 
@@ -279,10 +300,284 @@ export const orderAPI = {
   // Send bill email to customer
   sendBillEmail: async (id) => {
     try {
-      const response = await adminAPI.post(`/order/${id}/send-bill`);
+      // Use orderAxios instead of adminAPI since the endpoint is /api/orders/{id}/send-bill
+      const response = await orderAxios.post(`/${id}/send-bill`);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to send bill email');
+    }
+  },
+
+  // Send bill email with PDF attachment to customer
+  sendBillEmailWithPDF: async (id, pdfBase64, filename) => {
+    try {
+      // Get current base URL dynamically (in case it changed)
+      const baseURL = getBaseURL();
+      const fullURL = `${baseURL}/api/orders/${id}/send-bill-pdf`;
+      
+      console.log('📧 sendBillEmailWithPDF - Starting request');
+      console.log('📧 sendBillEmailWithPDF - Order ID:', id);
+      console.log('📧 sendBillEmailWithPDF - Filename:', filename);
+      console.log('📧 sendBillEmailWithPDF - PDF Base64 length:', pdfBase64?.length || 0);
+      console.log('📧 sendBillEmailWithPDF - Base URL:', baseURL);
+      console.log('📧 sendBillEmailWithPDF - Full API URL:', fullURL);
+      console.log('📧 sendBillEmailWithPDF - Current hostname:', typeof window !== 'undefined' ? window.location.hostname : 'N/A');
+      console.log('📧 sendBillEmailWithPDF - Current URL:', typeof window !== 'undefined' ? window.location.href : 'N/A');
+      
+      // Validate inputs
+      if (!id || !pdfBase64) {
+        throw new Error('Order ID and PDF data are required');
+      }
+      
+      // Use axiosBase (raw axios) with dynamic baseURL to ensure correct URL
+      // This prevents issues with stale baseURL in orderAxios instance
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication token is missing. Please log in again.');
+      }
+      
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      };
+      
+      console.log('📧 sendBillEmailWithPDF - Request headers:', { ...headers, Authorization: 'Bearer ***' });
+      console.log('📧 sendBillEmailWithPDF - Token exists:', !!token);
+      console.log('📧 sendBillEmailWithPDF - Request payload size (approx):', (pdfBase64?.length || 0) + (filename?.length || 0));
+      
+      // Prepare request payload
+      const payload = {
+        pdf: pdfBase64,
+        filename: filename || 'Bill_of_Supply.pdf'
+      };
+      
+      console.log('📧 sendBillEmailWithPDF - Sending POST request to:', fullURL);
+      console.log('📧 sendBillEmailWithPDF - Payload keys:', Object.keys(payload));
+      
+      // Use axiosBase with full URL and longer timeout for large PDFs
+      // Increased to 120 seconds (2 minutes) to handle large PDF uploads
+      const startTime = Date.now();
+      const response = await axiosBase.post(fullURL, payload, {
+        headers: headers,
+        timeout: 120000, // 120 seconds (2 minutes) for large PDFs
+        validateStatus: function (status) {
+          // Accept all status codes - we'll handle errors in catch block
+          return true;
+        },
+        // Add onUploadProgress to track upload progress
+        onUploadProgress: function (progressEvent) {
+          if (progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            console.log(`📧 Upload progress: ${percentCompleted}% (${(progressEvent.loaded / 1024 / 1024).toFixed(2)} MB / ${(progressEvent.total / 1024 / 1024).toFixed(2)} MB)`);
+          }
+        }
+      });
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ sendBillEmailWithPDF - Response received in ${duration}ms`);
+      console.log('✅ sendBillEmailWithPDF - Response status:', response.status);
+      console.log('✅ sendBillEmailWithPDF - Response headers:', response.headers);
+      console.log('✅ sendBillEmailWithPDF - Success response:', response.data);
+      
+      // Check if response indicates success
+      if (response.status >= 200 && response.status < 300) {
+        if (response.data && response.data.success !== false) {
+          return response.data;
+        } else {
+          // Response was 2xx but indicates failure
+          const errorMsg = response.data?.message || 'Email sending failed';
+          throw new Error(errorMsg);
+        }
+      } else {
+        // Non-2xx status code
+        const errorMsg = response.data?.message || `Server returned status ${response.status}`;
+        throw new Error(errorMsg);
+      }
+    } catch (error) {
+      // Log full error for debugging
+      console.error('❌ Email send error - Full error object:', error);
+      console.error('❌ Email send error - Error type:', error.constructor.name);
+      console.error('❌ Email send error - Error message:', error.message);
+      console.error('❌ Email send error - Error code:', error.code);
+      console.error('❌ Email send error - Response exists:', !!error.response);
+      console.error('❌ Email send error - Response:', error.response);
+      console.error('❌ Email send error - Response status:', error.response?.status);
+      console.error('❌ Email send error - Response headers:', error.response?.headers);
+      console.error('❌ Email send error - Response data:', error.response?.data);
+      console.error('❌ Email send error - Request config:', error.config);
+      console.error('❌ Email send error - Request URL:', error.config?.url || error.request?.responseURL || 'Unknown');
+      console.error('❌ Email send error - Request method:', error.config?.method || 'Unknown');
+      
+      // Check if it's a network error (no response)
+      if (!error.response) {
+        // Check for specific error types
+        let errorMessage = 'Network error: Unable to connect to server.';
+        
+        if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+          errorMessage = 'Request timeout: The server took too long to respond. The PDF might be too large. Please try again.';
+        } else if (error.code === 'ERR_NETWORK' || error.message.includes('Network Error')) {
+          errorMessage = 'Network error: Unable to connect to server. Please check your internet connection and try again.';
+        } else if (error.code === 'ERR_CANCELED') {
+          errorMessage = 'Request was cancelled. Please try again.';
+        } else if (error.request) {
+          // Request was made but no response received
+          errorMessage = 'Server did not respond. Please check if the server is running and try again.';
+        } else {
+          // Request was not made at all
+          errorMessage = 'Failed to send request. Please check your connection and try again.';
+        }
+        
+        console.error('❌ Email send error - Network error detected (no response from server)');
+        console.error('❌ Email send error - Error code:', error.code);
+        console.error('❌ Email send error - Error message:', error.message);
+        console.error('❌ Email send error - Request object:', error.request);
+        
+        const networkError = new Error(errorMessage);
+        networkError.isNetworkError = true;
+        networkError.originalError = error;
+        networkError.code = error.code;
+        throw networkError;
+      }
+      
+      // Extract detailed error information from backend
+      const errorData = error.response?.data || {};
+      console.error('📧 Email send error - Raw errorData:', JSON.stringify(errorData, null, 2));
+      
+      // The backend sends errors in this format:
+      // { success: false, message: "...", errors: {...}, data: {...} }
+      // OR sometimes just { message: "...", error: "..." }
+      
+      // Extract the main error message - prioritize backend message
+      let errorMessage = 'Failed to send bill email with PDF';
+      
+      if (errorData?.message) {
+        errorMessage = errorData.message;
+      } else if (errorData?.error) {
+        errorMessage = errorData.error;
+      } else if (typeof errorData === 'string') {
+        errorMessage = errorData;
+      } else if (error.message && !error.message.includes('Request failed')) {
+        errorMessage = error.message;
+      }
+      
+      console.error('📧 Email send error - Extracted message:', errorMessage);
+      
+      // Check both 'data' and 'errors' keys for error details (backend uses both for compatibility)
+      // Backend sends details in both 'errors' and 'data' keys
+      const details = errorData?.data || errorData?.errors || {};
+      console.error('📧 Email send error - Extracted details:', JSON.stringify(details, null, 2));
+      
+      // Build detailed error message
+      const hints = [];
+      
+      // Add PHPMailer error if available (most important)
+      if (details.phpmailer_error && details.phpmailer_error !== 'No detailed error available') {
+        const phpmailerError = String(details.phpmailer_error);
+        // Truncate very long errors
+        if (phpmailerError.length > 150) {
+          hints.push(`PHPMailer: ${phpmailerError.substring(0, 150)}...`);
+        } else {
+          hints.push(`PHPMailer: ${phpmailerError}`);
+        }
+      }
+      
+      if (details.phpmailer_status === 'not_installed') {
+        hints.push('PHPMailer is not installed');
+      }
+      
+      if (details.smtp_config) {
+        const smtp = details.smtp_config;
+        if (smtp.host === 'not_configured') hints.push('SMTP host not configured');
+        if (smtp.port === 'not_configured') hints.push('SMTP port not configured');
+        if (smtp.username === 'not_configured' || smtp.username === 'empty') {
+          hints.push('SMTP username not configured');
+        }
+        if (smtp.password === 'not_configured' || smtp.password === 'empty') {
+          hints.push('SMTP password not configured');
+        }
+      }
+      
+      if (details.hint) {
+        hints.push(details.hint);
+      }
+      
+      if (details.troubleshooting && Array.isArray(details.troubleshooting)) {
+        hints.push(...details.troubleshooting);
+      }
+      
+      // Build the final error message with all details
+      // Start with the base message (already extracted above)
+      
+      // Add hints to error message
+      if (hints.length > 0) {
+        // If we have hints, append them
+        errorMessage = errorMessage + ' - ' + hints.join(', ');
+      } else {
+        // If no hints but we have error details, try to extract useful info
+        if (details.error && typeof details.error === 'string' && !errorMessage.includes(details.error)) {
+          errorMessage = errorMessage + ' - ' + details.error;
+        }
+        
+        // Always show HTTP status if available
+        if (error.response?.status) {
+          const statusText = error.response.status === 400 ? 'Bad Request' :
+                            error.response.status === 401 ? 'Unauthorized' :
+                            error.response.status === 404 ? 'Not Found' :
+                            error.response.status === 500 ? 'Server Error' :
+                            'Error';
+          errorMessage += ` (HTTP ${error.response.status} - ${statusText})`;
+        }
+      }
+      
+      // If the backend message already contains details (separated by |), use it as-is
+      if (errorData?.message && errorData.message.includes('|')) {
+        errorMessage = errorData.message;
+      }
+      
+      // Final fallback: if we still have the generic message, try to get ANY useful info
+      if (errorMessage === 'Failed to send bill email with PDF' && error.response?.data) {
+        // Try to extract any string value from the response
+        const responseStr = JSON.stringify(error.response.data);
+        if (responseStr.length < 500) {
+          errorMessage = errorMessage + ' - Response: ' + responseStr;
+        } else {
+          // Try to extract just the message field
+          if (error.response.data.message) {
+            errorMessage = String(error.response.data.message);
+          } else {
+            errorMessage = errorMessage + ' - Check console for full error details (HTTP ' + (error.response?.status || 'unknown') + ')';
+          }
+        }
+      }
+      
+      // Ensure we have a non-generic message
+      if (errorMessage === 'Failed to send bill email with PDF' && error.response?.status) {
+        errorMessage = `Failed to send bill email with PDF (HTTP ${error.response.status})`;
+      }
+      
+      // Create error with detailed message and full details
+      // Use a more descriptive error that won't crash the app
+      const detailedError = new Error(errorMessage);
+      detailedError.name = 'EmailSendError'; // Set error name for better identification
+      detailedError.details = details;
+      detailedError.response = error.response;
+      detailedError.originalError = error;
+      detailedError.statusCode = error.response?.status;
+      
+      // Add error code for easier debugging
+      if (error.code) {
+        detailedError.code = error.code;
+      }
+      
+      console.error('📧 Email send error - Final error message:', errorMessage);
+      console.error('📧 Email send error - Error details:', details);
+      console.error('📧 Email send error - Status code:', error.response?.status);
+      console.error('📧 Email send error - Full response data:', JSON.stringify(error.response?.data, null, 2));
+      console.error('📧 Email send error - Will throw error with message:', errorMessage);
+      console.error('📧 Email send error - Error stack:', error.stack);
+      
+      // Re-throw with all context preserved
+      throw detailedError;
     }
   }
 };

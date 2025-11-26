@@ -11,7 +11,13 @@ RewriteEngine On
 RewriteCond %{HTTP:Authorization} .
 RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
+# CRITICAL: Exclude image files and uploads directory from routing to index.php
+# This prevents 422 errors when image files are requested
+RewriteCond %{REQUEST_URI} \.(jpg|jpeg|png|gif|webp|svg|ico|pdf)$ [NC]
+RewriteRule ^(.*)$ - [L]
+
 # Redirect all requests to index.php except for actual files and directories
+# Files in uploads/ directory will be served directly by Apache
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php [QSA,L]
@@ -66,8 +72,18 @@ AddDefaultCharset UTF-8
 
 # PHP settings
 <IfModule mod_php7.c>
-    php_value upload_max_filesize 10M
-    php_value post_max_size 10M
+    php_value upload_max_filesize 20M
+    php_value post_max_size 20M
     php_value max_execution_time 300
     php_value max_input_time 300
+    php_value memory_limit 256M
+</IfModule>
+
+# PHP 8+ settings (if using PHP 8)
+<IfModule mod_php8.c>
+    php_value upload_max_filesize 20M
+    php_value post_max_size 20M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+    php_value memory_limit 256M
 </IfModule>

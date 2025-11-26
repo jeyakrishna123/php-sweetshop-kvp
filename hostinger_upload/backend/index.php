@@ -27,6 +27,21 @@ if (isset($_GET['path']) && !empty($_GET['path'])) {
 }
 $method = $_SERVER['REQUEST_METHOD'];
 
+// CRITICAL: Reject image file requests that shouldn't be processed by PHP
+// This prevents 422 errors when image files are requested but don't exist
+if (preg_match('/\.(jpg|jpeg|png|gif|webp|svg|ico|pdf)$/i', $requestUri)) {
+    // This is an image/file request - should be handled by .htaccess
+    // If it reaches here, the file doesn't exist or .htaccess didn't catch it
+    http_response_code(404);
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => false,
+        'message' => 'File not found',
+        'error' => 'The requested file does not exist'
+    ]);
+    exit;
+}
+
 // Parse URL
 $path = parse_url($requestUri, PHP_URL_PATH);
 // Remove query string from path if present

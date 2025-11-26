@@ -8,6 +8,7 @@ import EnhancedProductModal from "../components/EnhancedProductModal";
 import { exportProducts, importCSV, validateImportedProducts } from "../utils/exportUtils";
 import Pagination from "../components/Pagination";
 import AdvancedSearchFilter from "../components/AdvancedSearchFilter";
+import { getImageUrl, getResponsiveImageUrl } from "../utils/imageUtils";
 
 const AdminProducts = () => {
   const navigate = useNavigate();
@@ -545,55 +546,9 @@ const AdminProducts = () => {
     return false;
   };
 
-  const getImageUrl = (image) => {
-    if (typeof image === 'string') {
-      // CRITICAL: Check for base64 anywhere in string (not just at start)
-      const isBase64 = image.includes('data:image/') || 
-                       image.includes(';base64,') ||
-                       (image.length > 200 && /data:image\/[^;]+;base64,/.test(image)) ||
-                       isBase64Image(image);
-      
-      if (isBase64) {
-        console.error('❌ AdminProducts: Base64 image detected, returning null to prevent 414 error');
-        return null; // Return null instead of base64 to prevent 414 errors
-      }
-      // If it's already a full URL, return as is
-      if (image.startsWith('http')) {
-        return image;
-      }
-      // Additional safety check: if string looks suspicious (long, no file extension), don't construct URL
-      if (image.length > 500 && !image.includes('.jpg') && !image.includes('.png') && !image.includes('.webp') && !image.includes('.gif')) {
-        console.error('❌ AdminProducts: Suspicious image string detected, returning null:', image.substring(0, 100));
-        return null;
-      }
-      // If it's a relative URL from backend, make it absolute
-      if (image.startsWith('/uploads/')) {
-        return `${process.env.NODE_ENV === 'production' ? 'https://skbakers.com' : 'http://localhost:8000'}${image}`;
-      }
-      return image;
-    }
-    if (image && image.url) {
-      // Handle image object with url property
-      const isBase64 = image.url.includes('data:image/') || 
-                       image.url.includes(';base64,') ||
-                       (image.url.length > 200 && /data:image\/[^;]+;base64,/.test(image.url)) ||
-                       isBase64Image(image.url);
-      
-      if (isBase64) {
-        console.error('❌ AdminProducts: Base64 image detected in object, returning null');
-        return null; // Return null instead of base64
-      }
-      if (image.url.startsWith('http')) {
-        return image.url;
-      }
-      if (image.url.startsWith('/uploads/')) {
-        return `${process.env.NODE_ENV === 'production' ? 'https://skbakers.com' : 'http://localhost:8000'}${image.url}`;
-      }
-      return image.url;
-    }
-    // Default fallback image
-    return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%23f3f4f6'/%3E%3Ctext x='100' y='100' text-anchor='middle' dy='.3em' fill='%23666' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E";
-  };
+  // Use the shared getImageUrl from imageUtils (already imported above)
+  // This ensures consistent image URL handling across the app
+  // No local getImageUrl function needed - using the one from imageUtils.js
 
   // Debug: Log products state changes
   console.log('🔍 AdminProducts: Rendering with products:', {
@@ -1123,10 +1078,11 @@ const AdminProducts = () => {
               <div className="relative h-32 bg-gray-100 flex items-center justify-center">
                 <img
                   className="w-full h-full object-contain"
-                  src={getImageUrl(product.images[0])}
+                  src={getResponsiveImageUrl(product.images?.[0])}
                   alt={product.name}
                   onError={(e) => {
-                    e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'%3E%3Crect width='300' height='200' fill='%23f3f4f6'/%3E%3Ctext x='150' y='100' text-anchor='middle' dy='.3em' fill='%23666' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E";
+                    console.log('❌ Admin product image failed to load:', product.images?.[0]);
+                    e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"%3E%3Crect width="300" height="200" fill="%23f3f4f6"/%3E%3Ctext x="150" y="100" text-anchor="middle" dy=".3em" fill="%23666" font-size="14"%3ENo Image%3C/text%3E%3C/svg%3E';
                   }}
                 />
                 {product.featured && (
@@ -1229,10 +1185,11 @@ const AdminProducts = () => {
                         <div className="flex-shrink-0 h-12 w-12">
                           <img
                             className="h-12 w-12 rounded-lg object-contain"
-                            src={getImageUrl(product.images[0])}
+                            src={getResponsiveImageUrl(product.images?.[0])}
                             alt={product.name}
                             onError={(e) => {
-                              e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' fill='%23666' font-size='12'%3ENo Image%3C/text%3E%3C/svg%3E";
+                              console.log('❌ Admin product image failed to load:', product.images?.[0]);
+                              e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%23666" font-size="12"%3ENo Image%3C/text%3E%3C/svg%3E';
                             }}
                           />
                         </div>
