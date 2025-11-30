@@ -162,13 +162,44 @@ function getAllMenuItems($db) {
             }
         }
 
-        // DEBUG: Log what was fetched from database
-        error_log("🔍 getAllMenuItems - Fetched " . count($menuItems) . " menu items");
+        // CRITICAL: Remove duplicates based on ID first, then by name to prevent duplicate display
+        $uniqueMenuItems = [];
+        $seenIds = [];
+        $seenNames = [];
+        
         foreach ($menuItems as $item) {
+            $itemId = $item['_id'] ?? null;
+            $itemName = strtolower(trim($item['name'] ?? ''));
+            
+            // Skip if duplicate ID
+            if ($itemId && in_array($itemId, $seenIds)) {
+                error_log("⚠️ getAllMenuItems - Skipping duplicate menu item ID: " . $itemId . " (Name: " . ($item['name'] ?? 'N/A') . ")");
+                continue;
+            }
+            
+            // Skip if duplicate name (prevent showing same menu item twice)
+            if ($itemName && in_array($itemName, $seenNames)) {
+                error_log("⚠️ getAllMenuItems - Skipping duplicate menu item name: " . ($item['name'] ?? 'N/A') . " (ID: " . ($itemId ?? 'N/A') . ")");
+                continue;
+            }
+            
+            // Add to unique list
+            $uniqueMenuItems[] = $item;
+            if ($itemId) {
+                $seenIds[] = $itemId;
+            }
+            if ($itemName) {
+                $seenNames[] = $itemName;
+            }
+        }
+        
+        // DEBUG: Log what was fetched from database
+        error_log("🔍 getAllMenuItems - Fetched " . count($menuItems) . " menu items, " . count($uniqueMenuItems) . " unique after deduplication");
+        foreach ($uniqueMenuItems as $item) {
             error_log("🔍 getAllMenuItems - Item: " . $item['name'] . " | Image: " . ($item['image'] ?: 'EMPTY'));
         }
 
-        sendSuccess('Menu items retrieved successfully', $menuItems);
+        sendSuccess('Menu items retrieved successfully', $uniqueMenuItems);
     } catch (Exception $e) {
         sendError('Failed to fetch menu items', ['error' => $e->getMessage()], 500);
     }
@@ -227,6 +258,17 @@ function createMenuItem($db) {
 
     if (!isset($input['name'])) {
         sendError('Menu name is required', [], 400);
+        return;
+    }
+
+    // CRITICAL: Check if menu item with same name already exists (prevent duplicates) - CASE INSENSITIVE
+    // Use LOWER() to make the check case-insensitive (milk = MILK = Milk)
+    $checkStmt = $db->prepare("SELECT id, name FROM menu_items WHERE LOWER(name) = LOWER(?) AND is_active = 1");
+    $checkStmt->execute([$input['name']]);
+    $existingItem = $checkStmt->fetch();
+    if ($existingItem) {
+        error_log("⚠️ createMenuItem - Menu item with name '" . $input['name'] . "' already exists (ID: " . $existingItem['id'] . ", existing name: '" . $existingItem['name'] . "')");
+        sendError('Menu item with this name already exists. Please use a different name or update the existing item.', [], 400);
         return;
     }
 
@@ -481,8 +523,32 @@ function getActiveMenu($db) {
             error_log("🍽️ getActiveMenu - Item: " . $item['name'] . " | Image: " . ($item['image'] ?: 'EMPTY'));
         }
 
+        // CRITICAL: Remove duplicates by name first (prevent showing same menu item name twice)
+        // Keep only the first occurrence if duplicates exist
+        $uniqueMenuItems = [];
+        $seenNames = [];
+        
+        foreach ($menuItems as $item) {
+            $itemName = strtolower(trim($item['name'] ?? ''));
+            $itemId = $item['_id'] ?? null;
+            
+            // Skip if duplicate name (prevent showing same menu item name twice)
+            if ($itemName && in_array($itemName, $seenNames)) {
+                error_log("⚠️ getActiveMenu - Skipping duplicate menu item name: '" . ($item['name'] ?? 'N/A') . "' (ID: " . ($itemId ?? 'N/A') . ")");
+                continue;
+            }
+            
+            // Add to unique list
+            $uniqueMenuItems[] = $item;
+            if ($itemName) {
+                $seenNames[] = $itemName;
+            }
+        }
+        
+        error_log("🍽️ getActiveMenu - Before deduplication: " . count($menuItems) . " items, After: " . count($uniqueMenuItems) . " unique items");
+        
         // Return menu items directly in data field for frontend compatibility
-        sendSuccess('Active menu retrieved successfully', $menuItems);
+        sendSuccess('Active menu retrieved successfully', $uniqueMenuItems);
     } catch (Exception $e) {
         sendError('Failed to fetch active menu', ['error' => $e->getMessage()], 500);
     }

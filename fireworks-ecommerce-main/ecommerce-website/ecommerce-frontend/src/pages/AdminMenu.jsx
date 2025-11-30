@@ -56,6 +56,12 @@ const AdminMenu = () => {
   };
 
   const handleSaveMenuItem = async (formData) => {
+    // CRITICAL: Prevent duplicate submissions
+    if (operationLoading) {
+      console.log('⚠️ AdminMenu: Already submitting, ignoring duplicate submission');
+      return;
+    }
+    
     try {
       setOperationLoading(true);
 
@@ -698,10 +704,6 @@ const AdminMenu = () => {
                 </button>
                 <button
                   type="submit"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleSaveMenuItem(formData);
-                  }}
                   disabled={operationLoading || !formData.name.trim()}
                   className={`px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base rounded-xl font-bold transition-all duration-200 flex items-center space-x-2 ${
                     operationLoading || !formData.name.trim()

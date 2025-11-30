@@ -348,9 +348,31 @@ function Home() {
             image: item.image,
             hasImage: !!item.image
           })));
-          setMenuItems(response.data.data);
+          // CRITICAL: Remove duplicates by name to prevent showing same menu item twice
+          const menuItemsArray = response.data.data || [];
+          const uniqueMenuItems = [];
+          const seenNames = new Set();
+          
+          menuItemsArray.forEach(item => {
+            const nameKey = (item.name || '').toLowerCase().trim();
+            
+            // Skip if duplicate name (prevent showing same menu item name twice)
+            if (nameKey && seenNames.has(nameKey)) {
+              console.warn('⚠️ Skipping duplicate menu item name:', item.name, '(ID:', item._id || item.id, ')');
+              return;
+            }
+            
+            // Add to unique list
+            uniqueMenuItems.push(item);
+            if (nameKey) {
+              seenNames.add(nameKey);
+            }
+          });
+          
+          console.log('✅ Menu items after deduplication:', uniqueMenuItems.length, 'unique items (from', menuItemsArray.length, 'total)');
+          setMenuItems(uniqueMenuItems);
           // Save to localStorage for offline access
-          localStorage.setItem('menuItems', JSON.stringify(response.data.data));
+          localStorage.setItem('menuItems', JSON.stringify(uniqueMenuItems));
         } else {
           console.log('❌ API response not successful:', response.data);
           // Fallback to localStorage if API response is not successful
