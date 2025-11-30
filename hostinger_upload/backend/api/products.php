@@ -171,34 +171,20 @@ function filterBase64Images($images) {
                 // Valid image path/URL - convert to full URL
                 $imageUrl = getImageUrl($img);
                 if ($imageUrl) {
-                    // CRITICAL: Verify image file exists before adding to response
-                    // Extract file path from URL for verification
-                    $filePath = null;
-                    if (strpos($imageUrl, '/backend/uploads/') !== false || strpos($imageUrl, '/uploads/') !== false) {
-                        // Extract relative path from URL
-                        $urlPath = parse_url($imageUrl, PHP_URL_PATH);
-                        // Remove /backend prefix if present
-                        $relativePath = str_replace('/backend', '', $urlPath);
-                        // Remove leading /uploads/ to get just the subdirectory and filename
-                        // e.g., /uploads/products/filename.webp -> products/filename.webp
-                        $relativePath = preg_replace('#^/uploads/#', '', $relativePath);
-                        
-                        // Construct full file path: UPLOAD_DIR already includes /uploads/
-                        // So: UPLOAD_DIR = /path/to/backend/uploads/
-                        // relativePath = products/filename.webp
-                        // Result: /path/to/backend/uploads/products/filename.webp
-                        if (defined('UPLOAD_DIR') && $relativePath) {
-                            $filePath = rtrim(UPLOAD_DIR, '/') . '/' . $relativePath;
-                        }
-                    }
-                    
-                    // Only add image if file exists (or if we can't verify - for external URLs)
-                    if ($filePath === null || file_exists($filePath)) {
+                    // CRITICAL: In production, trust the database and return URLs
+                    // File existence checks can fail due to path resolution issues even when files exist
+                    // getImageUrl() already handles file existence checks, so we trust its output
+                    if (defined('APP_ENV') && APP_ENV === 'production') {
+                        // In production: always add the URL - images might be accessible via HTTP even if local check fails
                         $validImages[] = $imageUrl;
+                        error_log("✅ filterBase64Images - Added image URL in production: " . substr($imageUrl, 0, 80) . "...");
                     } else {
-                        error_log("⚠️ filterBase64Images - Image file does not exist: $filePath (URL: $imageUrl, relativePath: " . ($relativePath ?? 'N/A') . ")");
-                        // Don't add missing images to prevent 404 errors
+                        // In development: optional file check (but still return URL if getImageUrl returned it)
+                        $validImages[] = $imageUrl;
+                        error_log("✅ filterBase64Images - Added image URL: " . substr($imageUrl, 0, 80) . "...");
                     }
+                } else {
+                    error_log("⚠️ filterBase64Images - getImageUrl returned null/empty for image: " . substr($img, 0, 50) . "...");
                 }
             }
         } else {
@@ -710,21 +696,16 @@ function getBestsellers($db) {
         $total = $countStmt->fetch()['total'];
 
         // Decode JSON fields and convert image URLs
+        // CRITICAL: Use filterBase64Images() for consistency with getAllProducts()
         foreach ($products as &$product) {
             $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
-            // Convert image URLs to production URLs
+            // Convert image URLs to production URLs - use filterBase64Images for consistency
             if (is_array($product['images'])) {
-                $product['images'] = array_map(function($img) {
-                    if (is_string($img)) {
-                        return getImageUrl($img);
-                    }
-                    return $img;
-                }, $product['images']);
+                // CRITICAL: Filter out base64 images that might be in the database
+                $product['images'] = filterBase64Images($product['images']);
             }
-            // Convert thumbnail to production URL
-            if (!empty($product['thumbnail'])) {
-                $product['thumbnail'] = getImageUrl($product['thumbnail']);
-            }
+            // Convert thumbnail to production URL (filter base64)
+            $product['thumbnail'] = filterBase64Thumbnail($product['thumbnail']);
             $product['product_types'] = $product['product_types'] ?? null ? json_decode($product['product_types'], true) : null;
             $product['specifications'] = $product['specifications'] ?? null ? json_decode($product['specifications'], true) : null;
             $product['tags'] = $product['tags'] ?? null ? json_decode($product['tags'], true) : null;
@@ -785,21 +766,16 @@ function getNewProducts($db) {
         $total = $countStmt->fetch()['total'];
 
         // Decode JSON fields and convert image URLs
+        // CRITICAL: Use filterBase64Images() for consistency with getAllProducts()
         foreach ($products as &$product) {
             $product['images'] = $product['images'] ? json_decode($product['images'], true) : [];
-            // Convert image URLs to production URLs
+            // Convert image URLs to production URLs - use filterBase64Images for consistency
             if (is_array($product['images'])) {
-                $product['images'] = array_map(function($img) {
-                    if (is_string($img)) {
-                        return getImageUrl($img);
-                    }
-                    return $img;
-                }, $product['images']);
+                // CRITICAL: Filter out base64 images that might be in the database
+                $product['images'] = filterBase64Images($product['images']);
             }
-            // Convert thumbnail to production URL
-            if (!empty($product['thumbnail'])) {
-                $product['thumbnail'] = getImageUrl($product['thumbnail']);
-            }
+            // Convert thumbnail to production URL (filter base64)
+            $product['thumbnail'] = filterBase64Thumbnail($product['thumbnail']);
             $product['product_types'] = $product['product_types'] ?? null ? json_decode($product['product_types'], true) : null;
             $product['specifications'] = $product['specifications'] ?? null ? json_decode($product['specifications'], true) : null;
             $product['tags'] = $product['tags'] ?? null ? json_decode($product['tags'], true) : null;

@@ -130,11 +130,14 @@ function uploadProductImage() {
     $imagePath = uploadImage($file, 'products');
 
     if ($imagePath) {
-        // Use production URL with HTTPS
-        $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+        // CRITICAL: Use getImageUrl() helper for consistency with other upload functions
+        // This ensures proper URL conversion and handles all edge cases
+        $fullImageUrl = getImageUrl($imagePath);
+        error_log("✅ Product image upload successful: " . $imagePath);
+        error_log("✅ Full production URL: " . $fullImageUrl);
         sendSuccess('Image uploaded successfully', [
             'imageUrl' => $imagePath,
-            'fullUrl' => $baseUrl . $imagePath
+            'fullUrl' => $fullImageUrl
         ], 201);
     } else {
         sendError('Failed to upload image', [], 500);

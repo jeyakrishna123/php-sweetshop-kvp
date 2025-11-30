@@ -103,10 +103,38 @@ function getActiveBanners($db) {
     $banners = $stmt->fetchAll();
 
     // Convert image paths to full URLs (same as products)
+    // CRITICAL: Only convert non-empty URLs to prevent placeholder fallback
     foreach ($banners as &$banner) {
-        $banner['imageUrl'] = getImageUrl($banner['imageUrl']);
-        $banner['mobileImageUrl'] = getImageUrl($banner['mobileImageUrl']);
-        $banner['desktopImageUrl'] = getImageUrl($banner['desktopImageUrl']);
+        // Log original values for debugging
+        error_log("🔍 BANNER RETRIEVAL - ID: " . ($banner['_id'] ?? 'N/A'));
+        error_log("🔍 BANNER RETRIEVAL - imageUrl (raw): " . ($banner['imageUrl'] ?? 'NULL'));
+        error_log("🔍 BANNER RETRIEVAL - mobileImageUrl (raw): " . ($banner['mobileImageUrl'] ?? 'NULL'));
+        error_log("🔍 BANNER RETRIEVAL - desktopImageUrl (raw): " . ($banner['desktopImageUrl'] ?? 'NULL'));
+        
+        if (!empty($banner['imageUrl'])) {
+            $originalPath = $banner['imageUrl'];
+            $banner['imageUrl'] = getImageUrl($banner['imageUrl']);
+            error_log("✅ BANNER RETRIEVAL - imageUrl converted: $originalPath -> " . ($banner['imageUrl'] ?? 'NULL'));
+        } else {
+            $banner['imageUrl'] = null; // Keep as null if no image
+            error_log("⚠️ BANNER RETRIEVAL - imageUrl is empty, set to NULL");
+        }
+        if (!empty($banner['mobileImageUrl'])) {
+            $originalPath = $banner['mobileImageUrl'];
+            $banner['mobileImageUrl'] = getImageUrl($banner['mobileImageUrl']);
+            error_log("✅ BANNER RETRIEVAL - mobileImageUrl converted: $originalPath -> " . ($banner['mobileImageUrl'] ?? 'NULL'));
+        } else {
+            $banner['mobileImageUrl'] = null; // Keep as null if no image
+            error_log("⚠️ BANNER RETRIEVAL - mobileImageUrl is empty, set to NULL");
+        }
+        if (!empty($banner['desktopImageUrl'])) {
+            $originalPath = $banner['desktopImageUrl'];
+            $banner['desktopImageUrl'] = getImageUrl($banner['desktopImageUrl']);
+            error_log("✅ BANNER RETRIEVAL - desktopImageUrl converted: $originalPath -> " . ($banner['desktopImageUrl'] ?? 'NULL'));
+        } else {
+            $banner['desktopImageUrl'] = null; // Keep as null if no image
+            error_log("⚠️ BANNER RETRIEVAL - desktopImageUrl is empty, set to NULL");
+        }
     }
 
     sendSuccess('Active banners retrieved successfully', ['banners' => $banners]);
@@ -131,10 +159,38 @@ function getAllBanners($db) {
     $banners = $stmt->fetchAll();
 
     // Convert image paths to full URLs (same as products)
+    // CRITICAL: Only convert non-empty URLs to prevent placeholder fallback
     foreach ($banners as &$banner) {
-        $banner['imageUrl'] = getImageUrl($banner['imageUrl']);
-        $banner['mobileImageUrl'] = getImageUrl($banner['mobileImageUrl']);
-        $banner['desktopImageUrl'] = getImageUrl($banner['desktopImageUrl']);
+        // Log original values for debugging
+        error_log("🔍 BANNER RETRIEVAL - ID: " . ($banner['_id'] ?? 'N/A'));
+        error_log("🔍 BANNER RETRIEVAL - imageUrl (raw): " . ($banner['imageUrl'] ?? 'NULL'));
+        error_log("🔍 BANNER RETRIEVAL - mobileImageUrl (raw): " . ($banner['mobileImageUrl'] ?? 'NULL'));
+        error_log("🔍 BANNER RETRIEVAL - desktopImageUrl (raw): " . ($banner['desktopImageUrl'] ?? 'NULL'));
+        
+        if (!empty($banner['imageUrl'])) {
+            $originalPath = $banner['imageUrl'];
+            $banner['imageUrl'] = getImageUrl($banner['imageUrl']);
+            error_log("✅ BANNER RETRIEVAL - imageUrl converted: $originalPath -> " . ($banner['imageUrl'] ?? 'NULL'));
+        } else {
+            $banner['imageUrl'] = null; // Keep as null if no image
+            error_log("⚠️ BANNER RETRIEVAL - imageUrl is empty, set to NULL");
+        }
+        if (!empty($banner['mobileImageUrl'])) {
+            $originalPath = $banner['mobileImageUrl'];
+            $banner['mobileImageUrl'] = getImageUrl($banner['mobileImageUrl']);
+            error_log("✅ BANNER RETRIEVAL - mobileImageUrl converted: $originalPath -> " . ($banner['mobileImageUrl'] ?? 'NULL'));
+        } else {
+            $banner['mobileImageUrl'] = null; // Keep as null if no image
+            error_log("⚠️ BANNER RETRIEVAL - mobileImageUrl is empty, set to NULL");
+        }
+        if (!empty($banner['desktopImageUrl'])) {
+            $originalPath = $banner['desktopImageUrl'];
+            $banner['desktopImageUrl'] = getImageUrl($banner['desktopImageUrl']);
+            error_log("✅ BANNER RETRIEVAL - desktopImageUrl converted: $originalPath -> " . ($banner['desktopImageUrl'] ?? 'NULL'));
+        } else {
+            $banner['desktopImageUrl'] = null; // Keep as null if no image
+            error_log("⚠️ BANNER RETRIEVAL - desktopImageUrl is empty, set to NULL");
+        }
     }
 
     sendSuccess('All banners retrieved successfully', [
@@ -162,9 +218,22 @@ function getBannerById($db, $bannerId) {
     }
 
     // Convert image paths to full URLs (same as products)
-    $banner['image_url'] = getImageUrl($banner['image_url']);
-    $banner['mobile_image_url'] = getImageUrl($banner['mobile_image_url']);
-    $banner['desktop_image_url'] = getImageUrl($banner['desktop_image_url']);
+    // CRITICAL: Only convert non-empty URLs to prevent placeholder fallback
+    if (!empty($banner['image_url'])) {
+        $banner['image_url'] = getImageUrl($banner['image_url']);
+    } else {
+        $banner['image_url'] = null;
+    }
+    if (!empty($banner['mobile_image_url'])) {
+        $banner['mobile_image_url'] = getImageUrl($banner['mobile_image_url']);
+    } else {
+        $banner['mobile_image_url'] = null;
+    }
+    if (!empty($banner['desktop_image_url'])) {
+        $banner['desktop_image_url'] = getImageUrl($banner['desktop_image_url']);
+    } else {
+        $banner['desktop_image_url'] = null;
+    }
 
     sendSuccess('Banner retrieved successfully', ['banner' => $banner]);
 }
@@ -189,51 +258,43 @@ function createBanner($db) {
         sendError('Title is required', [], 400);
     }
 
-    // Handle image uploads
+    // Handle image uploads - CRITICAL: Use uploadImage() helper for consistency
     $mobileImageUrl = null;
     $desktopImageUrl = null;
     $imageUrl = null; // Main image URL
 
     // Process mobile image if uploaded
     if (isset($_FILES['mobileImage']) && $_FILES['mobileImage']['error'] === UPLOAD_ERR_OK) {
-        $uploadDir = defined('UPLOAD_DIR') ? UPLOAD_DIR . 'banners/' : __DIR__ . '/../uploads/banners/';
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
-        }
-
-        $extension = strtolower(pathinfo($_FILES['mobileImage']['name'], PATHINFO_EXTENSION));
-        $filename = uniqid() . '_' . time() . '.' . $extension;
-        $filepath = $uploadDir . $filename;
-
-        if (move_uploaded_file($_FILES['mobileImage']['tmp_name'], $filepath)) {
-            $mobileImageUrl = '/backend/uploads/banners/' . $filename;
+        // CRITICAL: Use uploadImage() helper for consistent path handling
+        $uploadedPath = uploadImage($_FILES['mobileImage'], 'banners');
+        if ($uploadedPath) {
+            $mobileImageUrl = $uploadedPath; // uploadImage() already returns /backend/uploads/banners/... path
             error_log("✅ Mobile image uploaded: $mobileImageUrl");
+        } else {
+            error_log("❌ Failed to upload mobile image");
         }
     }
 
     // Process desktop image if uploaded
     if (isset($_FILES['desktopImage']) && $_FILES['desktopImage']['error'] === UPLOAD_ERR_OK) {
-        $uploadDir = defined('UPLOAD_DIR') ? UPLOAD_DIR . 'banners/' : __DIR__ . '/../uploads/banners/';
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
-        }
-
-        $extension = strtolower(pathinfo($_FILES['desktopImage']['name'], PATHINFO_EXTENSION));
-        $filename = uniqid() . '_' . time() . '.' . $extension;
-        $filepath = $uploadDir . $filename;
-
-        if (move_uploaded_file($_FILES['desktopImage']['tmp_name'], $filepath)) {
-            $desktopImageUrl = '/backend/uploads/banners/' . $filename;
+        // CRITICAL: Use uploadImage() helper for consistent path handling
+        $uploadedPath = uploadImage($_FILES['desktopImage'], 'banners');
+        if ($uploadedPath) {
+            $desktopImageUrl = $uploadedPath; // uploadImage() already returns /backend/uploads/banners/... path
             error_log("✅ Desktop image uploaded: $desktopImageUrl");
+        } else {
+            error_log("❌ Failed to upload desktop image");
         }
     }
 
     // Set main image URL (prefer desktop, fallback to mobile)
     $imageUrl = $desktopImageUrl ?: $mobileImageUrl;
 
-    // Validate at least one image is uploaded
-    if (!$imageUrl) {
-        sendError('At least one banner image is required', [], 400);
+    // CRITICAL: Validate at least one image is uploaded (strict validation)
+    if (empty($imageUrl)) {
+        error_log("❌ CREATE BANNER - No images uploaded. Mobile: " . ($mobileImageUrl ?: 'NULL') . ", Desktop: " . ($desktopImageUrl ?: 'NULL'));
+        sendError('At least one banner image is required. Please upload a mobile or desktop image.', [], 400);
+        return;
     }
 
     $stmt = $db->prepare("
@@ -258,9 +319,22 @@ function createBanner($db) {
         $banner = $stmt->fetch();
 
         // Convert image paths to full URLs (same as products)
-        $banner['imageUrl'] = getImageUrl($banner['imageUrl']);
-        $banner['mobileImageUrl'] = getImageUrl($banner['mobileImageUrl']);
-        $banner['desktopImageUrl'] = getImageUrl($banner['desktopImageUrl']);
+        // CRITICAL: Only convert non-empty URLs to prevent placeholder fallback
+        if (!empty($banner['imageUrl'])) {
+            $banner['imageUrl'] = getImageUrl($banner['imageUrl']);
+        } else {
+            $banner['imageUrl'] = null;
+        }
+        if (!empty($banner['mobileImageUrl'])) {
+            $banner['mobileImageUrl'] = getImageUrl($banner['mobileImageUrl']);
+        } else {
+            $banner['mobileImageUrl'] = null;
+        }
+        if (!empty($banner['desktopImageUrl'])) {
+            $banner['desktopImageUrl'] = getImageUrl($banner['desktopImageUrl']);
+        } else {
+            $banner['desktopImageUrl'] = null;
+        }
 
         sendSuccess('Banner created successfully', ['banner' => $banner], 201);
     } else {
@@ -275,7 +349,23 @@ function updateBanner($db, $bannerId) {
     $authUser = AuthMiddleware::authenticate();
     AuthMiddleware::requireAdmin($authUser);
 
-    $data = getRequestBody();
+    // CRITICAL: Handle both multipart/form-data (file uploads) and JSON
+    $data = null;
+    $isMultipart = !empty($_FILES);
+    
+    if ($isMultipart) {
+        // Handle multipart/form-data (file uploads)
+        $data = [
+            'title' => isset($_POST['title']) ? $_POST['title'] : null,
+            'subtitle' => isset($_POST['subtitle']) ? $_POST['subtitle'] : null,
+            'linkUrl' => isset($_POST['linkUrl']) ? $_POST['linkUrl'] : null,
+            'isActive' => isset($_POST['isActive']) ? $_POST['isActive'] : null,
+            'displayOrder' => isset($_POST['displayOrder']) ? $_POST['displayOrder'] : null,
+        ];
+    } else {
+        // Handle JSON
+        $data = getRequestBody();
+    }
 
     // Check if banner exists
     $stmt = $db->prepare("SELECT id FROM banners WHERE id = ?");
@@ -288,25 +378,101 @@ function updateBanner($db, $bannerId) {
     $updates = [];
     $params = [];
 
-    if (isset($data['title'])) {
+    if (isset($data['title']) && $data['title'] !== null) {
         $updates[] = "title = ?";
         $params[] = sanitizeInput($data['title']);
     }
-    if (isset($data['subtitle'])) {
+    if (isset($data['subtitle']) && $data['subtitle'] !== null) {
         $updates[] = "subtitle = ?";
         $params[] = sanitizeInput($data['subtitle']);
     }
-    if (isset($data['imageUrl'])) {
-        $updates[] = "image_url = ?";
-        $params[] = sanitizeInput($data['imageUrl']);
-    }
-    if (isset($data['mobileImageUrl'])) {
-        $updates[] = "mobile_image_url = ?";
-        $params[] = sanitizeInput($data['mobileImageUrl']);
-    }
-    if (isset($data['desktopImageUrl'])) {
-        $updates[] = "desktop_image_url = ?";
-        $params[] = sanitizeInput($data['desktopImageUrl']);
+    
+    // CRITICAL: Handle image file uploads (multipart/form-data)
+    $mobileImageUrl = null;
+    $desktopImageUrl = null;
+    $imageUrl = null;
+    
+    if ($isMultipart) {
+        // Process mobile image file upload
+        if (isset($_FILES['mobileImage']) && $_FILES['mobileImage']['error'] === UPLOAD_ERR_OK) {
+            $uploadedPath = uploadImage($_FILES['mobileImage'], 'banners');
+            if ($uploadedPath) {
+                $mobileImageUrl = $uploadedPath;
+                $updates[] = "mobile_image_url = ?";
+                $params[] = $mobileImageUrl;
+                error_log("✅ UPDATE BANNER - Mobile image uploaded: $mobileImageUrl");
+            }
+        }
+        
+        // Process desktop image file upload
+        if (isset($_FILES['desktopImage']) && $_FILES['desktopImage']['error'] === UPLOAD_ERR_OK) {
+            $uploadedPath = uploadImage($_FILES['desktopImage'], 'banners');
+            if ($uploadedPath) {
+                $desktopImageUrl = $uploadedPath;
+                $updates[] = "desktop_image_url = ?";
+                $params[] = $desktopImageUrl;
+                error_log("✅ UPDATE BANNER - Desktop image uploaded: $desktopImageUrl");
+            }
+        }
+        
+        // Set main image URL (prefer desktop, fallback to mobile)
+        $imageUrl = $desktopImageUrl ?: $mobileImageUrl;
+        if ($imageUrl) {
+            $updates[] = "image_url = ?";
+            $params[] = $imageUrl;
+        }
+    } else {
+        // Handle JSON image URLs (can be file paths, full URLs, or base64)
+        if (isset($data['imageUrl']) && !empty($data['imageUrl'])) {
+            $imageData = $data['imageUrl'];
+            if (strpos($imageData, 'data:image/') === 0) {
+                // Convert base64 to file
+                $uploadedPath = uploadBase64Image($imageData, 'banners');
+                if ($uploadedPath) {
+                    $updates[] = "image_url = ?";
+                    $params[] = $uploadedPath;
+                }
+            } else {
+                // It's already a URL or path - normalize it
+                $normalizedPath = normalizeImagePath($imageData, 'banners');
+                if ($normalizedPath) {
+                    $updates[] = "image_url = ?";
+                    $params[] = $normalizedPath;
+                }
+            }
+        }
+        if (isset($data['mobileImageUrl']) && !empty($data['mobileImageUrl'])) {
+            $imageData = $data['mobileImageUrl'];
+            if (strpos($imageData, 'data:image/') === 0) {
+                $uploadedPath = uploadBase64Image($imageData, 'banners');
+                if ($uploadedPath) {
+                    $updates[] = "mobile_image_url = ?";
+                    $params[] = $uploadedPath;
+                }
+            } else {
+                $normalizedPath = normalizeImagePath($imageData, 'banners');
+                if ($normalizedPath) {
+                    $updates[] = "mobile_image_url = ?";
+                    $params[] = $normalizedPath;
+                }
+            }
+        }
+        if (isset($data['desktopImageUrl']) && !empty($data['desktopImageUrl'])) {
+            $imageData = $data['desktopImageUrl'];
+            if (strpos($imageData, 'data:image/') === 0) {
+                $uploadedPath = uploadBase64Image($imageData, 'banners');
+                if ($uploadedPath) {
+                    $updates[] = "desktop_image_url = ?";
+                    $params[] = $uploadedPath;
+                }
+            } else {
+                $normalizedPath = normalizeImagePath($imageData, 'banners');
+                if ($normalizedPath) {
+                    $updates[] = "desktop_image_url = ?";
+                    $params[] = $normalizedPath;
+                }
+            }
+        }
     }
     if (isset($data['link'])) {
         $updates[] = "link = ?";
@@ -348,9 +514,22 @@ function updateBanner($db, $bannerId) {
         $banner = $stmt->fetch();
 
         // Convert image paths to full URLs (same as products)
-        $banner['image_url'] = getImageUrl($banner['image_url']);
-        $banner['mobile_image_url'] = getImageUrl($banner['mobile_image_url']);
-        $banner['desktop_image_url'] = getImageUrl($banner['desktop_image_url']);
+        // CRITICAL: Only convert non-empty URLs to prevent placeholder fallback
+        if (!empty($banner['image_url'])) {
+            $banner['image_url'] = getImageUrl($banner['image_url']);
+        } else {
+            $banner['image_url'] = null;
+        }
+        if (!empty($banner['mobile_image_url'])) {
+            $banner['mobile_image_url'] = getImageUrl($banner['mobile_image_url']);
+        } else {
+            $banner['mobile_image_url'] = null;
+        }
+        if (!empty($banner['desktop_image_url'])) {
+            $banner['desktop_image_url'] = getImageUrl($banner['desktop_image_url']);
+        } else {
+            $banner['desktop_image_url'] = null;
+        }
 
         sendSuccess('Banner updated successfully', ['banner' => $banner]);
     } else {

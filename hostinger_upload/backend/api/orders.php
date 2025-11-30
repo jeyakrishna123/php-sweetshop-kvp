@@ -469,11 +469,8 @@ function createOrder($db) {
             }
             // Get product image if not provided in order item
             $productImage = $item['image'] ?? null;
-            // Convert to production URL if exists
-            if ($productImage) {
-                $productImage = getImageUrl($productImage);
-            }
-
+            
+            // If no image in order item, get from product data
             if (empty($productImage)) {
                 error_log("⚠️ CREATE ORDER - Image missing for item, using validated product data: " . $item['product']);
 
@@ -494,14 +491,36 @@ function createOrder($db) {
 
                     // If still no image, use a default placeholder
                     if (empty($productImage)) {
-                        $productImage = '/images/placeholder-product.jpg';
+                        $productImage = '/backend/uploads/products/default-product.png';
                     }
 
                     error_log("✅ CREATE ORDER - Found image for product from validated data: " . $productImage);
                 } else {
                     // This should never happen due to validation, but safety fallback
-                    $productImage = '/images/placeholder-product.jpg';
+                    $productImage = '/backend/uploads/products/default-product.png';
                     error_log("⚠️ CREATE ORDER - Product not in validated map, using placeholder (should not happen)");
+                }
+            }
+            
+            // IMPORTANT: Store relative path in database, not full URL
+            // Convert full URLs back to relative paths for storage
+            // This ensures consistency and allows proper URL generation on retrieval
+            if ($productImage && preg_match('/^https?:\/\//', $productImage)) {
+                // Extract relative path from full URL
+                $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+                if (strpos($productImage, $baseUrl) === 0) {
+                    $productImage = substr($productImage, strlen($baseUrl));
+                }
+            }
+            
+            // Ensure it's a relative path starting with /backend/uploads/ or /uploads/
+            if ($productImage && !preg_match('/^https?:\/\//', $productImage)) {
+                // If it doesn't start with /, assume it's relative to uploads
+                if (strpos($productImage, '/') !== 0) {
+                    $productImage = '/backend/uploads/products/' . ltrim($productImage, '/');
+                } elseif (strpos($productImage, '/uploads/') === 0) {
+                    // Convert /uploads/ to /backend/uploads/ for consistency
+                    $productImage = '/backend' . $productImage;
                 }
             }
 
@@ -726,9 +745,72 @@ function getUserOrders($db) {
                 $order['display_order_id'] = $order['id'];
             }
             
-            $itemStmt = $db->prepare("SELECT * FROM order_items WHERE order_id = ?");
+            // Get order items with product image data
+            $itemStmt = $db->prepare("
+                SELECT oi.*, p.name as product_name, p.thumbnail, p.images
+                FROM order_items oi
+                LEFT JOIN products p ON oi.product_id = p.id
+                WHERE oi.order_id = ?
+            ");
             $itemStmt->execute([$order['id']]);
-            $order['orderItems'] = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+            $orderItems = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Process order items to ensure images are full URLs
+            foreach ($orderItems as &$item) {
+                $productImage = null;
+                
+                // Priority 1: Use image from order_items table
+                if (!empty($item['image']) && strpos($item['image'], 'placeholder') === false) {
+                    $productImage = $item['image'];
+                }
+                // Priority 2: Try thumbnail from products table
+                elseif (!empty($item['thumbnail'])) {
+                    $productImage = $item['thumbnail'];
+                }
+                // Priority 3: Try first image from images array
+                elseif (!empty($item['images'])) {
+                    $imagesArray = json_decode($item['images'], true);
+                    if (is_array($imagesArray) && !empty($imagesArray)) {
+                        $productImage = $imagesArray[0];
+                    }
+                }
+                
+                // Fallback to placeholder if still no image
+                if (empty($productImage)) {
+                    $productImage = '/backend/uploads/products/default-product.png';
+                }
+                
+                // CRITICAL: Always convert to full production URL for frontend
+                if ($productImage) {
+                    // If already a full URL, use it directly
+                    if (!preg_match('/^https?:\/\//', $productImage)) {
+                        // Relative path - convert to full URL
+                        $convertedUrl = getImageUrl($productImage);
+                        $productImage = $convertedUrl ?: $productImage;
+                        
+                        // If still relative, prepend BASE_URL
+                        if (!preg_match('/^https?:\/\//', $productImage)) {
+                            $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+                            $productImage = $baseUrl . $productImage;
+                        }
+                    }
+                } else {
+                    // Final fallback
+                    $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+                    $productImage = $baseUrl . '/backend/uploads/products/default-product.png';
+                }
+                
+                // Set both fields for compatibility - always full URLs
+                $item['product_image'] = $productImage;
+                $item['image'] = $productImage;
+                
+                // Remove raw fields
+                unset($item['images']);
+                unset($item['thumbnail']);
+            }
+            unset($item); // Break reference
+            
+            $order['orderItems'] = $orderItems;
         }
 
     $response = createPaginationResponse($orders, $total, $pagination['page'], $pagination['limit']);
@@ -939,33 +1021,62 @@ function getAllOrders($db) {
                 $productImage = null;
 
                 // Priority 1: Use image from order_items table (stored during order creation)
+                // Handle both full URLs (old orders) and relative paths (new orders)
                 if (!empty($item['image']) && strpos($item['image'], 'placeholder') === false) {
                     $productImage = $item['image'];
-                    error_log("📦 GET ALL ORDERS - Using stored order item image: " . $productImage);
+                    error_log("📦 GET ALL ORDERS - Using stored order item image: " . substr($productImage, 0, 100));
                 }
                 // Priority 2: Try thumbnail from products table
                 elseif (!empty($item['thumbnail'])) {
                     $productImage = $item['thumbnail'];
-                    error_log("📦 GET ALL ORDERS - Using product thumbnail: " . $productImage);
+                    error_log("📦 GET ALL ORDERS - Using product thumbnail: " . substr($productImage, 0, 100));
                 }
                 // Priority 3: Try first image from images array
                 elseif (!empty($item['images'])) {
                     $imagesArray = json_decode($item['images'], true);
                     if (is_array($imagesArray) && !empty($imagesArray)) {
                         $productImage = $imagesArray[0];
-                        error_log("📦 GET ALL ORDERS - Using product images array first: " . $productImage);
+                        error_log("📦 GET ALL ORDERS - Using product images array first: " . substr($productImage, 0, 100));
                     }
                 }
 
                 // Fallback to placeholder if still no image
                 if (empty($productImage)) {
-                    $productImage = '/images/placeholder-product.jpg';
+                    // Use backend uploads placeholder that actually exists
+                    $productImage = '/backend/uploads/products/default-product.png';
                     error_log("📦 GET ALL ORDERS - Using placeholder image");
                 }
 
-                // Convert image URLs to production URLs
+                // CRITICAL: Always convert to full production URL for frontend
+                // Handle both full URLs (already converted) and relative paths (need conversion)
                 if ($productImage) {
-                    $productImage = getImageUrl($productImage);
+                    // If already a full URL (starts with http:// or https://), use it directly
+                    if (preg_match('/^https?:\/\//', $productImage)) {
+                        // Already a full URL, use as-is
+                        error_log("📦 GET ALL ORDERS - Image already full URL: " . substr($productImage, 0, 100));
+                    } else {
+                        // Relative path - convert to full URL
+                        $convertedUrl = getImageUrl($productImage);
+                        $productImage = $convertedUrl ?: $productImage; // Use converted or fallback to original
+                        error_log("📦 GET ALL ORDERS - Converted relative path to URL: " . substr($productImage, 0, 100));
+                    }
+                    
+                    // Final validation - ensure it's a valid URL
+                    if (empty($productImage) || (!preg_match('/^https?:\/\//', $productImage) && strpos($productImage, '/backend/uploads/') !== 0)) {
+                        $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+                        $productImage = $baseUrl . '/backend/uploads/products/default-product.png';
+                        error_log("📦 GET ALL ORDERS - Using final fallback placeholder");
+                    } elseif (!preg_match('/^https?:\/\//', $productImage)) {
+                        // If it's still a relative path, prepend BASE_URL
+                        $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+                        $productImage = $baseUrl . $productImage;
+                        error_log("📦 GET ALL ORDERS - Prefixed BASE_URL to relative path: " . substr($productImage, 0, 100));
+                    }
+                } else {
+                    // Final fallback if productImage is still empty
+                    $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+                    $productImage = $baseUrl . '/backend/uploads/products/default-product.png';
+                    error_log("📦 GET ALL ORDERS - Using empty fallback placeholder");
                 }
 
                 // Ensure all required fields are present and properly formatted
@@ -1169,10 +1280,76 @@ function getOrderById($db, $id) {
         $order['display_order_id'] = $order['id'];
     }
 
-    // Get order items
-    $itemStmt = $db->prepare("SELECT * FROM order_items WHERE order_id = ?");
+    // Get order items with product image data
+    $itemStmt = $db->prepare("
+        SELECT oi.*, p.name as product_name, p.thumbnail, p.images
+        FROM order_items oi
+        LEFT JOIN products p ON oi.product_id = p.id
+        WHERE oi.order_id = ?
+    ");
     $itemStmt->execute([$id]);
-    $order['orderItems'] = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+    $orderItems = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Process order items to ensure images are full URLs
+    foreach ($orderItems as &$item) {
+        $productImage = null;
+        
+        // Priority 1: Use image from order_items table (stored during order creation)
+        if (!empty($item['image']) && strpos($item['image'], 'placeholder') === false) {
+            $productImage = $item['image'];
+        }
+        // Priority 2: Try thumbnail from products table
+        elseif (!empty($item['thumbnail'])) {
+            $productImage = $item['thumbnail'];
+        }
+        // Priority 3: Try first image from images array
+        elseif (!empty($item['images'])) {
+            $imagesArray = json_decode($item['images'], true);
+            if (is_array($imagesArray) && !empty($imagesArray)) {
+                $productImage = $imagesArray[0];
+            }
+        }
+        
+        // Fallback to placeholder if still no image
+        if (empty($productImage)) {
+            $productImage = '/backend/uploads/products/default-product.png';
+        }
+        
+        // CRITICAL: Always convert to full production URL for frontend
+        // Handle both full URLs (already converted) and relative paths (need conversion)
+        if ($productImage) {
+            // If already a full URL, use it directly
+            if (preg_match('/^https?:\/\//', $productImage)) {
+                // Already a full URL, use as-is
+            } else {
+                // Relative path - convert to full URL
+                $convertedUrl = getImageUrl($productImage);
+                $productImage = $convertedUrl ?: $productImage;
+            }
+            
+            // Final validation - ensure it's a valid full URL
+            if (!preg_match('/^https?:\/\//', $productImage)) {
+                // If still a relative path, prepend BASE_URL
+                $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+                $productImage = $baseUrl . $productImage;
+            }
+        } else {
+            // Final fallback
+            $baseUrl = defined('BASE_URL') ? BASE_URL : 'https://skbakers.com';
+            $productImage = $baseUrl . '/backend/uploads/products/default-product.png';
+        }
+        
+        // Set both fields for compatibility - always full URLs
+        $item['product_image'] = $productImage;
+        $item['image'] = $productImage;
+        
+        // Remove raw fields not needed in response
+        unset($item['images']);
+        unset($item['thumbnail']);
+    }
+    unset($item); // Break reference
+    
+    $order['orderItems'] = $orderItems;
 
     // Get status history
     $historyStmt = $db->prepare("
@@ -1733,15 +1910,21 @@ function sendBillEmail($db, $id) {
             
             // Fallback to placeholder if still no image
             if (empty($productImage)) {
+                // Use backend uploads placeholder that actually exists
                 $productImage = '/backend/uploads/products/default-product.png';
             }
             
-            // Convert image URLs to production URLs
+            // Convert image URLs to production URLs (always returns a valid URL)
             if ($productImage) {
-                $productImage = getImageUrl($productImage);
+                $convertedUrl = getImageUrl($productImage);
+                // Ensure we have a valid URL (never null or empty)
+                $productImage = $convertedUrl ?: (defined('BASE_URL') ? BASE_URL : 'https://skbakers.com') . '/backend/uploads/products/default-product.png';
+            } else {
+                // Final fallback if productImage is still empty
+                $productImage = (defined('BASE_URL') ? BASE_URL : 'https://skbakers.com') . '/backend/uploads/products/default-product.png';
             }
             
-            // Set both fields for compatibility
+            // Set both fields for compatibility - always ensure they're full URLs
             $item['product_image'] = $productImage;
             $item['image'] = $productImage; // Always set image field for frontend compatibility
             

@@ -131,6 +131,13 @@ function getActiveOfferPopups($db) {
     $stmt->execute();
     $popups = $stmt->fetchAll();
 
+    // CRITICAL: Convert image URLs to full production URLs
+    foreach ($popups as &$popup) {
+        if (!empty($popup['image_url'])) {
+            $popup['image_url'] = getImageUrl($popup['image_url']);
+        }
+    }
+
     sendSuccess('Active offer popups retrieved successfully', ['popups' => $popups]);
 }
 
@@ -147,6 +154,13 @@ function getAllOfferPopups($db) {
     ");
     $stmt->execute();
     $popups = $stmt->fetchAll();
+
+    // CRITICAL: Convert image URLs to full production URLs
+    foreach ($popups as &$popup) {
+        if (!empty($popup['image_url'])) {
+            $popup['image_url'] = getImageUrl($popup['image_url']);
+        }
+    }
 
     sendSuccess('All offer popups retrieved successfully', [
         'popups' => $popups,
@@ -171,6 +185,11 @@ function getOfferPopupById($db, $popupId) {
 
     if (!$popup) {
         sendError('Offer popup not found', [], 404);
+    }
+
+    // CRITICAL: Convert image URL to full production URL
+    if (!empty($popup['image_url'])) {
+        $popup['image_url'] = getImageUrl($popup['image_url']);
     }
 
     sendSuccess('Offer popup retrieved successfully', ['popup' => $popup]);
@@ -366,6 +385,11 @@ function createOfferPopup($db) {
             return;
         }
 
+        // CRITICAL: Convert image URL to full production URL
+        if (!empty($popup['image_url'])) {
+            $popup['image_url'] = getImageUrl($popup['image_url']);
+        }
+
         sendSuccess('Offer popup created successfully', ['popup' => $popup], 201);
     } catch (PDOException $e) {
         $errorInfo = $e->errorInfo ?? [];
@@ -520,6 +544,11 @@ function updateOfferPopup($db, $popupId) {
         $stmt = $db->prepare("SELECT * FROM offer_popups WHERE id = ?");
         $stmt->execute([$popupId]);
         $popup = $stmt->fetch();
+
+        // CRITICAL: Convert image URL to full production URL
+        if (!empty($popup['image_url'])) {
+            $popup['image_url'] = getImageUrl($popup['image_url']);
+        }
 
         sendSuccess('Offer popup updated successfully', ['popup' => $popup]);
     } else {

@@ -177,16 +177,13 @@ function getWishlist($db) {
                 $validItem['images'] = json_decode($validItem['images'], true) ?? [];
                 $validItem['weight_options'] = json_decode($validItem['weight_options'], true) ?? [];
 
-                // Convert image URLs to full URLs
-                if (!empty($validItem['images'])) {
-                    foreach ($validItem['images'] as &$image) {
-                        if (is_string($image) && !str_starts_with($image, 'http')) {
-                            $image = getImageUrl($image);
-                        }
-                    }
+                // CRITICAL: Convert image URLs to full URLs using filterBase64Images for consistency
+                if (!empty($validItem['images']) && is_array($validItem['images'])) {
+                    $validItem['images'] = filterBase64Images($validItem['images']);
                 }
-                if (!empty($validItem['thumbnail']) && is_string($validItem['thumbnail']) && !str_starts_with($validItem['thumbnail'], 'http')) {
-                    $validItem['thumbnail'] = getImageUrl($validItem['thumbnail']);
+                // Convert thumbnail to production URL (filter base64)
+                if (!empty($validItem['thumbnail'])) {
+                    $validItem['thumbnail'] = filterBase64Thumbnail($validItem['thumbnail']);
                 }
             }
 
