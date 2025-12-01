@@ -355,11 +355,11 @@ export const orderAPI = {
       console.log('📧 sendBillEmailWithPDF - Payload keys:', Object.keys(payload));
       
       // Use axiosBase with full URL and longer timeout for large PDFs
-      // Increased to 120 seconds (2 minutes) to handle large PDF uploads
+      // Increased to 180 seconds (3 minutes) to handle large PDF uploads and email processing
       const startTime = Date.now();
       const response = await axiosBase.post(fullURL, payload, {
         headers: headers,
-        timeout: 120000, // 120 seconds (2 minutes) for large PDFs
+        timeout: 180000, // 180 seconds (3 minutes) for large PDFs and email processing
         validateStatus: function (status) {
           // Accept all status codes - we'll handle errors in catch block
           return true;
@@ -369,8 +369,13 @@ export const orderAPI = {
           if (progressEvent.total) {
             const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
             console.log(`📧 Upload progress: ${percentCompleted}% (${(progressEvent.loaded / 1024 / 1024).toFixed(2)} MB / ${(progressEvent.total / 1024 / 1024).toFixed(2)} MB)`);
+          } else {
+            console.log(`📧 Upload progress: ${(progressEvent.loaded / 1024 / 1024).toFixed(2)} MB uploaded`);
           }
-        }
+        },
+        // Add maxContentLength and maxBodyLength to handle large PDFs
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity
       });
       
       const duration = Date.now() - startTime;
@@ -412,16 +417,18 @@ export const orderAPI = {
       if (!error.response) {
         // Check for specific error types
         let errorMessage = 'Network error: Unable to connect to server.';
+        let isTimeout = false;
         
-        if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-          errorMessage = 'Request timeout: The server took too long to respond. The PDF might be too large. Please try again.';
-        } else if (error.code === 'ERR_NETWORK' || error.message.includes('Network Error')) {
+        if (error.code === 'ECONNABORTED' || error.message.includes('timeout') || error.message.includes('Timeout')) {
+          errorMessage = 'Request timeout: The server took too long to respond. The PDF might be too large or the server is processing. Please try again in a moment.';
+          isTimeout = true;
+        } else if (error.code === 'ERR_NETWORK' || error.message.includes('Network Error') || error.message.includes('network')) {
           errorMessage = 'Network error: Unable to connect to server. Please check your internet connection and try again.';
-        } else if (error.code === 'ERR_CANCELED') {
+        } else if (error.code === 'ERR_CANCELED' || error.message.includes('cancel')) {
           errorMessage = 'Request was cancelled. Please try again.';
         } else if (error.request) {
           // Request was made but no response received
-          errorMessage = 'Server did not respond. Please check if the server is running and try again.';
+          errorMessage = 'Server did not respond. The request may have timed out or the server is busy. Please try again.';
         } else {
           // Request was not made at all
           errorMessage = 'Failed to send request. Please check your connection and try again.';
@@ -430,12 +437,16 @@ export const orderAPI = {
         console.error('❌ Email send error - Network error detected (no response from server)');
         console.error('❌ Email send error - Error code:', error.code);
         console.error('❌ Email send error - Error message:', error.message);
+        console.error('❌ Email send error - Request URL:', fullURL);
         console.error('❌ Email send error - Request object:', error.request);
+        console.error('❌ Email send error - Is timeout:', isTimeout);
         
         const networkError = new Error(errorMessage);
         networkError.isNetworkError = true;
+        networkError.isTimeout = isTimeout;
         networkError.originalError = error;
         networkError.code = error.code;
+        networkError.requestURL = fullURL;
         throw networkError;
       }
       

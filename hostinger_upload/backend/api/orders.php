@@ -137,9 +137,9 @@ try {
                                 ob_clean();
                                 
                                 // Send immediate response header to prevent timeout
-                                header('Content-Type: application/json');
+                                header('Content-Type: application/json; charset=utf-8');
                                 
-                                // Call the function
+                                // Call the function (it will handle response)
                                 sendBillEmailWithPDF($db, $orderId);
                                 exit;
                             } else {
@@ -2141,6 +2141,10 @@ function sendBillEmailWithPDF($db, $id) {
     // Set JSON header immediately
     header('Content-Type: application/json; charset=utf-8');
     
+    // Don't flush early - keep output buffering active
+    // The client has a 180-second timeout, which should be enough
+    // Flushing early can cause issues with response handling
+    
     // CRITICAL: Increase execution time for large PDF processing
     // Set to 5 minutes (300 seconds) to handle large PDFs
     @set_time_limit(300);
@@ -2152,6 +2156,9 @@ function sendBillEmailWithPDF($db, $id) {
     
     // Increase POST size limit for large PDFs
     @ini_set('post_max_size', '20M');
+    
+    // Increase upload max filesize
+    @ini_set('upload_max_filesize', '20M');
     
     // Ensure ID is an integer
     $id = (int)$id;
@@ -2498,12 +2505,19 @@ function sendBillEmailWithPDF($db, $id) {
             if ($emailSent) {
                 error_log("✅ Bill email with PDF sent successfully to: $customerEmail for order #$displayOrderId");
                 error_log("✅ Total processing time: " . (time() - strtotime(date('Y-m-d H:i:s'))) . " seconds");
+                
+                // Ensure output buffer is clean before sending success response
+                if (ob_get_level()) {
+                    ob_clean();
+                }
+                
                 sendSuccess('Bill email with PDF sent successfully to customer', [
                     'email' => $customerEmail,
                     'order_id' => $displayOrderId,
                     'filename' => $pdfFilename,
                     'processing_time' => $emailDuration . 's'
                 ]);
+                return;
             } else {
                 error_log("❌ Failed to send bill email with PDF to: $customerEmail for order #$displayOrderId");
                 error_log("❌ EmailService returned false - check SMTP configuration and logs");

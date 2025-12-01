@@ -71,7 +71,7 @@ const AboutUs = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Compact Hero Section */}
-      <div className="relative bg-gradient-to-br from-red-600 via-red-700 to-red-800 overflow-hidden">
+      <div className="relative bg-gradient-to-br from-pink-600 via-pink-700 to-red-600 overflow-hidden">
         {/* Elegant Background Pattern */}
         <div className="absolute inset-0 opacity-5">
           <div className="absolute inset-0" style={{
@@ -81,23 +81,23 @@ const AboutUs = () => {
         </div>
 
         {/* Decorative Shapes */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-400/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+        <div className="absolute top-0 right-0 w-64 h-64 bg-pink-400/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-red-400/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
         
         <div ref={headerTextRef} className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20">
           {/* Breadcrumb */}
           <nav className="mb-6 sm:mb-8 flex items-center justify-center text-sm sm:text-base">
-            <Link to="/" className="text-white/80 hover:text-yellow-300 transition-colors duration-200 font-medium">
+            <Link to="/" className="text-white/80 hover:text-pink-200 transition-colors duration-200 font-medium">
               Home
             </Link>
             <span className="text-white/60 mx-3">/</span>
-            <span className="text-yellow-300 font-semibold">About Us</span>
+            <span className="text-pink-200 font-semibold">About Us</span>
           </nav>
 
           {/* Title Section */}
           <div className="text-center space-y-4 sm:space-y-6">
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-white leading-tight">
-              About <span className="text-yellow-300 block sm:inline-block mt-1 sm:mt-0">SK Bakers</span>
+              About <span className="text-pink-200 block sm:inline-block mt-1 sm:mt-0">SK Bakers</span>
             </h1>
             <p className="text-base sm:text-lg md:text-xl text-white/90 max-w-3xl mx-auto leading-relaxed font-light">
               Your trusted partner in creating magical moments with premium quality cakes and exceptional service.
@@ -123,7 +123,7 @@ const AboutUs = () => {
               <div key={index} className="group relative">
                 <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-md hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100 h-full flex flex-col items-center justify-center">
                   <div className="text-4xl sm:text-5xl mb-4 group-hover:scale-110 transition-transform duration-300 transform">{stat.icon}</div>
-                  <div className="text-3xl sm:text-4xl lg:text-5xl font-extrabold bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent mb-2">
+                  <div className="text-3xl sm:text-4xl lg:text-5xl font-extrabold bg-gradient-to-r from-pink-600 to-red-600 bg-clip-text text-transparent mb-2">
                     {stat.number}
                   </div>
                   <div className="text-gray-600 font-semibold text-sm sm:text-base text-center">{stat.label}</div>
@@ -209,57 +209,145 @@ const AboutUs = () => {
         </div>
       </div>
 
-      {/* Story Section */}
-      <div className="py-12 sm:py-20 bg-gradient-to-br from-gray-50 to-red-50">
+      {/* Our Story Section - Professional Design */}
+      <div className="py-12 sm:py-16 lg:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-16 items-center">
-            <div>
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-6 sm:mb-8">Our Story</h2>
-              <div className="space-y-4 sm:space-y-6">
-                <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
-                  <span className="text-red-600 font-semibold">Our Journey</span><br/>
-                  During the COVID-19 period, my wife and I spent our free time experimenting with cake making. We shared our cakes with our neighbors, who loved the taste and encouraged us to do more. This inspired us to start baking birthday cakes and other specialty cakes for our family members. Their positive feedback motivated us to take our passion to the next level.
+          {/* Section Header */}
+          <div className="text-center mb-10 sm:mb-12 lg:mb-16">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-gray-900 mb-4">
+              Our Story
+            </h2>
+            <div className="w-24 h-1 bg-gradient-to-r from-pink-500 to-red-500 mx-auto rounded-full"></div>
+          </div>
+
+          {/* Story Content */}
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-gradient-to-br from-pink-50 via-white to-red-50 rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-10 shadow-lg border border-pink-100">
+              {/* Founders Introduction */}
+              <div className="mb-8 sm:mb-10 pb-6 sm:pb-8 border-b border-pink-200">
+                <p className="text-lg sm:text-xl text-gray-800 leading-relaxed font-medium">
+                  We are <span className="text-pink-600 font-bold">Dr. S. Sampathkannan</span> and <span className="text-pink-600 font-bold">Dr. R. Priyanka Sampath</span>, both practicing dentists since 2016.
                 </p>
-                <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
-                  <span className="text-red-600 font-semibold">Our Growth</span><br/>
-                  We focused on maintaining high-quality standards in every cake we made. To enhance our skills, we traveled abroad to learn advanced cake-making techniques. We were proud to introduce these innovative concepts to Kovilpatti, making us pioneers in the region.
-                </p>
-                <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
-                  Today, we continue to innovate and expand our offerings while maintaining the same dedication to
-                  freshness, quality, and customer service that has been our foundation since day one.
+              </div>
+
+              {/* Story Timeline */}
+              <div className="space-y-6 sm:space-y-8">
+                {/* The Beginning */}
+                <div className="relative pl-8 sm:pl-10 border-l-4 border-pink-400">
+                  <div className="absolute -left-2 sm:-left-2.5 top-0 w-4 h-4 sm:w-5 sm:h-5 bg-pink-500 rounded-full border-4 border-white shadow-lg"></div>
+                  <div className="bg-white rounded-xl p-5 sm:p-6 shadow-sm">
+                    <h3 className="text-xl sm:text-2xl font-bold text-pink-600 mb-3">The Beginning</h3>
+                    <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
+                      Our journey into baking began unexpectedly during the COVID lockdown. With clinics closed and more time at home, we started experimenting in the kitchen just for joy.
+                    </p>
+                  </div>
+                </div>
+
+                {/* The First Cake */}
+                <div className="relative pl-8 sm:pl-10 border-l-4 border-pink-400">
+                  <div className="absolute -left-2 sm:-left-2.5 top-0 w-4 h-4 sm:w-5 sm:h-5 bg-pink-500 rounded-full border-4 border-white shadow-lg"></div>
+                  <div className="bg-white rounded-xl p-5 sm:p-6 shadow-sm">
+                    <h3 className="text-xl sm:text-2xl font-bold text-pink-600 mb-3">A Special Birthday</h3>
+                    <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
+                      For our daughter <span className="font-semibold text-pink-600">Thanvisha's 3rd birthday</span>, since no bakeries were open in our town, we decided to bake her cake ourselves. We bought a small oven and created our very first cake with love. That simple moment changed everything for us.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Home-Based Kitchen */}
+                <div className="relative pl-8 sm:pl-10 border-l-4 border-pink-400">
+                  <div className="absolute -left-2 sm:-left-2.5 top-0 w-4 h-4 sm:w-5 sm:h-5 bg-pink-500 rounded-full border-4 border-white shadow-lg"></div>
+                  <div className="bg-white rounded-xl p-5 sm:p-6 shadow-sm">
+                    <h3 className="text-xl sm:text-2xl font-bold text-pink-600 mb-3">Growing Passion</h3>
+                    <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
+                      We began baking for our family and relatives, and soon started sharing our creations on WhatsApp. Friends loved our cakes and requested the same for their celebrations. That support encouraged us to start a home-based baking kitchen, which we ran successfully for 2–3 years.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Learning & Training */}
+                <div className="relative pl-8 sm:pl-10 border-l-4 border-pink-400">
+                  <div className="absolute -left-2 sm:-left-2.5 top-0 w-4 h-4 sm:w-5 sm:h-5 bg-pink-500 rounded-full border-4 border-white shadow-lg"></div>
+                  <div className="bg-white rounded-xl p-5 sm:p-6 shadow-sm">
+                    <h3 className="text-xl sm:text-2xl font-bold text-pink-600 mb-3">Investing in Excellence</h3>
+                    <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
+                      During this time, we invested deeply in learning. We attended many advanced baking and confectionery courses — both internationally and across major Indian cities like <span className="font-semibold">Mumbai, Delhi, and Bangalore</span>. These trainings helped us master a wide range of techniques and develop our own unique style.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Expansion */}
+                <div className="relative pl-8 sm:pl-10 border-l-4 border-pink-400">
+                  <div className="absolute -left-2 sm:-left-2.5 top-0 w-4 h-4 sm:w-5 sm:h-5 bg-pink-500 rounded-full border-4 border-white shadow-lg"></div>
+                  <div className="bg-white rounded-xl p-5 sm:p-6 shadow-sm">
+                    <h3 className="text-xl sm:text-2xl font-bold text-pink-600 mb-3">Expanding Our Menu</h3>
+                    <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
+                      With this knowledge and our growing passion, we expanded our menu to include premium wedding cakes, luxury celebration cakes, delicious desserts, pizzas, pastas, and a variety of scratch-made recipes. Everything we serve is made <span className="font-semibold text-pink-600">100% fresh</span>, and in a highly hygienic environment.
+                    </p>
+                  </div>
+                </div>
+
+                {/* SK Bakers Café */}
+                <div className="relative pl-8 sm:pl-10 border-l-4 border-pink-400">
+                  <div className="absolute -left-2 sm:-left-2.5 top-0 w-4 h-4 sm:w-5 sm:h-5 bg-gradient-to-br from-pink-500 to-red-500 rounded-full border-4 border-white shadow-lg"></div>
+                  <div className="bg-gradient-to-br from-pink-50 to-red-50 rounded-xl p-5 sm:p-6 shadow-md border border-pink-200">
+                    <h3 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-pink-600 to-red-600 bg-clip-text text-transparent mb-3">
+                      Opening SK Bakers Café
+                    </h3>
+                    <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
+                      With the continuous support of our customers and family, we took the next step and opened our café — <span className="font-bold text-pink-600">SK Bakers</span>.
+                    </p>
+                    <p className="text-base sm:text-lg text-gray-700 leading-relaxed mt-3">
+                      Today, SK Bakers is a place where <span className="font-semibold">passion meets perfection</span>.
+                    </p>
+                  </div>
+                </div>
+
+                {/* SK Cake Academy */}
+                <div className="relative pl-8 sm:pl-10 border-l-4 border-pink-400">
+                  <div className="absolute -left-2 sm:-left-2.5 top-0 w-4 h-4 sm:w-5 sm:h-5 bg-gradient-to-br from-pink-500 to-red-500 rounded-full border-4 border-white shadow-lg"></div>
+                  <div className="bg-white rounded-xl p-5 sm:p-6 shadow-sm">
+                    <h3 className="text-xl sm:text-2xl font-bold text-pink-600 mb-3">Sharing Knowledge</h3>
+                    <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
+                      And as a way to share our knowledge, we also launched <span className="font-bold text-pink-600">SK Cake Academy</span>, where we have been conducting baking courses for the past one year — helping aspiring bakers learn professional skills with confidence.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Closing Statement */}
+              <div className="mt-8 sm:mt-10 pt-6 sm:pt-8 border-t border-pink-200">
+                <p className="text-lg sm:text-xl text-gray-800 leading-relaxed italic text-center font-medium">
+                  Our journey from dentistry to baking has been unexpected but incredibly rewarding. Every product we create carries the same love, care, and dedication that went into the very first cake we baked for our daughter.
                 </p>
               </div>
             </div>
-            <div
-              className="rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-10 text-white shadow-2xl"
-              style={{
-                background: 'linear-gradient(to bottom right, #dc2626, #b91c1c, #991b1b)',
-                backgroundColor: '#dc2626'
-              }}
-            >
-              <h3 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8 text-yellow-400 sm:text-yellow-300">Why Choose SK Bakers?</h3>
-              <ul className="space-y-3 sm:space-y-4">
-                <li className="flex items-start sm:items-center">
-                  <span className="text-xl sm:text-2xl mr-3 sm:mr-4 text-yellow-400 sm:text-yellow-300 flex-shrink-0">✅</span>
-                  <span className="text-base sm:text-lg text-white font-medium">100% fresh daily baked products</span>
-                </li>
-                <li className="flex items-start sm:items-center">
-                  <span className="text-xl sm:text-2xl mr-3 sm:mr-4 text-yellow-400 sm:text-yellow-300 flex-shrink-0">✅</span>
-                  <span className="text-base sm:text-lg text-white font-medium">Expert baking techniques</span>
-                </li>
-                <li className="flex items-start sm:items-center">
-                  <span className="text-xl sm:text-2xl mr-3 sm:mr-4 text-yellow-400 sm:text-yellow-300 flex-shrink-0">✅</span>
-                  <span className="text-base sm:text-lg text-white font-medium">Wide range of flavors</span>
-                </li>
-                <li className="flex items-start sm:items-center">
-                  <span className="text-xl sm:text-2xl mr-3 sm:mr-4 text-yellow-400 sm:text-yellow-300 flex-shrink-0">✅</span>
-                  <span className="text-base sm:text-lg text-white font-medium">Reliable delivery service</span>
-                </li>
-                <li className="flex items-start sm:items-center">
-                  <span className="text-xl sm:text-2xl mr-3 sm:mr-4 text-yellow-400 sm:text-yellow-300 flex-shrink-0">✅</span>
-                  <span className="text-base sm:text-lg text-white font-medium">24/7 customer support</span>
-                </li>
-              </ul>
+          </div>
+
+          {/* Why Choose SK Bakers - Modern Cards */}
+          <div className="mt-12 sm:mt-16 lg:mt-20">
+            <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-8 sm:mb-10 text-center">Why Choose SK Bakers?</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
+              <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-xl p-6 text-center border border-pink-200 hover:shadow-lg transition-all duration-300">
+                <div className="text-3xl mb-3">✅</div>
+                <p className="text-sm sm:text-base text-gray-700 font-medium">100% fresh daily baked products</p>
+              </div>
+              <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-xl p-6 text-center border border-pink-200 hover:shadow-lg transition-all duration-300">
+                <div className="text-3xl mb-3">👨‍🍳</div>
+                <p className="text-sm sm:text-base text-gray-700 font-medium">Expert baking techniques</p>
+              </div>
+              <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-xl p-6 text-center border border-pink-200 hover:shadow-lg transition-all duration-300">
+                <div className="text-3xl mb-3">🎂</div>
+                <p className="text-sm sm:text-base text-gray-700 font-medium">Wide range of flavors</p>
+              </div>
+              <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-xl p-6 text-center border border-pink-200 hover:shadow-lg transition-all duration-300">
+                <div className="text-3xl mb-3">🚚</div>
+                <p className="text-sm sm:text-base text-gray-700 font-medium">Reliable delivery service</p>
+              </div>
+              <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-xl p-6 text-center border border-pink-200 hover:shadow-lg transition-all duration-300">
+                <div className="text-3xl mb-3">💬</div>
+                <p className="text-sm sm:text-base text-gray-700 font-medium">24/7 customer support</p>
+              </div>
             </div>
           </div>
         </div>
@@ -277,14 +365,14 @@ const AboutUs = () => {
           
           {loading ? (
             <div className="flex justify-center items-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600"></div>
             </div>
           ) : teamMembers.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {teamMembers.map((member, index) => (
                 <div key={member.id || index} className="group">
-                  <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-2xl p-8 text-center hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-3 border border-red-200">
-                    <div className="w-24 h-24 mx-auto mb-6 rounded-full overflow-hidden border-4 border-red-200 group-hover:border-red-300 transition-colors duration-300">
+                  <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-2xl p-8 text-center hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-3 border border-pink-200">
+                    <div className="w-24 h-24 mx-auto mb-6 rounded-full overflow-hidden border-4 border-pink-200 group-hover:border-pink-300 transition-colors duration-300">
                       <img 
                         src={member.image || 'https://via.placeholder.com/150x150?text=Team+Member'} 
                         alt={member.name}
@@ -292,7 +380,7 @@ const AboutUs = () => {
                       />
                     </div>
                     <h3 className="text-xl font-bold text-gray-900 mb-2">{member.name}</h3>
-                    <p className="text-red-600 font-semibold mb-3">{member.role || member.position}</p>
+                    <p className="text-pink-600 font-semibold mb-3">{member.role || member.position}</p>
                     <p className="text-gray-600 text-sm mb-4">{member.bio}</p>
                     
                     {/* Social Links */}
@@ -341,13 +429,7 @@ const AboutUs = () => {
       </div>
 
       {/* CTA Section */}
-      <div
-        className="py-12 sm:py-20 text-white relative overflow-hidden"
-        style={{
-          background: 'linear-gradient(to bottom right, #dc2626, #b91c1c, #991b1b)',
-          backgroundColor: '#dc2626'
-        }}
-      >
+      <div className="py-12 sm:py-16 lg:py-20 text-white relative overflow-hidden bg-gradient-to-br from-pink-600 via-pink-700 to-red-600">
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div className="absolute inset-0" style={{
@@ -364,13 +446,13 @@ const AboutUs = () => {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 
               to="/products" 
-              className="inline-block bg-yellow-400 text-red-800 px-8 py-4 rounded-xl font-bold text-lg hover:bg-yellow-300 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
+              className="inline-block bg-white text-pink-600 px-8 py-4 rounded-xl font-bold text-lg hover:bg-pink-50 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
             >
               Shop Now
             </Link>
             <Link 
               to="/contact" 
-              className="inline-block bg-transparent border-2 border-white text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-white hover:text-red-800 transform hover:scale-105 transition-all duration-200"
+              className="inline-block bg-transparent border-2 border-white text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-white hover:text-pink-600 transform hover:scale-105 transition-all duration-200"
             >
               Contact Us
             </Link>

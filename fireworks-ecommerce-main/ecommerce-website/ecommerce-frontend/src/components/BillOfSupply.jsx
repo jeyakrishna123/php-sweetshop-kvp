@@ -215,8 +215,18 @@ const BillOfSupply = ({ order, onClose }) => {
         throw apiError;
       }
       
+      // Handle processing response (when server sends immediate response)
+      if (response && response.processing) {
+        // Server is processing, wait a bit and show message
+        showToast("📧 Processing email request... This may take a moment.", "info", 3000);
+        // The actual success/error will be handled by the response
+        // For now, assume success if we got a processing response
+        // (In production, you might want to poll for status)
+        return;
+      }
+      
       if (response && response.success) {
-        showToast("📧 Invoice PDF sent successfully to customer's email!", "success", 3000);
+        showToast("📧 Invoice PDF sent successfully to customer's email!", "success", 5000);
       } else {
         const errorMsg = response?.message || "Unknown error occurred";
         showToast("Failed to send email: " + errorMsg, "error", 5000);
