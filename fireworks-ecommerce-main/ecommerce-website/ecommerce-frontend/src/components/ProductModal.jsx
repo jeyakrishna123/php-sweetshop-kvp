@@ -499,16 +499,28 @@ export default function ProductModal({ product, onSave, onClose, categories = []
           const uploadResponse = await productAPI.uploadImages(fileObjects);
           console.log('📤 Upload response:', uploadResponse);
           
-          if (uploadResponse.success) {
-            const uploadedUrls = uploadResponse.images.map(img => 
-              img.url.startsWith('http') ? img.url : `http://localhost:3001${img.url}`
-            );
+          // Handle response structure: { success: true, message: "...", data: { success: true, images: [...] } }
+          const responseData = uploadResponse.data || uploadResponse;
+          const images = responseData.images || (responseData.data && responseData.data.images) || [];
+          const isSuccess = uploadResponse.success && (responseData.success || responseData.data?.success);
+          
+          if (isSuccess && images.length > 0) {
+            const uploadedUrls = images.map(img => {
+              if (typeof img === 'string') {
+                return img.startsWith('http') ? img : `${process.env.NODE_ENV === 'production' ? 'https://skbakers.com' : 'http://localhost:8000'}${img}`;
+              } else if (img && typeof img === 'object') {
+                const url = img.url || img.fullUrl || img.imageUrl || img.path || '';
+                return url.startsWith('http') ? url : `${process.env.NODE_ENV === 'production' ? 'https://skbakers.com' : 'http://localhost:8000'}${url}`;
+              }
+              return '';
+            }).filter(url => url);
+            
             imageUrls = [...imageUrls, ...uploadedUrls];
             console.log('✅ Images uploaded successfully:', uploadedUrls);
             showToast(`${uploadedUrls.length} images uploaded successfully`, 'success');
           } else {
-            console.log('❌ Upload failed:', uploadResponse.message);
-            showToast(uploadResponse.message || 'Failed to upload images', 'error');
+            console.log('❌ Upload failed:', uploadResponse.message || responseData.message);
+            showToast(uploadResponse.message || responseData.message || 'Failed to upload images', 'error');
           }
         } catch (uploadError) {
           console.error('❌ Image upload error:', uploadError);

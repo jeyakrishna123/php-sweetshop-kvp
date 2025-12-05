@@ -1,6 +1,0 @@
-{
-  "siteId": "68d9365f172be596f3ce16e9",
-  "buildCommand": "npm run build",
-  "publishDirectory": "ecommerce-website/ecommerce-frontend/dist",
-  "functionsDirectory": "netlify/functions"
-}

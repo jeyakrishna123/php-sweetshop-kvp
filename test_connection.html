@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backend Connection Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .test {
+            margin: 20px 0;
+            padding: 15px;
+            border-left: 4px solid #ccc;
+            background: #f9f9f9;
+        }
+        .test.success {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+        .test.error {
+            border-color: #dc3545;
+            background: #f8d7da;
+        }
+        .test.warning {
+            border-color: #ffc107;
+            background: #fff3cd;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            max-height: 400px;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.ok {
+            background: #28a745;
+            color: white;
+        }
+        .status.fail {
+            background: #dc3545;
+            color: white;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Backend Connection Test</h1>
+        <p>This page tests if your PHP backend is running and accessible.</p>
+
+        <div id="results"></div>
+
+        <button onclick="runAllTests()">🔄 Run All Tests</button>
+        <button onclick="location.reload()">♻️ Refresh Page</button>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://localhost:8000';
+        let results = '';
+
+        function addResult(title, message, type = 'test', code = null) {
+            const resultDiv = document.getElementById('results');
+            let html = `<div class="test ${type}">`;
+            html += `<h3>${title}</h3>`;
+            html += `<p>${message}</p>`;
+            if (code) {
+                html += `<pre>${JSON.stringify(code, null, 2)}</pre>`;
+            }
+            html += `</div>`;
+            resultDiv.innerHTML += html;
+        }
+
+        async function testBackendRunning() {
+            addResult('Test 1: Backend Server', '<span class="loading"></span> Testing...', 'warning');
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/products?limit=1`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('results').lastChild.remove();
+                    addResult(
+                        'Test 1: Backend Server <span class="status ok">✓ RUNNING</span>',
+                        `Backend is running on ${BACKEND_URL}`,
+                        'success',
+                        data
+                    );
+                    return true;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                document.getElementById('results').lastChild.remove();
+                addResult(
+                    'Test 1: Backend Server <span class="status fail">✗ NOT RUNNING</span>',
+                    `<strong>ERROR:</strong> ${error.message}<br><br>` +
+                    `<strong>Solution:</strong><br>` +
+                    `1. Open Command Prompt<br>` +
+                    `2. Run: <code>cd C:\\Users\\jeyakrishna\\Documents\\php-sweetshop-kvp</code><br>` +
+                    `3. Run: <code>php -S localhost:8000 -t php-backend/</code><br>` +
+                    `4. Keep that window open<br>` +
+                    `5. Refresh this page`,
+                    'error'
+                );
+                return false;
+            }
+        }
+
+        async function testDashboardAPI() {
+            addResult('Test 2: Dashboard API', '<span class="loading"></span> Testing...', 'warning');
+
+            try {
+                const token = localStorage.getItem('token');
+                const headers = {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                };
+
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+
+                const response = await fetch(`${BACKEND_URL}/api/admin/dashboard?dateRange=all`, {
+                    method: 'GET',
+                    headers: headers
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('results').lastChild.remove();
+
+                    const stats = data.stats || {};
+                    let message = `<strong>Dashboard Data Received:</strong><br>`;
+                    message += `• Total Products: ${stats.totalProducts || 0}<br>`;
+                    message += `• Total Users: ${stats.totalUsers || 0}<br>`;
+                    message += `• Total Orders: ${stats.totalOrders || 0}<br>`;
+                    message += `• Total Revenue: ₹${stats.totalRevenue || 0}`;
+
+                    addResult(
+                        'Test 2: Dashboard API <span class="status ok">✓ WORKING</span>',
+                        message,
+                        'success',
+                        data
+                    );
+                    return true;
+                } else if (response.status === 401) {
+                    throw new Error('Not authenticated - Please login first');
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                document.getElementById('results').lastChild.remove();
+                addResult(
+                    'Test 2: Dashboard API <span class="status fail">✗ FAILED</span>',
+                    `<strong>ERROR:</strong> ${error.message}<br><br>` +
+                    `<strong>Solution:</strong><br>` +
+                    `1. Make sure you're logged in to admin panel<br>` +
+                    `2. Login at: <a href="http://localhost:5173/admin/login">http://localhost:5173/admin/login</a><br>` +
+                    `3. Email: admin@skbakers.com<br>` +
+                    `4. Password: admin123456`,
+                    'error'
+                );
+                return false;
+            }
+        }
+
+        async function testDatabase() {
+            addResult('Test 3: Database Check', '<span class="loading"></span> Testing...', 'warning');
+
+            try {
+                // Test by fetching products
+                const response = await fetch(`${BACKEND_URL}/api/products?limit=5`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const productCount = data.products?.length || 0;
+
+                    document.getElementById('results').lastChild.remove();
+
+                    if (productCount > 0) {
+                        addResult(
+                            'Test 3: Database <span class="status ok">✓ HAS DATA</span>',
+                            `Found ${productCount} products in database`,
+                            'success',
+                            data.products
+                        );
+                    } else {
+                        addResult(
+                            'Test 3: Database <span class="status fail">⚠ EMPTY</span>',
+                            `<strong>WARNING:</strong> No products found in database<br><br>` +
+                            `<strong>Solution:</strong><br>` +
+                            `1. Open Command Prompt<br>` +
+                            `2. Run: <code>cd C:\\Users\\jeyakrishna\\Documents\\php-sweetshop-kvp</code><br>` +
+                            `3. Run: <code>php fix_dashboard_complete.php</code><br>` +
+                            `4. This will add sample products, users, and orders`,
+                            'warning'
+                        );
+                    }
+                    return true;
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                document.getElementById('results').lastChild.remove();
+                addResult(
+                    'Test 3: Database <span class="status fail">✗ ERROR</span>',
+                    `<strong>ERROR:</strong> ${error.message}`,
+                    'error'
+                );
+                return false;
+            }
+        }
+
+        async function runAllTests() {
+            document.getElementById('results').innerHTML = '';
+
+            const test1 = await testBackendRunning();
+
+            if (test1) {
+                await testDatabase();
+                await testDashboardAPI();
+            } else {
+                addResult(
+                    '⚠️ Cannot Continue',
+                    'Backend server must be running before other tests can proceed.',
+                    'warning'
+                );
+            }
+        }
+
+        // Run tests on page load
+        window.onload = runAllTests;
+    </script>
+</body>
+</html>

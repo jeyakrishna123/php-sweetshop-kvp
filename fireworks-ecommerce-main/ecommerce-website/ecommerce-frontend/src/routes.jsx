@@ -10,6 +10,7 @@ import Success from "./pages/Success";
 import MyOrder from "./pages/MyOrder";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import Deals from "./pages/Deals";
 import AdminLogin from "./pages/AdminLogin";
 import AdminPanel from "./pages/AdminPanel";
 import AdminOrders from "./pages/AdminOrders";
@@ -43,6 +44,7 @@ import OrderTracking from './components/OrderTracking';
 import Tracking from './pages/Tracking';
 import ProfessionalProducts from './pages/ProfessionalProducts';
 import RedesignedProducts from './pages/RedesignedProducts';
+import FAQ from './pages/FAQ';
 
 // Route Components
 import PrivateRoute from "./components/PrivateRoute";
@@ -101,9 +103,11 @@ const AppRoutes = () => {
               <Route path="/wishlist" element={<PrivateRoute><Wishlist /></PrivateRoute>} />
               <Route path="/about" element={<AboutUs />} />
               <Route path="/contact" element={<ContactUs />} />
+              <Route path="/faq" element={<FAQ />} />
               <Route path="/tracking" element={<Tracking />} />
               <Route path="/tracking/:trackingNumber" element={<Tracking />} />
               <Route path="/products" element={<ProductListing />} />
+              <Route path="/deals" element={<Deals />} />
               <Route path="/professional-products" element={<ProfessionalProducts />} />
               <Route path="/redesigned-products" element={<RedesignedProducts />} />
               <Route path="/product/:id" element={<ProductDetails />} />

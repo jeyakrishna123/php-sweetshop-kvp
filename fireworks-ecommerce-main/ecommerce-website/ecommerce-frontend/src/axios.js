@@ -1,15 +1,75 @@
 import axios from "axios";
 
+// Force production URL for production builds
+const getBaseURL = () => {
+  // Check for window flag set by index.html script (runs before React)
+  if (typeof window !== 'undefined' && window.__PRODUCTION_API_URL__) {
+    return window.__PRODUCTION_API_URL__;
+  }
+  // Check for explicit VITE_API_URL
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // Check if we're on production domain
+  if (typeof window !== 'undefined' && window.location.hostname === 'skbakers.com') {
+    return 'https://skbakers.com';
+  }
+  // Check if we're in production mode
+  if (import.meta.env.PROD || import.meta.env.MODE === 'production') {
+    return 'https://skbakers.com';
+  }
+  // Default to localhost for development
+  return 'http://localhost:8000';
+};
+
 const instance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:3001", // Use backend for local development
+  baseURL: getBaseURL(), // Initial baseURL (will be updated dynamically)
 });
 
-// Add request interceptor to include token in all requests
+// Debug: Log the base URL being used
+const baseURL = getBaseURL();
+console.log('🔧 Axios instance created with baseURL:', baseURL);
+console.log('🔧 Environment variables:', {
+  VITE_API_URL: import.meta.env.VITE_API_URL,
+  PROD: import.meta.env.PROD,
+  MODE: import.meta.env.MODE,
+  VITE_ENV: import.meta.env.VITE_ENV
+});
+
+// Add request interceptor to include token in all requests AND update baseURL dynamically
 instance.interceptors.request.use(
   (config) => {
+    // CRITICAL: Update baseURL dynamically on each request to ensure production URL
+    // This ensures window.__PRODUCTION_API_URL__ is checked even if it was set after module load
+    const currentBaseURL = getBaseURL();
+    if (config.baseURL !== currentBaseURL) {
+      config.baseURL = currentBaseURL;
+      console.log('🔄 Updated axios baseURL to:', currentBaseURL);
+    }
+    
     console.log('🔍 Axios Request:', config.method?.toUpperCase(), config.url);
     console.log('🔍 Axios Base URL:', config.baseURL);
     console.log('🔍 Axios Full URL:', `${config.baseURL}${config.url}`);
+    
+    // CRITICAL: Set Content-Type for POST/PUT/PATCH requests
+    // Check both 'Content-Type' and 'content-type' (case-insensitive)
+    const method = config.method?.toLowerCase();
+    if (['post', 'put', 'patch'].includes(method)) {
+      const hasContentType = config.headers && (
+        config.headers['Content-Type'] || 
+        config.headers['content-type'] ||
+        Object.keys(config.headers).some(key => key.toLowerCase() === 'content-type')
+      );
+      
+      if (!hasContentType) {
+        // Ensure headers object exists
+        if (!config.headers) {
+          config.headers = {};
+        }
+        config.headers['Content-Type'] = 'application/json';
+      }
+    }
+    
     console.log('🔍 Axios Headers:', config.headers);
     
     const token = localStorage.getItem('token');

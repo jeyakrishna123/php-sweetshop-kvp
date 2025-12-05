@@ -18,37 +18,205 @@ const AdminContacts = () => {
     responded: 0,
     closed: 0
   });
+
+  // Ensure stats always has all required properties
+  const safeStats = {
+    total: stats?.total ?? 0,
+    new: stats?.new ?? 0,
+    read: stats?.read ?? 0,
+    unread: stats?.unread ?? 0,
+    responded: stats?.responded ?? 0,
+    closed: stats?.closed ?? 0
+  };
   const [filter, setFilter] = useState('all');
 
   useEffect(() => {
     fetchContacts();
     fetchStats();
+    
+    // Refresh contacts every 30 seconds to show new submissions
+    const interval = setInterval(() => {
+      fetchContacts();
+      fetchStats();
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const fetchContacts = async () => {
     try {
       setLoading(true);
+      console.log('🔍 [AdminContacts] Fetching contacts from /api/contacts...');
+      
       const response = await axios.get('/api/contacts');
+      console.log('✅ [AdminContacts] Contacts API Response:', response.data);
+
       if (response.data.success) {
-        setContacts(response.data.contacts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+        // Backend returns: { success: true, data: { contacts: [...], count: N } }
+        const contactsData = response.data.data?.contacts || response.data.contacts || [];
+        console.log('📊 [AdminContacts] Contacts Data:', contactsData);
+        console.log('📊 [AdminContacts] Contacts Count:', contactsData.length);
+        
+        const sortedContacts = Array.isArray(contactsData) 
+          ? contactsData.sort((a, b) => new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at))
+          : [];
+
+        setContacts(sortedContacts);
+        console.log('✅ [AdminContacts] Contacts set successfully:', sortedContacts.length);
+
+        // Calculate stats from loaded contacts
+        const calculatedStats = {
+          total: sortedContacts.length,
+          new: sortedContacts.filter(c => c.status === 'new').length,
+          responded: sortedContacts.filter(c => c.status === 'responded').length,
+          closed: sortedContacts.filter(c => c.status === 'closed').length,
+          unread: sortedContacts.filter(c => !c.isRead).length,
+          read: sortedContacts.filter(c => c.isRead).length
+        };
+        setStats(calculatedStats);
+        console.log('📊 [AdminContacts] Calculated Stats:', calculatedStats);
+      } else {
+        console.warn('⚠️ [AdminContacts] API returned success: false', response.data);
+        setContacts([]);
       }
     } catch (error) {
-      console.error('Error fetching contacts:', error);
-      showToast('Failed to fetch contacts', 'error');
+      console.error('❌ [AdminContacts] Error fetching contacts:', error);
+      console.error('❌ [AdminContacts] Error Response:', error.response);
+      console.error('❌ [AdminContacts] Error Response Data:', error.response?.data);
+      console.error('❌ [AdminContacts] Error Response Status:', error.response?.status);
+      
+      // Log full error details including expanded errors object
+      if (error.response?.data) {
+        console.error('❌ [AdminContacts] Full Error Response Data:', JSON.stringify(error.response.data, null, 2));
+        
+        // Log errors object separately with full expansion
+        if (error.response.data.errors) {
+          console.error('❌ [AdminContacts] Error Details (errors object):', error.response.data.errors);
+          console.error('❌ [AdminContacts] Error Details (expanded):', JSON.stringify(error.response.data.errors, null, 2));
+          
+          // Log each error property separately for visibility
+          if (typeof error.response.data.errors === 'object') {
+            Object.keys(error.response.data.errors).forEach(key => {
+              console.error(`❌ [AdminContacts] Error.${key}:`, error.response.data.errors[key]);
+            });
+          }
+        }
+        
+        // Log message separately
+        if (error.response.data.message) {
+          console.error('❌ [AdminContacts] Error Message:', error.response.data.message);
+        }
+      }
+      
+      if (error.response?.status === 401) {
+        console.error('❌ [AdminContacts] Authentication failed (401)');
+        showToast('Authentication required', 'warning');
+      } else {
+        // Enhanced error handling - show actual error details
+        const errorMessage = error.response?.data?.message || 
+                            error.response?.data?.error || 
+                            error.message || 
+                            'Failed to fetch contacts';
+        console.error('❌ [AdminContacts] Showing error toast:', errorMessage);
+        showToast(errorMessage, 'error');
+      }
+      setContacts([]);
     } finally {
       setLoading(false);
+      console.log('🏁 [AdminContacts] fetchContacts completed');
     }
   };
 
   const fetchStats = async () => {
     try {
+      console.log('🔍 [AdminContacts] Fetching stats from /api/contacts/stats/overview...');
+      
       const response = await axios.get('/api/contacts/stats/overview');
+      console.log('✅ [AdminContacts] Stats API Response:', response.data);
+
       if (response.data.success) {
-        setStats(response.data.stats);
+        // Backend returns: { success: true, data: { stats: {...} } }
+        const statsData = response.data.data?.stats || response.data.stats;
+        console.log('📊 [AdminContacts] Stats Data:', statsData);
+        
+        if (statsData) {
+          setStats(statsData);
+          console.log('✅ [AdminContacts] Stats set successfully:', statsData);
+        } else {
+          console.warn('⚠️ [AdminContacts] No stats data in response');
+        }
+      } else {
+        console.warn('⚠️ [AdminContacts] Stats API returned success: false', response.data);
       }
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('❌ [AdminContacts] Error fetching stats:', error);
+      console.error('❌ [AdminContacts] Stats Error Response:', error.response);
+      console.error('❌ [AdminContacts] Stats Error Response Data:', error.response?.data);
+      console.error('❌ [AdminContacts] Stats Error Response Status:', error.response?.status);
+      
+      // Log full error details including expanded errors object
+      if (error.response?.data) {
+        console.error('❌ [AdminContacts] Stats Full Error Response Data:', JSON.stringify(error.response.data, null, 2));
+        
+        // Log errors object separately with full expansion
+        if (error.response.data.errors) {
+          console.error('❌ [AdminContacts] Stats Error Details (errors object):', error.response.data.errors);
+          console.error('❌ [AdminContacts] Stats Error Details (expanded):', JSON.stringify(error.response.data.errors, null, 2));
+          
+          // Log each error property separately for visibility
+          if (typeof error.response.data.errors === 'object') {
+            Object.keys(error.response.data.errors).forEach(key => {
+              console.error(`❌ [AdminContacts] Stats Error.${key}:`, error.response.data.errors[key]);
+            });
+          }
+        }
+        
+        // Log message separately
+        if (error.response.data.message) {
+          console.error('❌ [AdminContacts] Stats Error Message:', error.response.data.message);
+        }
+      }
+      
+      // Enhanced error handling
+      if (error.response?.status === 401) {
+        console.error('❌ [AdminContacts] Stats Authentication failed (401)');
+        // Authentication error - don't show toast, just use fallback
+      } else {
+        // Log error but don't show toast (stats are not critical)
+        const errorMessage = error.response?.data?.message || 
+                            error.response?.data?.error || 
+                            error.message;
+        console.error('❌ [AdminContacts] Stats Error Message:', errorMessage);
+        // Only log, don't show toast to avoid spam
+      }
+      // Calculate stats from contacts array as fallback
+      console.log('🔄 [AdminContacts] Calculating stats from contacts as fallback...');
+      calculateStatsFromContacts();
     }
+  };
+
+  const calculateStatsFromContacts = () => {
+    if (!contacts || contacts.length === 0) {
+      setStats({
+        total: 0,
+        new: 0,
+        read: 0,
+        unread: 0,
+        responded: 0,
+        closed: 0
+      });
+      return;
+    }
+    
+    const calculatedStats = {
+      total: contacts.length,
+      new: contacts.filter(c => c.status === 'new').length,
+      responded: contacts.filter(c => c.status === 'responded').length,
+      closed: contacts.filter(c => c.status === 'closed').length,
+      unread: contacts.filter(c => !c.isRead).length,
+      read: contacts.filter(c => c.isRead).length
+    };
+    setStats(calculatedStats);
   };
 
   const handleViewContact = (contact) => {
@@ -65,13 +233,24 @@ const AdminContacts = () => {
     try {
       const response = await axios.put(`/api/contacts/${contactId}/read`);
       if (response.data.success) {
-        setContacts(prev => prev.map(contact => 
+        const updatedContacts = contacts.map(contact =>
           contact.id === contactId ? { ...contact, isRead: true } : contact
-        ));
-        fetchStats();
+        );
+        setContacts(updatedContacts);
+
+        // Recalculate stats
+        const calculatedStats = {
+          total: updatedContacts.length,
+          new: updatedContacts.filter(c => c.status === 'new').length,
+          responded: updatedContacts.filter(c => c.status === 'responded').length,
+          closed: updatedContacts.filter(c => c.status === 'closed').length,
+          unread: updatedContacts.filter(c => !c.isRead).length,
+          read: updatedContacts.filter(c => c.isRead).length
+        };
+        setStats(calculatedStats);
       }
     } catch (error) {
-      console.error('Error marking contact as read:', error);
+      // Silently handle errors - UI will update locally anyway
     }
   };
 
@@ -82,14 +261,24 @@ const AdminContacts = () => {
         adminNotes
       });
       if (response.data.success) {
-        setContacts(prev => prev.map(contact => 
+        const updatedContacts = contacts.map(contact =>
           contact.id === contactId ? { ...contact, status, adminNotes } : contact
-        ));
+        );
+        setContacts(updatedContacts);
         showToast('Contact status updated successfully', 'success');
-        fetchStats();
+
+        // Recalculate stats
+        const calculatedStats = {
+          total: updatedContacts.length,
+          new: updatedContacts.filter(c => c.status === 'new').length,
+          responded: updatedContacts.filter(c => c.status === 'responded').length,
+          closed: updatedContacts.filter(c => c.status === 'closed').length,
+          unread: updatedContacts.filter(c => !c.isRead).length,
+          read: updatedContacts.filter(c => c.isRead).length
+        };
+        setStats(calculatedStats);
       }
     } catch (error) {
-      console.error('Error updating contact status:', error);
       showToast('Failed to update contact status', 'error');
     }
   };
@@ -104,10 +293,20 @@ const AdminContacts = () => {
       if (response.data.success) {
         setContacts(prev => prev.filter(contact => contact.id !== contactId));
         showToast('Contact deleted successfully', 'success');
-        fetchStats();
+        
+        // Recalculate stats after deletion
+        const updatedContacts = contacts.filter(contact => contact.id !== contactId);
+        const calculatedStats = {
+          total: updatedContacts.length,
+          new: updatedContacts.filter(c => c.status === 'new').length,
+          responded: updatedContacts.filter(c => c.status === 'responded').length,
+          closed: updatedContacts.filter(c => c.status === 'closed').length,
+          unread: updatedContacts.filter(c => !c.isRead).length,
+          read: updatedContacts.filter(c => c.isRead).length
+        };
+        setStats(calculatedStats);
       }
     } catch (error) {
-      console.error('Error deleting contact:', error);
       showToast('Failed to delete contact', 'error');
     }
   };
@@ -172,7 +371,7 @@ const AdminContacts = () => {
           <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold text-gray-900">{stats.total}</div>
+                <div className="text-3xl font-bold text-gray-900">{safeStats.total}</div>
                 <div className="text-sm font-medium text-gray-600 mt-1">Total Contacts</div>
               </div>
               <div className="p-3 bg-gradient-to-r from-gray-500 to-gray-600 rounded-lg">
@@ -187,7 +386,7 @@ const AdminContacts = () => {
           <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-blue-100">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold text-blue-600">{stats.new}</div>
+                <div className="text-3xl font-bold text-blue-600">{safeStats.new}</div>
                 <div className="text-sm font-medium text-gray-600 mt-1">New</div>
               </div>
               <div className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg">
@@ -202,7 +401,7 @@ const AdminContacts = () => {
           <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-green-100">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold text-green-600">{stats.responded}</div>
+                <div className="text-3xl font-bold text-green-600">{safeStats.responded}</div>
                 <div className="text-sm font-medium text-gray-600 mt-1">Responded</div>
               </div>
               <div className="p-3 bg-gradient-to-r from-green-500 to-green-600 rounded-lg">
@@ -217,7 +416,7 @@ const AdminContacts = () => {
           <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-red-100">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold text-red-600">{stats.unread}</div>
+                <div className="text-3xl font-bold text-red-600">{safeStats.unread}</div>
                 <div className="text-sm font-medium text-gray-600 mt-1">Unread</div>
               </div>
               <div className="p-3 bg-gradient-to-r from-red-500 to-red-600 rounded-lg">
@@ -232,7 +431,7 @@ const AdminContacts = () => {
           <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold text-gray-600">{stats.read}</div>
+                <div className="text-3xl font-bold text-gray-600">{safeStats.read}</div>
                 <div className="text-sm font-medium text-gray-600 mt-1">Read</div>
               </div>
               <div className="p-3 bg-gradient-to-r from-gray-500 to-gray-600 rounded-lg">
@@ -248,7 +447,7 @@ const AdminContacts = () => {
           <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold text-gray-500">{stats.closed}</div>
+                <div className="text-3xl font-bold text-gray-500">{safeStats.closed}</div>
                 <div className="text-sm font-medium text-gray-600 mt-1">Closed</div>
               </div>
               <div className="p-3 bg-gradient-to-r from-gray-400 to-gray-500 rounded-lg">
@@ -271,10 +470,10 @@ const AdminContacts = () => {
           <div className="flex flex-wrap gap-2">
             {[
               { key: 'all', label: 'All', count: contacts.length, color: 'gray' },
-              { key: 'unread', label: 'Unread', count: stats.unread, color: 'red' },
-              { key: 'new', label: 'New', count: stats.new, color: 'blue' },
-              { key: 'responded', label: 'Responded', count: stats.responded, color: 'green' },
-              { key: 'closed', label: 'Closed', count: stats.closed, color: 'gray' }
+              { key: 'unread', label: 'Unread', count: safeStats.unread, color: 'red' },
+              { key: 'new', label: 'New', count: safeStats.new, color: 'blue' },
+              { key: 'responded', label: 'Responded', count: safeStats.responded, color: 'green' },
+              { key: 'closed', label: 'Closed', count: safeStats.closed, color: 'gray' }
             ].map(tab => (
               <button
                 key={tab.key}
@@ -370,13 +569,15 @@ const AdminContacts = () => {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredContacts.map((contact, index) => (
-                  <tr key={contact.id} className={`group hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-300 ${!contact.isRead ? 'bg-gradient-to-r from-blue-50/30 to-indigo-50/30 border-l-4 border-l-blue-500' : ''}`}>
+                  <tr key={contact.id || `contact-${index}`} className={`group hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-300 ${!contact.isRead ? 'bg-gradient-to-r from-blue-50/30 to-indigo-50/30 border-l-4 border-l-blue-500' : ''}`}>
                     {/* Contact Information */}
                     <td className="px-8 py-6">
                       <div className="flex items-start gap-4">
                         <div className="flex-shrink-0">
                           <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">
-                            {contact.fullName.charAt(0).toUpperCase()}
+                            {contact.fullName && contact.fullName.length > 0 
+                              ? contact.fullName.charAt(0).toUpperCase() 
+                              : '?'}
                           </div>
                           {!contact.isRead && (
                             <div className="relative -mt-2 -mr-2">
@@ -413,7 +614,9 @@ const AdminContacts = () => {
                           {contact.subject}
                         </div>
                         <div className="text-sm text-gray-600 leading-relaxed line-clamp-2">
-                          {contact.message.substring(0, 100)}...
+                          {contact.message && contact.message.length > 100 
+                            ? `${contact.message.substring(0, 100)}...` 
+                            : contact.message || 'No message'}
                         </div>
                       </div>
                     </td>
@@ -434,10 +637,14 @@ const AdminContacts = () => {
                     <td className="px-8 py-6 whitespace-nowrap">
                       <div className="text-center">
                         <div className="text-lg font-bold text-gray-900">
-                          {new Date(contact.createdAt).toLocaleDateString()}
+                          {contact.createdAt || contact.created_at 
+                            ? new Date(contact.createdAt || contact.created_at).toLocaleDateString()
+                            : 'N/A'}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {new Date(contact.createdAt).toLocaleTimeString()}
+                          {contact.createdAt || contact.created_at 
+                            ? new Date(contact.createdAt || contact.created_at).toLocaleTimeString()
+                            : ''}
                         </div>
                       </div>
                     </td>
@@ -596,12 +803,20 @@ const AdminContacts = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Submitted:</span>
-                      <span className="text-sm font-medium text-gray-900">{new Date(selectedContact.createdAt).toLocaleString()}</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {selectedContact.createdAt || selectedContact.created_at 
+                          ? new Date(selectedContact.createdAt || selectedContact.created_at).toLocaleString()
+                          : 'N/A'}
+                      </span>
                     </div>
-                    {selectedContact.updatedAt !== selectedContact.createdAt && (
+                    {(selectedContact.updatedAt || selectedContact.updated_at) && 
+                     (selectedContact.updatedAt !== selectedContact.createdAt && 
+                      selectedContact.updated_at !== selectedContact.created_at) && (
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">Last updated:</span>
-                        <span className="text-sm font-medium text-gray-900">{new Date(selectedContact.updatedAt).toLocaleString()}</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {new Date(selectedContact.updatedAt || selectedContact.updated_at).toLocaleString()}
+                        </span>
                       </div>
                     )}
                   </div>

@@ -14,13 +14,13 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
-        ws: true,
+        rewrite: (path) => path,
       },
       '/uploads': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
       },
@@ -41,6 +41,8 @@ export default defineConfig({
   },
   base: './',
   define: {
-    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
   },
+  // Ensure production mode is set correctly
+  mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
 })

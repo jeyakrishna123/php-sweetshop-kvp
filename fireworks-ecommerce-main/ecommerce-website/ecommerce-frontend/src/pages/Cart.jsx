@@ -34,28 +34,59 @@ const Cart = () => {
 
   const updateQuantity = async (productId, newQuantity) => {
     if (newQuantity < 1) return;
-    
+
     setUpdating(prev => ({ ...prev, [productId]: true }));
-    
+
     try {
-      // Check stock availability
-      const response = await axios.get(`/api/products/${productId}`);
-      if (response.data && response.data.success) {
-        const product = response.data.product;
-        if (newQuantity > product.stock) {
-          showToast(`Only ${product.stock} items available in stock`, "warning");
-          return;
+      console.log('🔄 Cart: Updating quantity for product:', productId, 'to:', newQuantity);
+
+      // Find the product in cart to get current stock info
+      const cartItem = cart.find(item => item._id === productId);
+      if (!cartItem) {
+        console.error('❌ Cart: Product not found in cart:', productId);
+        showToast("Product not found in cart", "error");
+        return;
+      }
+
+      // Check stock availability from cart item first
+      if (cartItem.stock && newQuantity > cartItem.stock) {
+        console.warn('⚠️ Cart: Requested quantity exceeds stock:', newQuantity, '>', cartItem.stock);
+        showToast(`Only ${cartItem.stock} items available in stock`, "warning");
+        setUpdating(prev => ({ ...prev, [productId]: false }));
+        return;
+      }
+
+      // Try to verify stock from API if product ID is numeric
+      if (/^\d+$/.test(String(productId))) {
+        try {
+          const response = await axios.get(`/api/products/${productId}`);
+          console.log('✅ Cart: Stock check response:', response.data);
+
+          if (response.data && response.data.success && response.data.product) {
+            const product = response.data.product;
+            if (newQuantity > product.stock) {
+              showToast(`Only ${product.stock} items available in stock`, "warning");
+              setUpdating(prev => ({ ...prev, [productId]: false }));
+              return;
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Cart: Could not verify stock from API:', error.message);
+          // Continue anyway - we already checked cart item stock
         }
       }
-      
+
+      // Update quantity in cart
       dispatch({
         type: 'UPDATE_QUANTITY',
         payload: { productId, quantity: newQuantity }
       });
-      
+
+      console.log('✅ Cart: Quantity updated successfully');
       showToast("Cart updated successfully", "success");
-    } catch {
-      showToast("Failed to update cart", "error");
+    } catch (error) {
+      console.error('❌ Cart: Failed to update cart:', error);
+      showToast("Failed to update cart: " + (error.message || 'Unknown error'), "error");
     } finally {
       setUpdating(prev => ({ ...prev, [productId]: false }));
     }
@@ -235,7 +266,7 @@ const Cart = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
-          {/* Cart Items */}
+          {/* Cart Items - Mobile Optimized */}
           <div className="lg:col-span-2 order-2 lg:order-1">
             <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl overflow-hidden">
               <div className="p-4 sm:p-6 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-pink-50">
@@ -256,47 +287,50 @@ const Cart = () => {
               <div className="divide-y divide-gray-100">
                 {cart.map((item) => (
                   <div key={item._id} className="p-3 sm:p-4 lg:p-6 hover:bg-gray-50 transition-colors duration-200">
-                    <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 lg:space-x-6">
-                      {/* Product Image */}
+                    {/* Mobile-First Layout */}
+                    <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:space-x-4 lg:space-x-6">
+                      {/* Product Image - Mobile Optimized */}
                       <div className="relative flex-shrink-0 self-center sm:self-start">
                         <img
                           src={getImageUrl(item)}
                           alt={item.name}
-                          className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-lg sm:rounded-xl shadow-md"
+                          className="w-24 h-24 sm:w-24 sm:h-24 object-cover rounded-lg sm:rounded-xl shadow-md"
                           onError={(e) => {
                             e.target.src = "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=400&fit=crop";
                           }}
                         />
-                        <div className="absolute -top-2 -right-2 w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                        <div className="absolute -top-2 -right-2 w-6 h-6 sm:w-6 sm:h-6 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
                           {item.quantity}
                         </div>
                       </div>
                       
-                      {/* Product Details */}
+                      {/* Product Details - Mobile Optimized */}
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 hover:text-purple-600 transition-colors truncate">
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 hover:text-purple-600 transition-colors line-clamp-2">
                           {item.name}
                         </h3>
-                        <p className="text-gray-600 text-sm mb-1">Unit Price: ₹{item.price?.toLocaleString()}</p>
+                        <p className="text-gray-600 text-sm mb-2">Unit Price: ₹{item.price?.toLocaleString()}</p>
                         {item.selectedWeight && (
-                          <p className="text-gray-600 text-sm mb-2">Weight: {item.selectedWeight.weight} Kg</p>
+                          <p className="text-gray-600 text-sm mb-3">Weight: {item.selectedWeight.weight} Kg</p>
                         )}
                         
-                        {/* Quantity Controls */}
-                        <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-                          <div className="flex items-center bg-gray-100 rounded-full p-1 w-fit">
+                        {/* Mobile-Optimized Quantity Controls */}
+                        <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:space-x-4">
+                          {/* Quantity Selector - Enhanced for Mobile */}
+                          <div className="flex items-center bg-gray-100 rounded-full p-1 w-fit mx-auto sm:mx-0">
                             <button
                               onClick={() => updateQuantity(item._id, item.quantity - 1)}
                               disabled={updating[item._id]}
-                              className="w-7 h-7 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center text-gray-600 hover:text-purple-600 hover:bg-purple-50 disabled:opacity-50 transition-all duration-200 shadow-sm"
+                              className="w-8 h-8 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center text-gray-600 hover:text-purple-600 hover:bg-purple-50 disabled:opacity-50 transition-all duration-200 shadow-sm touch-manipulation"
+                              style={{ minHeight: '44px', minWidth: '44px' }}
                             >
-                              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
                               </svg>
                             </button>
-                            <span className="px-3 sm:px-4 py-1 text-gray-900 font-semibold min-w-[1.5rem] sm:min-w-[2rem] text-center text-sm sm:text-base">
+                            <span className="px-4 py-1 text-gray-900 font-semibold min-w-[2rem] text-center text-base sm:text-base">
                               {updating[item._id] ? (
-                                <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                                <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
                               ) : (
                                 item.quantity
                               )}
@@ -304,26 +338,29 @@ const Cart = () => {
                             <button
                               onClick={() => updateQuantity(item._id, item.quantity + 1)}
                               disabled={updating[item._id]}
-                              className="w-7 h-7 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center text-gray-600 hover:text-purple-600 hover:bg-purple-50 disabled:opacity-50 transition-all duration-200 shadow-sm"
+                              className="w-8 h-8 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center text-gray-600 hover:text-purple-600 hover:bg-purple-50 disabled:opacity-50 transition-all duration-200 shadow-sm touch-manipulation"
+                              style={{ minHeight: '44px', minWidth: '44px' }}
                             >
-                              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                               </svg>
                             </button>
                           </div>
                           
+                          {/* Remove Button - Mobile Optimized */}
                           <button
                             onClick={() => removeFromCart(item._id)}
-                            className="text-red-500 hover:text-red-700 text-xs sm:text-sm font-medium hover:bg-red-50 px-2 py-1 sm:px-3 rounded-full transition-colors w-fit"
+                            className="text-red-500 hover:text-red-700 text-sm font-medium hover:bg-red-50 px-4 py-2 rounded-full transition-colors w-fit mx-auto sm:mx-0 touch-manipulation"
+                            style={{ minHeight: '44px' }}
                           >
                             🗑️ Remove
                           </button>
                         </div>
                       </div>
                       
-                      {/* Price */}
-                      <div className="text-right">
-                        <p className="text-xl font-bold text-gray-900">
+                      {/* Price - Mobile Optimized */}
+                      <div className="text-center sm:text-right">
+                        <p className="text-lg sm:text-xl font-bold text-gray-900">
                           ₹{(item.price * item.quantity)?.toLocaleString()}
                         </p>
                         {item.originalPrice && item.originalPrice > item.price && (
@@ -344,7 +381,7 @@ const Cart = () => {
             </div>
           </div>
 
-          {/* Order Summary */}
+          {/* Order Summary - Mobile Optimized */}
           <div className="lg:col-span-1 order-1 lg:order-2">
             <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 lg:sticky lg:top-8">
               <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center">
@@ -382,16 +419,17 @@ const Cart = () => {
                 </div>
               </div>
               
-              {/* Action Buttons */}
-              <div className="mt-4 sm:mt-6 space-y-2 sm:space-y-3">
+              {/* Action Buttons - Mobile Optimized */}
+              <div className="mt-4 sm:mt-6 space-y-3 sm:space-y-3">
                 <button
                   onClick={handleCheckout}
                   disabled={isLoading}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 sm:py-4 px-4 sm:px-6 rounded-lg sm:rounded-xl font-semibold hover:from-purple-700 hover:to-pink-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-sm sm:text-base"
+                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 sm:py-4 px-4 sm:px-6 rounded-lg sm:rounded-xl font-semibold hover:from-purple-700 hover:to-pink-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-base sm:text-base touch-manipulation"
+                  style={{ minHeight: '48px' }}
                 >
                   {isLoading ? (
                     <div className="flex items-center justify-center">
-                      <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                       Processing...
                     </div>
                   ) : (
@@ -403,7 +441,8 @@ const Cart = () => {
                 
                 <button
                   onClick={() => navigate('/')}
-                  className="w-full border-2 border-purple-600 text-purple-600 py-3 sm:py-4 px-4 sm:px-6 rounded-lg sm:rounded-xl font-semibold hover:bg-purple-600 hover:text-white transform hover:scale-105 transition-all duration-200 text-sm sm:text-base"
+                  className="w-full border-2 border-purple-600 text-purple-600 py-4 sm:py-4 px-4 sm:px-6 rounded-lg sm:rounded-xl font-semibold hover:bg-purple-600 hover:text-white transform hover:scale-105 transition-all duration-200 text-base sm:text-base touch-manipulation"
+                  style={{ minHeight: '48px' }}
                 >
                   🛍️ Continue Shopping
                 </button>

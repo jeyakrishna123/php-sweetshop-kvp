@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import ProductCard from "../components/ProductCard";
 import SearchFilter from "../components/SearchFilter";
 import ResponsiveBanner from "../components/ResponsiveBanner";
+import WelcomeOfferPopup from "../components/WelcomeOfferPopup";
 import axios from "../axios";
 
 const ProductListing = () => {
@@ -15,6 +16,7 @@ const ProductListing = () => {
   const [filters, setFilters] = useState({
     search: searchParams.get("search") || "",
     category: searchParams.get("category") || searchParams.get("flavor") || "all", // Support both 'category' and 'flavor' parameters
+    subCategory: searchParams.get("subCategory") || "",
     brand: searchParams.get("brand") || "all",
     minPrice: searchParams.get("minPrice") || "",
     maxPrice: searchParams.get("maxPrice") || "",
@@ -41,6 +43,7 @@ const ProductListing = () => {
     const newFilters = {
       search: searchParams.get("search") || "",
       category: searchParams.get("category") || searchParams.get("flavor") || "all",
+      subCategory: searchParams.get("subCategory") || "",
       brand: searchParams.get("brand") || "all",
       minPrice: searchParams.get("minPrice") || "",
       maxPrice: searchParams.get("maxPrice") || "",
@@ -49,12 +52,13 @@ const ProductListing = () => {
       availability: searchParams.get("availability") || "all",
       menuOption: searchParams.get("menuOption") || ""
     };
-    
+
     console.log('🔍 URL parameters changed:', newFilters);
     setFilters(newFilters);
   }, [searchParams]);
 
   useEffect(() => {
+    console.log('🚀 FETCH TRIGGER - filters:', filters, 'page:', pagination.currentPage);
     fetchProducts();
   }, [filters, pagination.currentPage]);
 
@@ -96,9 +100,21 @@ const ProductListing = () => {
   const fetchProducts = async () => {
     setLoading(true);
     setError("");
-    
+
     console.log('🔍 ProductListing: fetchProducts called');
-    console.log('🔍 Current filters:', filters);
+    console.log('🔍 Current filters:', JSON.stringify(filters, null, 2));
+    console.log('🔍 Filter values breakdown:', {
+      search: `"${filters.search}"`,
+      category: `"${filters.category}"`,
+      subCategory: `"${filters.subCategory}"`,
+      brand: `"${filters.brand}"`,
+      minPrice: `"${filters.minPrice}"`,
+      maxPrice: `"${filters.maxPrice}"`,
+      rating: `"${filters.rating}"`,
+      sortBy: `"${filters.sortBy}"`,
+      availability: `"${filters.availability}"`,
+      menuOption: `"${filters.menuOption}"`
+    });
     
     try {
       const params = new URLSearchParams();
@@ -141,18 +157,38 @@ const ProductListing = () => {
         }
       }
       
-      // Add other filters to params (excluding category and menuOption which are handled separately)
+      // Add subCategory filter if present (must be added before other filters)
+      // URLSearchParams automatically handles URL encoding
+      if (filters.subCategory && filters.subCategory !== "" && filters.subCategory !== "all") {
+        const trimmedSubCategory = filters.subCategory.trim();
+        params.append("subCategory", trimmedSubCategory);
+        console.log('🔍 ProductListing: Added subCategory to params:', trimmedSubCategory);
+      }
+      
+      // Add menuOption filter if present
+      // URLSearchParams automatically handles URL encoding
+      if (filters.menuOption && filters.menuOption !== "" && filters.menuOption !== "all") {
+        const trimmedMenuOption = filters.menuOption.trim();
+        params.append("menuOption", trimmedMenuOption);
+        console.log('🔍 ProductListing: Added menuOption to params:', trimmedMenuOption);
+      }
+      
+      // Add search parameter explicitly (must be added before other filters)
+      // URLSearchParams automatically handles URL encoding
+      if (filters.search && filters.search.trim() !== "") {
+        const searchValue = filters.search.trim();
+        params.append("search", searchValue);
+        console.log('🔍 ProductListing: Added search parameter:', searchValue);
+        console.log('🔍 ProductListing: Search parameter encoded:', encodeURIComponent(searchValue));
+      }
+      
+      // Add other filters to params (excluding category, subCategory, menuOption, and search which are handled separately)
+      // Also exclude "all" values as the backend treats "all" as a literal value
       Object.entries(filters).forEach(([key, value]) => {
-        if (value && value !== "" && key !== "category" && key !== "menuOption") {
+        if (value && value !== "" && value !== "all" && key !== "category" && key !== "subCategory" && key !== "menuOption" && key !== "search") {
           params.append(key, value);
         }
       });
-      
-      // Add menuOption filter if present
-      if (filters.menuOption && filters.menuOption !== "") {
-        params.append("menuOption", filters.menuOption);
-        console.log('🔍 ProductListing: Added menuOption to params:', filters.menuOption);
-      }
       
       // Fetch products with all filters
       console.log('🔍 ProductListing: Final params string:', params.toString());
@@ -160,9 +196,12 @@ const ProductListing = () => {
       const paramString = params.toString();
       const menuOptionCount = (paramString.match(/menuOption=/g) || []).length;
       console.log('🔍 ProductListing: menuOption appears', menuOptionCount, 'times in URL');
-      console.log('🔍 ProductListing: Full URL:', `http://localhost:3001/api/products?${params}`);
-      console.log('🔍 ProductListing: Axios baseURL:', axios.defaults.baseURL);
-      console.log('🔍 ProductListing: Request URL will be:', `${axios.defaults.baseURL}/api/products?${params}`);
+      // Get the actual baseURL from axios instance (for production compatibility)
+      const actualBaseURL = axios.defaults.baseURL || (import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000');
+      console.log('🔍 ProductListing: Full URL:', `${actualBaseURL}/api/products?${params}`);
+      console.log('🔍 ProductListing: Axios baseURL:', actualBaseURL);
+      console.log('🔍 ProductListing: Request URL will be:', `${actualBaseURL}/api/products?${params}`);
+      console.log('🔍 ProductListing: Search filter value:', filters.search);
       
       // Check if menuOption is being passed correctly
       console.log('🔍 ProductListing: menuOption filter value:', filters.menuOption);
@@ -175,13 +214,53 @@ const ProductListing = () => {
       console.log('🔍 ProductListing: Response headers:', response.headers);
       
       if (response.data.success) {
-        console.log('✅ Products received:', response.data.products.length);
-        console.log('✅ Product names:', response.data.products.map(p => p.name));
-        setProducts(response.data.products);
-        console.log('✅ Products state updated with:', response.data.products.length, 'products');
+        // Backend returns: { success: true, data: { data: [...products], pagination: {...} } }
+        const productsData = response.data.data?.data || response.data.products || [];
+        const paginationData = response.data.data?.pagination || response.data.pagination || {};
+
+        console.log('✅ Products received:', productsData.length);
+        console.log('✅ productsData is array?', Array.isArray(productsData));
+
+        if (productsData.length === 0) {
+          console.warn('⚠️ API returned 0 products. Filters:', filters);
+          console.warn('⚠️ API URL params:', params.toString());
+        }
+
+        // Map backend fields (snake_case) to frontend fields (camelCase)
+        const mappedProducts = productsData.map(product => ({
+          _id: product.id || product._id,
+          name: product.name,
+          price: product.price,
+          originalPrice: product.original_price || product.originalPrice,
+          discountPercentage: product.discount_percentage || product.discountPercentage,
+          stock: product.stock,
+          images: product.images || [],
+          thumbnail: product.thumbnail,
+          brand: product.brand || "",
+          category: product.category || "",
+          subCategory: product.sub_category || product.subCategory || "",
+          menuOption: product.menu_option || product.menuOption || "",
+          cakeFlavor: product.cake_flavor || product.cakeFlavor,
+          description: product.description || "",
+          featured: product.featured || false,
+          isNew: product.is_new || product.isNew || false,
+          averageRating: product.average_rating || product.averageRating || 0,
+          numReviews: product.num_reviews || product.numReviews || 0,
+          soldCount: product.sold_count || product.soldCount || 0,
+          createdAt: product.created_at || product.createdAt,
+          updatedAt: product.updated_at || product.updatedAt
+        }));
+
+        setProducts(mappedProducts);
+        console.log('✅ Products state updated with:', mappedProducts.length, 'products');
+
         setPagination(prev => ({
           ...prev,
-          ...response.data.pagination
+          currentPage: paginationData.currentPage || prev.currentPage,
+          totalPages: paginationData.totalPages || 1,
+          totalProducts: paginationData.totalItems || mappedProducts.length,
+          hasNextPage: paginationData.hasNextPage || false,
+          hasPrevPage: paginationData.hasPrevPage || false
         }));
       } else {
         console.log('❌ API returned success: false');
@@ -230,13 +309,17 @@ const ProductListing = () => {
   const clearFilters = () => {
     const clearedFilters = {
       search: "",
-      category: "",
-      brand: "",
+      category: "all",  // Changed from "" to "all" to match initial state
+      subCategory: "",  // Added missing field
+      brand: "all",     // Changed from "" to "all" to match initial state
       minPrice: "",
       maxPrice: "",
+      rating: "",       // Added missing field
       sortBy: "relevance",
-      availability: "all"
+      availability: "all",
+      menuOption: ""    // Added missing field
     };
+    console.log('🧹 Clearing filters to:', clearedFilters);
     setFilters(clearedFilters);
     setPagination(prev => ({ ...prev, currentPage: 1 }));
     setSearchParams({});
@@ -294,18 +377,6 @@ const ProductListing = () => {
             </div>
             
             <div className="flex flex-wrap items-center justify-between sm:justify-end space-x-2 sm:space-x-4 mt-4 sm:mt-0 gap-2">
-              {/* Refresh Button */}
-              <button
-                onClick={fetchProducts}
-                disabled={loading}
-                className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
-              >
-                <svg className={`w-3 h-3 sm:w-4 sm:h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span className="hidden sm:inline">{loading ? 'Refreshing...' : 'Refresh'}</span>
-              </button>
-              
               {/* View Mode Toggle */}
               <div className="flex border border-gray-300 rounded-lg">
                 <button
@@ -334,17 +405,47 @@ const ProductListing = () => {
                 </button>
               </div>
               
-              {/* Filter Toggle */}
+              {/* Enhanced Filter Button */}
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm sm:text-base"
+                title={showFilters ? 'Hide filter options' : 'Show filter options for products'}
+                className={`flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg transition-all duration-200 text-sm sm:text-base font-medium ${
+                  showFilters 
+                    ? 'bg-pink-600 text-white shadow-lg transform scale-105' 
+                    : 'bg-white border-2 border-pink-200 text-pink-600 hover:bg-pink-50 hover:border-pink-300 hover:shadow-md'
+                }`}
               >
-                <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
-                </svg>
-                <span className="hidden sm:inline">Filters</span>
+                {/* Enhanced Filter Icon */}
+                <div className="relative">
+                  <svg className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-200 ${showFilters ? 'rotate-180' : ''}`} fill="currentColor" viewBox="0 0 24 24">
+                    {/* Funnel/Filter Icon */}
+                    <path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
+                    {/* Filter lines inside funnel */}
+                    <path d="M6 8h12M8 12h8M10 16h4" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                  </svg>
+                  
+                  {/* Active indicator dot */}
+                  {getActiveFiltersCount() > 0 && (
+                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                  )}
+                </div>
+                
+                <div className="flex flex-col items-start">
+                  <span className="font-medium">
+                    {showFilters ? 'Hide Filters' : 'Filter Products'}
+                  </span>
+                  <span className="text-xs opacity-75">
+                    {showFilters ? 'Close filter panel' : 'Sort & filter options'}
+                  </span>
+                </div>
+                
+                {/* Enhanced Badge */}
                 {getActiveFiltersCount() > 0 && (
-                  <span className="bg-pink-600 text-white text-xs rounded-full px-1.5 py-0.5 sm:px-2 sm:py-1 min-w-[16px] sm:min-w-[20px] text-center">
+                  <span className={`text-xs rounded-full px-2 py-1 min-w-[20px] text-center font-bold ${
+                    showFilters 
+                      ? 'bg-white text-pink-600' 
+                      : 'bg-pink-600 text-white'
+                  }`}>
                     {getActiveFiltersCount()}
                   </span>
                 )}
@@ -420,7 +521,7 @@ const ProductListing = () => {
                 {/* Products Grid/List */}
                 <div className={`${
                   viewMode === "grid"
-                    ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4 lg:gap-6"
+                    ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4"
                     : "grid grid-cols-1 gap-4"
                 }`}>
                   {products.map((product) => (
@@ -473,6 +574,9 @@ const ProductListing = () => {
           </div>
         </div>
       </div>
+
+      {/* Offer Popup - shows on page load */}
+      <WelcomeOfferPopup />
     </div>
   );
 };

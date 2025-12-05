@@ -88,13 +88,13 @@ const DynamicBanner = () => {
             }`}
           >
             <img
-              src={getImageUrl(banner.imageUrl)}
+              src={banner.imageUrl}
               alt={banner.title || 'Banner'}
               className="w-full h-full object-cover"
               onClick={() => handleBannerClick(banner)}
               style={{ cursor: banner.linkUrl ? 'pointer' : 'default' }}
               onError={(e) => {
-                e.target.src = 'https://via.placeholder.com/1200x400?text=Banner+Image';
+                e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1200" height="400"%3E%3Crect fill="%23f3f4f6" width="1200" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23666"%3EBanner%3C/text%3E%3C/svg%3E';
               }}
             />
             

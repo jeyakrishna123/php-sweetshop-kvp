@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import axios from "axios";
 import PaymentMethods from "../components/PaymentMethods";
+import CheckoutSkeleton from "../components/CheckoutSkeleton";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_your_stripe_key');
 
@@ -30,6 +31,7 @@ const Checkout = () => {
   const [paymentMethod, setPaymentMethod] = useState("cod"); // Default to Cash on Delivery
   const [upiId, setUpiId] = useState(""); // For UPI payment
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const [errors, setErrors] = useState({});
   const [showPaymentMethods, setShowPaymentMethods] = useState(false);
 
@@ -63,38 +65,52 @@ const Checkout = () => {
   };
 
   useEffect(() => {
-    if (!user) {
-      showToast("Please login to checkout", "warning");
-      navigate("/login");
-      return;
-    }
+    // Simulate initial page load
+    const initCheckout = async () => {
+      setPageLoading(true);
 
-    if (cart.length === 0) {
-      showToast("Your cart is empty", "warning");
-      navigate("/cart");
-      return;
-    }
+      // Minimum loading time for smooth UX
+      await new Promise(resolve => setTimeout(resolve, 800));
 
-    // Load saved address
-    const savedAddress = localStorage.getItem("shippingAddress");
-    if (savedAddress) {
-      try {
-        const parsed = JSON.parse(savedAddress);
-        setFormData(prev => ({ ...prev, ...parsed }));
-      } catch (error) {
-        console.error("Error parsing saved address:", error);
+      if (!user) {
+        showToast("Please login to checkout", "warning");
+        navigate("/login");
+        return;
       }
-    }
 
-    // Pre-fill with user data
-    if (user) {
-      setFormData(prev => ({
-        ...prev,
-        email: user.email || "",
-        firstName: user.name?.split(" ")[0] || "",
-        lastName: user.name?.split(" ").slice(1).join(" ") || ""
-      }));
-    }
+      if (cart.length === 0) {
+        showToast("Your cart is empty", "warning");
+        navigate("/cart");
+        return;
+      }
+
+      // Load saved address
+      const savedAddress = localStorage.getItem("shippingAddress");
+      if (savedAddress) {
+        try {
+          const parsed = JSON.parse(savedAddress);
+          setFormData(prev => ({ ...prev, ...parsed }));
+        } catch (error) {
+          if (process.env.NODE_ENV === 'development') {
+            console.error("Error parsing saved address:", error);
+          }
+        }
+      }
+
+      // Pre-fill with user data
+      if (user) {
+        setFormData(prev => ({
+          ...prev,
+          email: user.email || "",
+          firstName: user.name?.split(" ")[0] || "",
+          lastName: user.name?.split(" ").slice(1).join(" ") || ""
+        }));
+      }
+
+      setPageLoading(false);
+    };
+
+    initCheckout();
   }, [user, cart, navigate, showToast]);
 
   const validateForm = () => {
@@ -157,7 +173,7 @@ const Checkout = () => {
         throw new Error("Stripe failed to load");
       }
 
-      const response = await axios.post("http://localhost:3001/api/stripe/create-checkout-session", {
+      const response = await axios.post(`${process.env.NODE_ENV === 'production' ? 'https://skbakers.com/api' : 'http://localhost:8000/api'}/stripe/create-checkout-session`, {
         cartItems: cart.map(item => ({
           _id: item._id,
           name: item.name,
@@ -196,7 +212,9 @@ const Checkout = () => {
         throw new Error("Failed to create checkout session");
       }
     } catch (error) {
-      console.error("Stripe payment error:", error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Stripe payment error:", error);
+      }
       if (error.response?.status === 503) {
         showToast("Credit card payment is not available. Please use Cash on Delivery.", "warning");
       } else {
@@ -210,11 +228,13 @@ const Checkout = () => {
     const handleCODPayment = async () => {
     setLoading(true);
     try {
-      // Debug: Check authentication
+      // Debug: Check authentication (development only)
       const token = localStorage.getItem('token');
-      console.log('🔍 Checkout: Token exists:', !!token);
-      console.log('🔍 Checkout: Token preview:', token ? token.substring(0, 20) + '...' : 'No token');
-      console.log('🔍 Checkout: User:', user);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 Checkout: Token exists:', !!token);
+        console.log('🔍 Checkout: Token preview:', token ? token.substring(0, 20) + '...' : 'No token');
+        console.log('🔍 Checkout: User:', user);
+      }
       
       if (!token) {
         showToast("Please login to place an order", "error");
@@ -231,14 +251,35 @@ const Checkout = () => {
       }
 
       const orderData = {
-        orderItems: cart.map((item) => ({
-          product: item._id,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          image: item.image,
-          selectedWeight: item.selectedWeight
-        })),
+        orderItems: cart.map((item) => {
+          // Get the correct image - check multiple possible fields
+          let itemImage = item.image;
+
+          if (!itemImage && item.thumbnail) {
+            itemImage = item.thumbnail;
+          }
+
+          if (!itemImage && item.images && Array.isArray(item.images) && item.images.length > 0) {
+            itemImage = typeof item.images[0] === 'string' ? item.images[0] : item.images[0]?.url;
+          }
+
+          // Fallback to a placeholder if still no image
+          if (!itemImage) {
+            itemImage = '/images/placeholder-product.jpg';
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('⚠️ No image found for product:', item.name);
+            }
+          }
+
+          return {
+            product: item._id,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            image: itemImage,
+            selectedWeight: item.selectedWeight
+          };
+        }),
         shippingAddress: {
           address: formData.address,
           city: formData.city,
@@ -246,7 +287,7 @@ const Checkout = () => {
           postalCode: formData.postalCode,
           country: formData.country
         },
-        paymentMethod: "Cash On Delivery",
+        paymentMethod: "cod",
         itemsPrice: subtotal,
         taxPrice: tax,
         shippingPrice: deliveryCharge,
@@ -258,39 +299,73 @@ const Checkout = () => {
         }
       };
 
-      console.log('🔍 Checkout: Making order API call...');
-      console.log('🔍 Checkout: Order data:', JSON.stringify(orderData, null, 2));
-      console.log('🔍 Checkout: Cart items:', JSON.stringify(cart, null, 2));
+      // Only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 Checkout: Making order API call...');
+        console.log('🔍 Checkout: Order data:', JSON.stringify(orderData, null, 2));
+        console.log('🔍 Checkout: Cart items:', JSON.stringify(cart, null, 2));
+      }
       
-      const response = await axios.post("http://localhost:3001/api/orders", orderData, {
+      const response = await axios.post(`${process.env.NODE_ENV === 'production' ? 'https://skbakers.com/api' : 'http://localhost:8000/api'}/orders`, orderData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         },
         timeout: 30000 // 30 second timeout
       });
       
-      console.log('🔍 Checkout: API response received:', response.data);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 Checkout: API response received:', response.data);
+        console.log('✅ Checkout: Order response:', JSON.stringify(response.data, null, 2));
+      }
 
       if (response.data && response.data.success) {
         // Clear cart after successful order
         dispatch({ type: 'CLEAR_CART' });
-        
+
         // Clear cart from localStorage as well
         localStorage.removeItem('cartItems');
-        
+
         showToast("Order placed successfully! Your bill has been sent to your email. Pay on delivery.", "success", 4000);
-        
+
+        // Handle different response structures
+        const orderData = response.data.data?.order || response.data.order || response.data.data || {};
+        const orderId = orderData.id || orderData._id || response.data.orderId || response.data.data?.orderId;
+        // Use 6-digit order number if available (prioritize from response.data)
+        // This is the dynamically generated unique 6-digit order ID
+        const orderNumber = response.data.orderNumber || 
+                           response.data.displayOrderId || 
+                           orderData.order_number || 
+                           orderData.display_order_id ||
+                           null; // Don't fallback to orderId - we want the 6-digit number
+        const totalPrice = orderData.total_price || orderData.totalPrice || total;
+        const trackingNumber = orderData.tracking_number || response.data.trackingNumber || response.data.data?.trackingNumber;
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ Checkout: Extracted order data:', { orderId, orderNumber, totalPrice, trackingNumber });
+        }
+
         // Store order details in sessionStorage as backup
         const orderSuccessData = {
-          orderId: response.data.order._id,
-          total: response.data.order.totalPrice,
-          orderDetails: response.data.order,
+          orderId: orderId,
+          orderNumber: orderNumber, // 6-digit unique order ID for display (dynamically generated)
+          total: totalPrice,
+          trackingNumber: trackingNumber,
+          orderDetails: {
+            ...orderData,
+            order_number: orderNumber, // Ensure order_number is in orderDetails too
+            display_order_id: orderNumber
+          },
           paymentStatus: 'pending'
         };
-        sessionStorage.setItem('orderSuccessDetails', JSON.stringify(orderSuccessData));
         
+        // Log for debugging
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ Checkout: Order success data:', { orderId, orderNumber, orderData });
+        }
+        sessionStorage.setItem('orderSuccessDetails', JSON.stringify(orderSuccessData));
+
         // Navigate to success page with order details
-        navigate('/success', { 
+        navigate('/success', {
           replace: true,
           state: orderSuccessData
         });
@@ -298,26 +373,108 @@ const Checkout = () => {
         throw new Error("Failed to create order");
       }
     } catch (error) {
-      console.error("❌ Checkout: COD payment error:", error);
-      console.error("❌ Checkout: Error details:", {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
-        config: error.config
-      });
+      // CRITICAL: Handle invalid products error FIRST - before ANY console logging
+      // Check multiple possible error response structures
+      const errorData = error.response?.data;
+      const errorStatus = error.response?.status;
       
-      // Log the full error response data
-      console.error("❌ Checkout: Full error response data:", JSON.stringify(error.response?.data, null, 2));
+      // Check for missingProductIds in different possible locations
+      const missingProductIds = errorData?.errors?.missingProductIds || 
+                                 errorData?.missingProductIds || 
+                                 (errorStatus === 400 && errorData?.message?.includes('Invalid products') ? [] : null);
       
-      // Show detailed error to user
-      const errorMessage = error.response?.data?.message || error.message || "Unknown error occurred";
-      showToast(`Checkout failed: ${errorMessage}`, "error");
+      // Check for unavailableProductIds
+      const unavailableProductIds = errorData?.errors?.unavailableProductIds || 
+                                     errorData?.unavailableProductIds;
+      
+      // Handle invalid/missing products error
+      if (errorStatus === 400 && (missingProductIds || unavailableProductIds)) {
+        const invalidIds = missingProductIds || unavailableProductIds || [];
+        const errorMessage = errorData?.errors?.error || 
+                            errorData?.error || 
+                            "Some products in your cart are no longer available";
+        
+        // Remove invalid products from cart
+        // Compare both string and number IDs to handle type mismatches
+        const validCart = cart.filter(item => {
+          const itemId = item._id || item.id;
+          if (!itemId) return true; // Keep items without ID (shouldn't happen)
+          
+          return !invalidIds.some(invalidId => {
+            // Try multiple comparison methods
+            return itemId == invalidId || 
+                   String(itemId) === String(invalidId) ||
+                   Number(itemId) === Number(invalidId);
+          });
+        });
+        
+        const removedCount = cart.length - validCart.length;
+        
+        if (removedCount > 0) {
+          // Update cart with only valid products
+          dispatch({ type: 'SET_CART', payload: validCart });
+          
+          // Update localStorage
+          localStorage.setItem('cartItems', JSON.stringify(validCart));
+          
+          // Show user-friendly message
+          showToast(
+            `${removedCount} product(s) removed from cart as they are no longer available. Please review your cart and try again.`,
+            "warning",
+            5000
+          );
+          
+          // Navigate back to cart to review
+          setTimeout(() => {
+            navigate('/cart');
+          }, 2000);
+        } else {
+          // Fallback if product IDs don't match - still show message
+          showToast(errorMessage + ". Please refresh your cart.", "error");
+          // Navigate to cart anyway
+          setTimeout(() => {
+            navigate('/cart');
+          }, 2000);
+        }
+        
+        setLoading(false);
+        return; // CRITICAL: Exit early - NO console errors for this case
+      }
+      
+      // Note: Product validation errors (400 with missingProductIds/unavailableProductIds) 
+      // are handled above and return early - no console errors for those cases
+      
+      // Only log errors for non-product validation issues (and only in development)
+      // NEVER log 400 errors - they're handled above
+      if (process.env.NODE_ENV === 'development' && error.response?.status !== 400) {
+        console.error("❌ Checkout: COD payment error:", error);
+        console.error("❌ Checkout: Error details:", {
+          message: error.message,
+          status: error.response?.status,
+          data: error.response?.data
+        });
+      }
+      
+      // For ANY 400 errors (including product validation), show message but NEVER log
+      // This catches any 400 errors that weren't caught above
+      if (error.response?.status === 400) {
+        const backendMessage = errorData?.message || 
+                             errorData?.errors?.message || 
+                             errorData?.errors?.error ||
+                             "Invalid request. Please check your order and try again.";
+        showToast(backendMessage, "error");
+        setLoading(false);
+        return; // Exit early - no console logging
+      }
       
       // Check if it's a timeout error but order might have been created
       if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
-        console.log('🔍 Checkout: Timeout error detected, checking if order was created...');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔍 Checkout: Timeout error detected, checking if order was created...');
+        }
         showToast("Order is being processed. Please check your orders page.", "info");
-        clearCart();
+        dispatch({ type: 'CLEAR_CART' });
+        localStorage.removeItem('cartItems');
         navigate('/orders');
         return;
       }
@@ -328,13 +485,11 @@ const Checkout = () => {
       } else if (error.response?.status === 401) {
         showToast("Please login again to place your order.", "error");
         navigate('/login');
-      } else if (error.response?.status === 400 && error.response?.data?.message?.includes('Insufficient stock')) {
-        showToast(error.response.data.message, "error");
       } else {
+        // All other errors (non-400, non-network, non-auth)
         showToast("Failed to place order. Please try again.", "error");
       }
     } finally {
-      console.log('🔍 Checkout: COD payment completed, setting loading to false');
       setLoading(false);
     }
   };
@@ -345,14 +500,35 @@ const Checkout = () => {
     setLoading(true);
     try {
       const orderData = {
-        orderItems: cart.map((item) => ({
-          product: item._id,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          image: item.image,
-          selectedWeight: item.selectedWeight
-        })),
+        orderItems: cart.map((item) => {
+          // Get the correct image - check multiple possible fields
+          let itemImage = item.image;
+
+          if (!itemImage && item.thumbnail) {
+            itemImage = item.thumbnail;
+          }
+
+          if (!itemImage && item.images && Array.isArray(item.images) && item.images.length > 0) {
+            itemImage = typeof item.images[0] === 'string' ? item.images[0] : item.images[0]?.url;
+          }
+
+          // Fallback to a placeholder if still no image
+          if (!itemImage) {
+            itemImage = '/images/placeholder-product.jpg';
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('⚠️ No image found for product:', item.name);
+            }
+          }
+
+          return {
+            product: item._id,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            image: itemImage,
+            selectedWeight: item.selectedWeight
+          };
+        }),
         shippingAddress: {
           address: formData.address,
           city: formData.city,
@@ -360,7 +536,7 @@ const Checkout = () => {
           postalCode: formData.postalCode,
           country: formData.country
         },
-        paymentMethod: "UPI",
+        paymentMethod: "upi",
         itemsPrice: subtotal,
         taxPrice: tax,
         shippingPrice: deliveryCharge,
@@ -373,33 +549,65 @@ const Checkout = () => {
         upiId: upiId.trim()
       };
 
-      const response = await axios.post("http://localhost:3001/api/orders", orderData, {
+      const response = await axios.post(`${process.env.NODE_ENV === 'production' ? 'https://skbakers.com/api' : 'http://localhost:8000/api'}/orders`, orderData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         },
         timeout: 10000
       });
 
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Checkout UPI: Order response:', JSON.stringify(response.data, null, 2));
+      }
+
       if (response.data && response.data.success) {
         // Clear cart after successful order
         dispatch({ type: 'CLEAR_CART' });
-        
+
         // Clear cart from localStorage as well
         localStorage.removeItem('cartItems');
-        
+
         showToast("Order placed successfully! Your bill has been sent to your email. Payment received via UPI.", "success", 4000);
-        
+
+        // Handle different response structures
+        const orderData = response.data.data?.order || response.data.order || response.data.data || {};
+        const orderId = orderData.id || orderData._id || response.data.orderId || response.data.data?.orderId;
+        // Use 6-digit order number if available (prioritize from response.data)
+        // This is the dynamically generated unique 6-digit order ID
+        const orderNumber = response.data.orderNumber || 
+                           response.data.displayOrderId || 
+                           orderData.order_number || 
+                           orderData.display_order_id ||
+                           null; // Don't fallback to orderId - we want the 6-digit number
+        const totalPrice = orderData.total_price || orderData.totalPrice || total;
+        const trackingNumber = orderData.tracking_number || response.data.trackingNumber || response.data.data?.trackingNumber;
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ Checkout UPI: Extracted order data:', { orderId, orderNumber, totalPrice, trackingNumber });
+        }
+
         // Store order details in sessionStorage as backup
         const orderSuccessData = {
-          orderId: response.data.order._id,
-          total: response.data.order.totalPrice,
-          orderDetails: response.data.order,
+          orderId: orderId,
+          orderNumber: orderNumber, // 6-digit unique order ID for display (dynamically generated)
+          total: totalPrice,
+          trackingNumber: trackingNumber,
+          orderDetails: {
+            ...orderData,
+            order_number: orderNumber, // Ensure order_number is in orderDetails too
+            display_order_id: orderNumber
+          },
           paymentStatus: 'paid'
         };
-        sessionStorage.setItem('orderSuccessDetails', JSON.stringify(orderSuccessData));
         
+        // Log for debugging
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ Checkout UPI: Order success data:', { orderId, orderNumber, orderData });
+        }
+        sessionStorage.setItem('orderSuccessDetails', JSON.stringify(orderSuccessData));
+
         // Navigate to success page with order details
-        navigate('/success', { 
+        navigate('/success', {
           replace: true,
           state: orderSuccessData
         });
@@ -407,15 +615,74 @@ const Checkout = () => {
         throw new Error("Failed to create order");
       }
     } catch (error) {
-      console.error("UPI payment error:", error);
+      // CRITICAL: Handle invalid products error FIRST - same logic as COD
+      const errorData = error.response?.data;
+      const errorStatus = error.response?.status;
+      
+      const missingProductIds = errorData?.errors?.missingProductIds || 
+                                 errorData?.missingProductIds;
+      const unavailableProductIds = errorData?.errors?.unavailableProductIds || 
+                                     errorData?.unavailableProductIds;
+      
+      // Handle invalid/missing products error
+      if (errorStatus === 400 && (missingProductIds || unavailableProductIds)) {
+        const invalidIds = missingProductIds || unavailableProductIds || [];
+        const errorMessage = errorData?.errors?.error || 
+                            errorData?.error || 
+                            "Some products in your cart are no longer available";
+        
+        const validCart = cart.filter(item => {
+          const itemId = item._id || item.id;
+          if (!itemId) return true;
+          
+          return !invalidIds.some(invalidId => {
+            return itemId == invalidId || 
+                   String(itemId) === String(invalidId) ||
+                   Number(itemId) === Number(invalidId);
+          });
+        });
+        
+        const removedCount = cart.length - validCart.length;
+        
+        if (removedCount > 0) {
+          dispatch({ type: 'SET_CART', payload: validCart });
+          localStorage.setItem('cartItems', JSON.stringify(validCart));
+          showToast(
+            `${removedCount} product(s) removed from cart as they are no longer available. Please review your cart and try again.`,
+            "warning",
+            5000
+          );
+          setTimeout(() => navigate('/cart'), 2000);
+        } else {
+          showToast(errorMessage + ". Please refresh your cart.", "error");
+          setTimeout(() => navigate('/cart'), 2000);
+        }
+        
+        setLoading(false);
+        return; // Exit early - no console errors
+      }
+      
+      // For ANY 400 errors, show message but NEVER log
+      if (errorStatus === 400) {
+        const backendMessage = errorData?.message || 
+                             errorData?.errors?.message || 
+                             errorData?.errors?.error ||
+                             "Invalid request. Please check your order and try again.";
+        showToast(backendMessage, "error");
+        setLoading(false);
+        return; // Exit early - no console logging
+      }
+      
+      // Only log non-400 errors in development
+      if (process.env.NODE_ENV === 'development') {
+        console.error("UPI payment error:", error);
+      }
       
       if (error.code === 'ECONNREFUSED' || error.message.includes('Network Error')) {
         showToast("Backend server is not available. Please try again later.", "error");
       } else if (error.response?.status === 401) {
         showToast("Please login again to place your order.", "error");
         navigate('/login');
-      } else if (error.response?.status === 400 && error.response?.data?.message?.includes('Insufficient stock')) {
-        showToast(error.response.data.message, "error");
       } else {
         showToast("Failed to place order. Please try again.", "error");
       }
@@ -438,6 +705,11 @@ const Checkout = () => {
     }
   };
 
+  // Show loading skeleton on page load
+  if (pageLoading) {
+    return <CheckoutSkeleton />;
+  }
+
   if (!user || cart.length === 0) {
     return null;
   }
@@ -446,9 +718,9 @@ const Checkout = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6 sm:mb-8 text-center">
-          <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-pink-500 to-rose-600 rounded-xl sm:rounded-2xl mb-4 shadow-lg">
-            <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+          <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-xl sm:rounded-2xl mb-4 shadow-lg">
+            <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
             </svg>
           </div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2 sm:mb-3">Secure Checkout</h1>

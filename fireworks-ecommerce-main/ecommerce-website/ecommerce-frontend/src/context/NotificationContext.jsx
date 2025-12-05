@@ -20,11 +20,11 @@ export const NotificationProvider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    // Skip Socket.IO connection in production (Netlify doesn't support WebSockets)
-    if (import.meta.env.PROD) {
-      console.log('🔌 Skipping Socket.IO connection in production');
-      return;
-    }
+    // Skip Socket.IO connection - PHP backend doesn't support WebSockets
+    // Real-time notifications can be implemented with polling or server-sent events if needed
+    console.log('🔌 Socket.IO disabled - PHP backend does not support WebSockets');
+    console.log('💡 Use polling or refresh for real-time updates');
+    return;
 
     // Initialize Socket.IO connection with retry logic
     const connectSocket = () => {

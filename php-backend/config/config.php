@@ -1,0 +1,68 @@
+<?php
+/**
+ * Application Configuration
+ */
+
+// Error reporting (set to 0 in production)
+error_reporting(0); // Disable error display in production
+ini_set('display_errors', 0); // Hide errors from users
+ini_set('log_errors', 1); // Log errors to file
+ini_set('error_log', __DIR__ . '/../logs/php-error.log');
+
+// Timezone
+date_default_timezone_set('Asia/Kolkata');
+
+// JWT Secret Key - CHANGE THIS TO A SECURE RANDOM STRING
+define('JWT_SECRET', 'your-secret-key-change-this-to-something-very-secure');
+define('JWT_EXPIRATION', 7 * 24 * 60 * 60); // 7 days in seconds
+
+// CORS Settings - Update with your React frontend URL
+define('ALLOWED_ORIGINS', [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://skbakers.com', // Your production domain
+    'https://www.skbakers.com' // With www
+]);
+
+// Upload settings
+define('UPLOAD_DIR', __DIR__ . '/../uploads/');
+define('MAX_FILE_SIZE', 10 * 1024 * 1024); // 10MB
+define('ALLOWED_IMAGE_TYPES', ['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+
+// Pagination
+define('DEFAULT_PAGE_SIZE', 20);
+define('MAX_PAGE_SIZE', 100);
+
+// Email settings (for order notifications, etc.)
+// Hostinger Email Configuration
+define('SMTP_HOST', 'smtp.hostinger.com');
+define('SMTP_PORT', 587);
+define('SMTP_USERNAME', 'info@upgradenow.in'); // Your Hostinger email address
+define('SMTP_PASSWORD', '0056@Ravi'); // Hostinger email password
+define('FROM_EMAIL', 'info@upgradenow.in'); // Email address shown in "From" field
+define('FROM_NAME', 'SK Bakers'); // Name shown in "From" field
+
+// Payment gateway settings (Stripe, Razorpay, etc.)
+define('STRIPE_SECRET_KEY', '');
+define('RAZORPAY_KEY_ID', '');
+define('RAZORPAY_KEY_SECRET', '');
+
+// Application settings
+define('APP_NAME', 'SK Bakers E-Commerce');
+define('APP_VERSION', '2.0.0');
+define('APP_ENV', 'production'); // 'development' or 'production'
+define('ENVIRONMENT', 'production'); // Required for OTP security check
+
+// Base URL - Production domain
+define('BASE_URL', 'https://skbakers.com');
+define('API_BASE_URL', 'https://skbakers.com/api');
+
+// Session settings
+ini_set('session.cookie_httponly', 1);
+ini_set('session.cookie_secure', 1);
+ini_set('session.use_strict_mode', 1);
+
+// Create upload directory if it doesn't exist
+if (!file_exists(UPLOAD_DIR)) {
+    mkdir(UPLOAD_DIR, 0755, true);
+}

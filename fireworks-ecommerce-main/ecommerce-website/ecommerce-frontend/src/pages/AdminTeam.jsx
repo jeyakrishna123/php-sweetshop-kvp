@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -33,12 +35,19 @@ const AdminTeam = () => {
     try {
       setLoading(true);
       const response = await axios.get('/api/team');
-      if (response.data.success) {
-        setTeamMembers(response.data.teamMembers.sort((a, b) => a.order - b.order));
+      if (response.data.success && Array.isArray(response.data.data?.team)) {
+        const sortedMembers = response.data.data.team.sort((a, b) =>
+          (a.displayOrder || 0) - (b.displayOrder || 0)
+        );
+        setTeamMembers(sortedMembers);
+      } else {
+        // Response was successful but data is missing or invalid
+        setTeamMembers([]);
       }
     } catch (error) {
       console.error('Error fetching team members:', error);
       showToast('Failed to fetch team members', 'error');
+      setTeamMembers([]);
     } finally {
       setLoading(false);
     }
@@ -47,16 +56,27 @@ const AdminTeam = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Map frontend field names to backend field names
+      const payload = {
+        name: formData.name,
+        role: formData.position, // Map position to role
+        bio: formData.bio,
+        image: formData.image,
+        socialLinks: formData.socialLinks,
+        displayOrder: formData.order, // Map order to displayOrder
+        isActive: formData.isActive
+      };
+
       if (editingMember) {
         // Update existing member
-        const response = await axios.put(`/api/team/${editingMember.id}`, formData);
+        const response = await axios.put(`/api/team/${editingMember.id}`, payload);
         if (response.data.success) {
           showToast('Team member updated successfully', 'success');
           fetchTeamMembers();
         }
       } else {
         // Create new member
-        const response = await axios.post('/api/team', formData);
+        const response = await axios.post('/api/team', payload);
         if (response.data.success) {
           showToast('Team member created successfully', 'success');
           fetchTeamMembers();
@@ -74,17 +94,17 @@ const AdminTeam = () => {
     setEditingMember(member);
     setFormData({
       name: member.name,
-      position: member.position,
-      bio: member.bio,
-      image: member.image,
+      position: member.role || member.position, // Map role to position for frontend
+      bio: member.bio || '',
+      image: member.image || '',
       socialLinks: member.socialLinks || {
         facebook: '',
         twitter: '',
         instagram: '',
         linkedin: ''
       },
-      order: member.order,
-      isActive: member.isActive
+      order: member.displayOrder || member.order || 0, // Map displayOrder to order for frontend
+      isActive: member.isActive !== undefined ? member.isActive : true
     });
     setShowModal(true);
   };

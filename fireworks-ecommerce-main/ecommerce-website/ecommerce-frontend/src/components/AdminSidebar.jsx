@@ -8,7 +8,6 @@ const menuItems = [
   { to: "/admin/analytics", label: "Analytics", icon: "analytics" },
   { to: "/admin/orders", label: "Orders", icon: "orders" },
   { to: "/admin/products", label: "Products", icon: "products" },
-  { to: "/admin/inventory", label: "Inventory", icon: "inventory" },
   { to: "/admin/customers", label: "Customers", icon: "customers" },
   { to: "/admin/reports", label: "Reports", icon: "reports" },
   { to: "/admin/marketing", label: "Marketing", icon: "marketing" },

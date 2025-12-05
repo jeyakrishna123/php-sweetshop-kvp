@@ -8,6 +8,7 @@ import EnhancedProductModal from "../components/EnhancedProductModal";
 import { exportProducts, importCSV, validateImportedProducts } from "../utils/exportUtils";
 import Pagination from "../components/Pagination";
 import AdvancedSearchFilter from "../components/AdvancedSearchFilter";
+import { getImageUrl, getResponsiveImageUrl } from "../utils/imageUtils";
 
 const AdminProducts = () => {
   const navigate = useNavigate();
@@ -91,14 +92,34 @@ const AdminProducts = () => {
     try {
       setLoading(true);
       setError("");
-      
+
       const response = await productAPI.getAllProducts();
-      
+
       if (response.success) {
-        const fetchedProducts = response.products;
-        
+        // API response structure after axios unwrapping:
+        // response = { success: true, message: "...", data: { data: [...], pagination: {...} } }
+        // So response.data = { data: [...], pagination: {...} }
+        // And response.data.data = [...products array...]
+
+        console.log('🔍 AdminProducts: Full API response:', response);
+        console.log('🔍 AdminProducts: response.data type:', typeof response.data);
+        console.log('🔍 AdminProducts: response.data keys:', response.data ? Object.keys(response.data) : 'null');
+        console.log('🔍 AdminProducts: response.data:', response.data);
+
+        // Correct path: response.data.data (pagination wrapper -> products array)
+        const fetchedProducts = response.data?.data || response.products || [];
+
+        console.log('🔍 AdminProducts: Extracted products:', fetchedProducts);
+        console.log('🔍 AdminProducts: Products count:', Array.isArray(fetchedProducts) ? fetchedProducts.length : 'not an array');
+
+        if (!Array.isArray(fetchedProducts)) {
+          console.error('❌ fetchedProducts is not an array:', fetchedProducts);
+          console.error('❌ Type:', typeof fetchedProducts);
+          throw new Error('Invalid products data format');
+        }
+
         const cleanedProducts = fetchedProducts.map(product => ({
-          _id: product._id,
+          _id: product.id || product._id, // Backend uses 'id', frontend expects '_id'
           name: product.name,
           price: product.price,
           stock: product.stock || product.countInStock || 0,
@@ -109,14 +130,15 @@ const AdminProducts = () => {
           description: product.description || "",
           user: product.user,
           seller: product.seller || "",
-          ratings: product.ratings || 0,
-          numOfReviews: product.numOfReviews || 0,
+          ratings: product.ratings || product.average_rating || 0,
+          numOfReviews: product.numOfReviews || product.num_reviews || 0,
           featured: product.featured || false,
           specifications: product.specifications || {},
           tags: product.tags || [],
-          isNew: product.isNew || false,
-          createdAt: product.createdAt,
-          updatedAt: product.updatedAt
+          isNew: product.is_new || product.isNew || false, // Backend uses 'is_new'
+          isActive: product.is_active !== undefined ? Boolean(Number(product.is_active)) : true, // Backend uses 'is_active'
+          createdAt: product.created_at || product.createdAt, // Backend uses 'created_at'
+          updatedAt: product.updated_at || product.updatedAt // Backend uses 'updated_at'
         }));
         
         // Remove duplicates based on _id
@@ -146,7 +168,7 @@ const AdminProducts = () => {
 
   const fetchCategories = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/categories', {
+      const response = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://skbakers.com/api' : 'http://localhost:8000/api'}/categories`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         }
@@ -184,20 +206,27 @@ const AdminProducts = () => {
     }
   }, [products]);
 
+  // Monitor modal state changes
+  useEffect(() => {
+    console.log('🔔 AdminProducts: modalOpen state changed to:', modalOpen);
+    console.log('🔔 AdminProducts: editingProduct state:', editingProduct);
+  }, [modalOpen, editingProduct]);
+
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this product? This action cannot be undone.")) {
       return;
     }
-    
+
     try {
       setDeletingProduct(id);
       await productAPI.deleteProduct(id);
-      
+
+      // Remove from list immediately
       setProducts(products.filter(p => p._id !== id));
       showToast("Product deleted successfully", "success");
     } catch (error) {
       console.error("Failed to delete product:", error);
-      showToast("Failed to delete product", "error");
+      showToast(error.message || "Failed to delete product", "error");
     } finally {
       setDeletingProduct(null);
     }
@@ -221,40 +250,70 @@ const AdminProducts = () => {
 
   const handleEdit = async (product) => {
     try {
-      const response = await productAPI.getProduct(product._id);
+      // Handle both 'id' (from backend) and '_id' (frontend format)
+      const productId = product._id || product.id;
+
+      if (!productId) {
+        throw new Error("Product ID is missing");
+      }
+
+      const response = await productAPI.getProduct(productId);
+
+      console.log('🔍 getProduct response:', response);
+      console.log('🔍 response.product:', response.product);
+      console.log('🔍 response.data:', response.data);
 
       if (response.success) {
-        const productData = response.product;
+        // Backend might return product in different locations
+        const productData = response.product || response.data?.product || response.data;
+
+        if (!productData) {
+          console.error('❌ Product data not found in response:', response);
+          throw new Error("Product data not found in response");
+        }
+
+        console.log('🔍 productData:', productData);
+
         const cleanedProductData = {
-          _id: productData._id,
+          _id: productData._id || productData.id,
           name: productData.name,
           price: productData.price,
-          originalPrice: productData.originalPrice || productData.price,
-          offerPrice: productData.offerPrice || productData.price,
-          discountPercentage: productData.discountPercentage || 0,
+          originalPrice: productData.originalPrice || productData.original_price || productData.price,
+          offerPrice: productData.offerPrice || productData.offer_price || productData.price,
+          discountPercentage: productData.discountPercentage || productData.discount_percentage || 0,
           stock: productData.stock || productData.countInStock || 0,
           images: productData.images || [],
           brand: productData.brand || "",
-          category: productData.category || "",
-          subCategory: productData.subCategory || "", // ADDED!
-          menuOption: productData.menuOption || "", // ADDED!
+          category: productData.category || productData.categoryName || productData.cakeFlavor || "",
+          subCategory: productData.subCategory || productData.sub_category || "", // Handle both camelCase and snake_case
+          menuOption: productData.menuOption || productData.menu_option || "", // Handle both camelCase and snake_case
+          // CRITICAL: Include menuCategory and selectedMenuFilter for dropdown display
+          menuCategory: productData.menuCategory || productData.menu_category || null,
+          selectedMenuFilter: productData.selectedMenuFilter || productData.menuCategory || productData.menu_category || null,
           description: productData.description || "",
           features: productData.features || "",
           specifications: productData.specifications || {},
           tags: productData.tags || [],
           user: productData.user,
           seller: productData.seller || "",
-          ratings: productData.ratings || 0,
-          numOfReviews: productData.numOfReviews || 0,
+          ratings: productData.ratings || productData.average_rating || 0,
+          numOfReviews: productData.numOfReviews || productData.num_reviews || 0,
           featured: productData.featured || false,
-          isActive: productData.isActive !== undefined ? productData.isActive : true,
-          isFeatured: productData.isFeatured || false,
-          isNew: productData.isNew || false,
-          isSpecial: productData.isSpecial || false,
-          isBestseller: productData.isBestseller || false,
-          createdAt: productData.createdAt,
-          updatedAt: productData.updatedAt
+          isActive: productData.isActive !== undefined ? productData.isActive : (productData.is_active !== undefined ? productData.is_active : true),
+          isFeatured: productData.isFeatured || productData.is_featured || false,
+          isNew: productData.isNew || productData.is_new || false,
+          isSpecial: productData.isSpecial || productData.is_special || false,
+          isBestseller: productData.isBestseller || productData.is_bestseller || false,
+          createdAt: productData.createdAt || productData.created_at,
+          updatedAt: productData.updatedAt || productData.updated_at
         };
+        
+        console.log('🔍 AdminProducts: cleanedProductData includes:', {
+          menuCategory: cleanedProductData.menuCategory,
+          selectedMenuFilter: cleanedProductData.selectedMenuFilter,
+          subCategory: cleanedProductData.subCategory,
+          menuOption: cleanedProductData.menuOption
+        });
         
         setEditingProduct(cleanedProductData);
         setModalOpen(true);
@@ -269,14 +328,18 @@ const AdminProducts = () => {
 
   const handleCreate = () => {
     console.log('🚀 AdminProducts: handleCreate called - opening modal for new product');
+    console.log('🚀 AdminProducts: Current modalOpen state:', modalOpen);
+    console.log('🚀 AdminProducts: Current editingProduct state:', editingProduct);
+    console.log('🚀 AdminProducts: Explicitly setting editingProduct to null');
     setEditingProduct(null);
     setModalOpen(true);
-    console.log('🚀 AdminProducts: Modal state set to open');
+    console.log('🚀 AdminProducts: Modal state set to true');
   };
 
   const handleModalClose = () => {
-    setModalOpen(false);
+    console.log('🚀 AdminProducts: Closing modal and resetting editingProduct');
     setEditingProduct(null);
+    setModalOpen(false);
   };
 
   // Duplicate detection and removal
@@ -409,35 +472,46 @@ const AdminProducts = () => {
     try {
       setIsSubmitting(true);
       console.log('🚀 AdminProducts: handleProductSave called with:', productData);
-      console.log('🚀 AdminProducts: editingProduct:', editingProduct);
-      
-      if (editingProduct) {
+      console.log('🚀 AdminProducts: editingProduct state:', editingProduct);
+      console.log('🚀 AdminProducts: editingProduct type:', typeof editingProduct);
+      console.log('🚀 AdminProducts: editingProduct is null?', editingProduct === null);
+      console.log('🚀 AdminProducts: editingProduct is undefined?', editingProduct === undefined);
+      console.log('🚀 AdminProducts: editingProduct has _id?', editingProduct?._id);
+
+      // CRITICAL: Check if we are in edit mode based on editingProduct state
+      const isEditMode = editingProduct && editingProduct._id;
+      console.log('🚀 AdminProducts: Mode determined:', isEditMode ? 'EDIT' : 'CREATE');
+
+      if (isEditMode) {
         // Update existing product
-        console.log('🚀 AdminProducts: Updating existing product with ID:', editingProduct._id);
+        console.log('🔄 AdminProducts: UPDATING existing product with ID:', editingProduct._id);
         const response = await productAPI.updateProduct(editingProduct._id, productData);
         console.log('🚀 AdminProducts: Update response:', response);
-        
+
         if (response.success) {
           showToast("Product updated successfully", "success");
         } else {
           throw new Error(response.message || 'Update failed');
         }
       } else {
-        // Create new product - check for duplicates first
-        const existingProduct = products.find(p => 
+        // Create new product - check for duplicates first (with safe property access)
+        console.log('➕ AdminProducts: CREATING NEW product');
+
+        const existingProduct = products.find(p =>
+          p?.name && productData?.name &&
           p.name.toLowerCase().trim() === productData.name.toLowerCase().trim() &&
           p.category === productData.category &&
-          p.brand === productData.brand
+          (p.brand || '') === (productData.brand || '')
         );
-        
+
         if (existingProduct) {
           throw new Error(`A product with the same name "${productData.name}" already exists in the same category. Please use a different name or edit the existing product.`);
         }
 
-        console.log('🚀 AdminProducts: Creating new product');
+        console.log('🚀 AdminProducts: No duplicate found, proceeding with creation');
         const response = await productAPI.createProduct(productData);
         console.log('🚀 AdminProducts: Create response:', response);
-        
+
         if (response.success) {
           showToast("Product created successfully", "success");
         } else {
@@ -459,31 +533,22 @@ const AdminProducts = () => {
     }
   };
 
-  const getImageUrl = (image) => {
-    if (typeof image === 'string') {
-      // If it's already a full URL, return as is
-      if (image.startsWith('http') || image.startsWith('data:')) {
-        return image;
+  // Helper to detect base64 images
+  const isBase64Image = (str) => {
+    if (!str || typeof str !== 'string') return false;
+    if (str.startsWith('data:image/')) return true;
+    // Check for raw base64 string (long string matching base64 pattern)
+    if (str.length > 100 && /^[A-Za-z0-9+\/]+=*$/.test(str)) {
+      if (!str.includes('/') && !str.includes('\\') && !str.includes('http')) {
+        return true;
       }
-      // If it's a relative URL from backend, make it absolute
-      if (image.startsWith('/uploads/')) {
-        return `http://localhost:3001${image}`;
-      }
-      return image;
     }
-    if (image && image.url) {
-      // Handle image object with url property
-      if (image.url.startsWith('http') || image.url.startsWith('data:')) {
-        return image.url;
-      }
-      if (image.url.startsWith('/uploads/')) {
-        return `http://localhost:3001${image.url}`;
-      }
-      return image.url;
-    }
-    // Default fallback image
-    return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%23f3f4f6'/%3E%3Ctext x='100' y='100' text-anchor='middle' dy='.3em' fill='%23666' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E";
+    return false;
   };
+
+  // Use the shared getImageUrl from imageUtils (already imported above)
+  // This ensures consistent image URL handling across the app
+  // No local getImageUrl function needed - using the one from imageUtils.js
 
   // Debug: Log products state changes
   console.log('🔍 AdminProducts: Rendering with products:', {
@@ -635,7 +700,7 @@ const AdminProducts = () => {
                 <div className="flex items-start space-x-3">
                   <img
                     className="w-16 h-16 rounded-lg object-contain"
-                    src={getImageUrl(product.images[0])}
+                    src={getImageUrl(product.images[0]) || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%23f3f4f6'/%3E%3Ctext x='100' y='100' text-anchor='middle' dy='.3em' fill='%23666' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E"}
                     alt={product.name}
                     onError={(e) => {
                       e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' fill='%23666' font-size='12'%3ENo Image%3C/text%3E%3C/svg%3E";
@@ -1013,10 +1078,11 @@ const AdminProducts = () => {
               <div className="relative h-32 bg-gray-100 flex items-center justify-center">
                 <img
                   className="w-full h-full object-contain"
-                  src={getImageUrl(product.images[0])}
+                  src={getResponsiveImageUrl(product.images?.[0])}
                   alt={product.name}
                   onError={(e) => {
-                    e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'%3E%3Crect width='300' height='200' fill='%23f3f4f6'/%3E%3Ctext x='150' y='100' text-anchor='middle' dy='.3em' fill='%23666' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E";
+                    console.log('❌ Admin product image failed to load:', product.images?.[0]);
+                    e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"%3E%3Crect width="300" height="200" fill="%23f3f4f6"/%3E%3Ctext x="150" y="100" text-anchor="middle" dy=".3em" fill="%23666" font-size="14"%3ENo Image%3C/text%3E%3C/svg%3E';
                   }}
                 />
                 {product.featured && (
@@ -1119,10 +1185,11 @@ const AdminProducts = () => {
                         <div className="flex-shrink-0 h-12 w-12">
                           <img
                             className="h-12 w-12 rounded-lg object-contain"
-                            src={getImageUrl(product.images[0])}
+                            src={getResponsiveImageUrl(product.images?.[0])}
                             alt={product.name}
                             onError={(e) => {
-                              e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' fill='%23666' font-size='12'%3ENo Image%3C/text%3E%3C/svg%3E";
+                              console.log('❌ Admin product image failed to load:', product.images?.[0]);
+                              e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%23666" font-size="12"%3ENo Image%3C/text%3E%3C/svg%3E';
                             }}
                           />
                         </div>
@@ -1189,13 +1256,17 @@ const AdminProducts = () => {
       )}
 
       {/* Enhanced Product Modal */}
-      {modalOpen && (
+      {modalOpen ? (
         <EnhancedProductModal
           product={editingProduct}
           onSave={handleProductSave}
           onClose={handleModalClose}
           categories={categories}
         />
+      ) : (
+        <div style={{ display: 'none' }}>
+          {/* Modal is closed - modalOpen: {String(modalOpen)} */}
+        </div>
       )}
     </div>
   );

@@ -9,14 +9,13 @@ import AdvancedSearch from "./AdvancedSearch";
 
 const Navbar = () => {
   const cartContext = useCart();
-  const { cartCount = 0 } = cartContext || {};
+  const { cartCount = 0, cartItemCount = 0 } = cartContext || {};
   const { wishlistCount = 0 } = useWishlist() || {};
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [userMenuPosition, setUserMenuPosition] = useState({ top: 0, right: 0 });
-  const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false);
   const [isCakesDropdownOpen, setIsCakesDropdownOpen] = useState(false);
   const [isThemeCakesDropdownOpen, setIsThemeCakesDropdownOpen] = useState(false);
   const [isByRelationshipDropdownOpen, setIsByRelationshipDropdownOpen] = useState(false);
@@ -24,12 +23,23 @@ const Navbar = () => {
   const [isBirthdayDropdownOpen, setIsBirthdayDropdownOpen] = useState(false);
   const [isAnniversaryDropdownOpen, setIsAnniversaryDropdownOpen] = useState(false);
   const [isMobileCategoryOpen, setIsMobileCategoryOpen] = useState(false);
+  const [isMobileTrendingOpen, setIsMobileTrendingOpen] = useState(false);
+  const [isMobileByTypeOpen, setIsMobileByTypeOpen] = useState(false);
+  const [isMobileByFlavoursOpen, setIsMobileByFlavoursOpen] = useState(false);
+  const [isMobileThemeCakesOpen, setIsMobileThemeCakesOpen] = useState(false);
+  const [isMobileByRelationshipOpen, setIsMobileByRelationshipOpen] = useState(false);
+  const [isMobileDessertsOpen, setIsMobileDessertsOpen] = useState(false);
+  const [isMobileBirthdayOpen, setIsMobileBirthdayOpen] = useState(false);
+  const [isMobileAnniversaryOpen, setIsMobileAnniversaryOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const [themeCakesDropdownPosition, setThemeCakesDropdownPosition] = useState({ top: 0, left: 0 });
   const [byRelationshipDropdownPosition, setByRelationshipDropdownPosition] = useState({ top: 0, left: 0 });
   const [dessertsDropdownPosition, setDessertsDropdownPosition] = useState({ top: 0, left: 0 });
   const [birthdayDropdownPosition, setBirthdayDropdownPosition] = useState({ top: 0, left: 0 });
   const [anniversaryDropdownPosition, setAnniversaryDropdownPosition] = useState({ top: 0, left: 0 });
+  const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef(null);
   const userMenuRef = useRef(null);
   const mobileMenuRef = useRef(null);
   const cakesDropdownRef = useRef(null);
@@ -155,10 +165,24 @@ const Navbar = () => {
             width: dropdownWidth
           });
         } else {
+          // Desktop: ensure dropdown doesn't go off-screen
+          const dropdownWidth = 320;
+          const spaceOnRight = window.innerWidth - rect.right;
+          const spaceOnLeft = rect.left;
+          
+          let rightPosition = window.innerWidth - rect.right;
+          let leftPosition = 'auto';
+          
+          // If not enough space on right, align to left
+          if (spaceOnRight < dropdownWidth && spaceOnLeft >= dropdownWidth) {
+            rightPosition = 'auto';
+            leftPosition = rect.left;
+          }
+          
           setUserMenuPosition({
             top: rect.bottom + window.scrollY,
-            right: window.innerWidth - rect.right,
-            left: 'auto',
+            right: rightPosition,
+            left: leftPosition,
             width: 'auto'
           });
         }
@@ -195,20 +219,38 @@ const Navbar = () => {
     }, 100);
   };
 
+  const handleSearchIconClick = () => {
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+      setIsSearchFocused(true);
+    }
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      console.log('🔍 Searching for:', searchQuery);
+      navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery("");
+    }
+  };
+
   const closeMobileMenu = () => {
     console.log('🔒 Closing mobile menu');
     setIsMobileMenuOpen(false);
   };
 
-
-  // Debug mobile menu state
-  console.log('🔍 Mobile menu state:', { isMobileMenuOpen, isUserMenuOpen });
+  // Debug mobile menu state changes
+  useEffect(() => {
+    console.log('🔍 Mobile menu state changed:', { isMobileMenuOpen, isUserMenuOpen });
+  }, [isMobileMenuOpen, isUserMenuOpen]);
 
   return (
     <>
       {/* Top Bar - Promotional Banner */}
-      <div className="bg-gradient-to-r from-red-800 via-red-700 to-red-600 text-white text-center py-3 px-4 shadow-lg" style={{
-        background: 'linear-gradient(to right, #C1174A, #B91C3C, #DC2626)'
+      <div className="bg-gradient-to-r from-red-800 via-red-700 to-red-600 text-white text-center py-2 px-4 shadow-lg sticky top-0 z-40" style={{
+        background: 'linear-gradient(to right, #C1174A, #B91C3C, #DC2626)',
+        marginBottom: '0'
       }}>
         <div className="w-full max-w-none flex items-center justify-center space-x-4">
           <div className="flex items-center space-x-2">
@@ -226,24 +268,25 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* Main Header */}
-      <nav className="bg-white/95 backdrop-blur-md shadow-lg sticky top-0 z-50 border-b border-gray-100 -mb-2">
-        <div className="w-full max-w-none px-3 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-20 lg:h-24">
-             {/* Logo Section - Mobile Optimized with SK BAKERS Logo */}
-             <div className="flex items-center flex-shrink-0">
-               <Link to="/" className="block">
+      {/* Main Header - Fixed Height and Alignment */}
+      <nav className="bg-white/95 backdrop-blur-md shadow-lg sticky z-50 border-b border-gray-100" style={{ top: '36px' }}>
+        <div className="w-full max-w-none px-2 sm:px-3 md:px-4 lg:px-6 overflow-visible">
+          <div className="flex items-center justify-between gap-1.5 sm:gap-2 md:gap-3" style={{ minHeight: '56px', height: '56px' }}>
+             {/* Logo Section - Fixed Size and Alignment */}
+             <div className="flex items-center flex-shrink-0 h-full overflow-visible">
+               <Link to="/" className="block h-full flex items-center overflow-visible">
                  <Logo 
                    size="default" 
-                   showText={true}
+                   showText={false}
                    onClick={() => handleNavigation("/")}
+                   className="overflow-visible"
                  />
                </Link>
              </div>
 
-            {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center space-x-8 ml-8">
-              <button 
+            {/* Desktop Navigation - Hidden since links are in category nav below */}
+            <div className="hidden">
+              <button
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -256,9 +299,9 @@ const Navbar = () => {
                 <Icon name="home" className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
                 <span>Home</span>
               </button>
-              
 
-              <button 
+
+              <button
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -272,7 +315,7 @@ const Navbar = () => {
                 <span>About</span>
               </button>
 
-              <button 
+              <button
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -287,40 +330,79 @@ const Navbar = () => {
               </button>
             </div>
 
-            {/* Search Bar */}
-            <div className="hidden lg:flex flex-1 max-w-md mx-8">
-              <div className="relative w-full flex">
-                <div className="relative flex-1">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            {/* Desktop Search Bar - Perfectly Aligned */}
+            <div className="hidden lg:flex flex-1 max-w-md mx-4 xl:mx-8 items-center">
+              <form onSubmit={handleSearch} className="relative w-full flex items-center" style={{ height: '40px' }}>
+                <div className="relative flex-1 flex items-center h-full">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                     <Icon name="search" className="w-5 h-5 text-gray-400" />
                   </div>
                   <input
+                    ref={searchInputRef}
                     type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search cakes, pastries..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                    className="w-full h-full pl-10 pr-4 py-0 text-sm border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 bg-white"
                   />
                 </div>
                 <button
-                  onClick={() => setIsAdvancedSearchOpen(true)}
-                  className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-r-lg transition-colors duration-200 flex items-center space-x-1"
+                  type="submit"
+                  className="px-4 h-full bg-red-600 hover:bg-red-700 text-white rounded-r-lg transition-colors duration-200 flex items-center justify-center font-medium text-sm whitespace-nowrap"
                 >
-                  <Icon name="filter" className="w-4 h-4" />
-                  <span className="text-sm">Filters</span>
+                  Search
                 </button>
-              </div>
+              </form>
             </div>
 
-            {/* Right Side Icons - Mobile Optimized */}
-            <div className="flex items-center space-x-2 sm:space-x-4 relative">
-              {/* Mobile Search Button - Only visible on smaller screens */}
-              <button 
-                onClick={() => setIsAdvancedSearchOpen(true)}
-                className="lg:hidden p-2 text-gray-600 hover:text-red-600 transition-colors duration-200 group"
-              >
-                <Icon name="search" className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
-              </button>
+            {/* Mobile Search Bar - Fixed Width and Alignment */}
+            <div className="lg:hidden flex items-center" style={{ width: 'calc(100% - 200px)', maxWidth: '280px', minWidth: '140px' }}>
+              <form onSubmit={handleSearch} className="relative w-full flex items-center gap-1.5" style={{ height: '36px' }}>
+                <div className="relative flex-1 min-w-0 flex items-center h-full">
+                  <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none z-10">
+                    <Icon name="search" className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search..."
+                    className={`w-full h-full pl-8 ${searchQuery ? 'pr-8' : 'pr-2.5'} py-0 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 bg-white shadow-sm`}
+                  />
+                  {/* Clear button - shows when there's text */}
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery("");
+                        if (searchInputRef.current) {
+                          searchInputRef.current.focus();
+                        }
+                      }}
+                      className="absolute inset-y-0 right-0 pr-2.5 flex items-center z-10 text-gray-400 hover:text-gray-600 transition-colors"
+                      aria-label="Clear search"
+                      style={{ height: '36px', minWidth: '28px' }}
+                    >
+                      <Icon name="x" className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <button
+                  type="submit"
+                  className="px-2 h-full bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-lg transition-all duration-200 flex-shrink-0 shadow-md hover:shadow-lg flex items-center justify-center"
+                  style={{ minWidth: '36px' }}
+                  aria-label="Search"
+                >
+                  <Icon name="search" className="w-4 h-4" />
+                </button>
+              </form>
+            </div>
 
-              {/* Wishlist - Mobile Optimized */}
+            {/* Right Side Icons - Perfectly Aligned */}
+            <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 relative flex-shrink-0" style={{ height: '36px' }}>
+
+              {/* Wishlist - Consistent Size */}
               <button 
                 onClick={(e) => {
                   e.preventDefault();
@@ -328,18 +410,19 @@ const Navbar = () => {
                   console.log('❤️ Wishlist button clicked');
                   handleNavigation("/wishlist");
                 }}
-                className="relative p-1.5 sm:p-2 text-gray-600 hover:text-red-600 transition-colors duration-200 group"
-                style={{ minHeight: '44px', minWidth: '44px' }}
+                className="relative flex items-center justify-center text-gray-600 hover:text-red-600 transition-colors duration-200 group rounded-lg hover:bg-red-50"
+                style={{ height: '36px', width: '36px', minWidth: '36px' }}
+                title="Wishlist"
               >
-                <Icon name="heart" className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform duration-200" />
+                <Icon name="heart" className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
                 {wishlistCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center text-[10px] sm:text-xs font-medium">
-                    {wishlistCount > 9 ? '9+' : wishlistCount}
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center text-[10px] sm:text-xs font-bold shadow-lg border-2 border-white ring-2 ring-red-600 animate-pulse">
+                    {wishlistCount > 99 ? '99+' : wishlistCount}
                   </span>
                 )}
               </button>
 
-              {/* Cart - Mobile Optimized */}
+              {/* Cart Icon - Visible on Desktop, Hidden on Mobile (footer has cart icon) */}
               <button 
                 onClick={(e) => {
                   e.preventDefault();
@@ -347,18 +430,19 @@ const Navbar = () => {
                   console.log('🛒 Cart button clicked');
                   handleNavigation("/cart");
                 }}
-                className="relative p-1.5 sm:p-2 text-gray-600 hover:text-red-600 transition-colors duration-200 group"
-                style={{ minHeight: '44px', minWidth: '44px' }}
+                className="relative flex items-center justify-center text-gray-600 hover:text-red-600 transition-colors duration-200 group hidden md:flex rounded-lg hover:bg-red-50"
+                style={{ height: '36px', width: '36px', minWidth: '36px' }}
+                title={`Cart (${cartItemCount} items)`}
               >
-                <Icon name="cart" className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform duration-200" />
-                {cartCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center text-[10px] sm:text-xs font-medium">
-                    {cartCount > 9 ? '9+' : cartCount}
+                <Icon name="shopping-cart" className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
+                {cartItemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center text-[10px] sm:text-xs font-bold shadow-lg border-2 border-white ring-2 ring-red-600 animate-pulse">
+                    {cartItemCount > 99 ? '99+' : cartItemCount}
                   </span>
                 )}
               </button>
 
-              {/* User Menu - Mobile Optimized */}
+              {/* User Menu - Mobile Optimized - Compact */}
               {user ? (
                 <div className="relative group" ref={userMenuRef} style={{ position: 'relative', zIndex: 1000 }}>
                   <button 
@@ -393,46 +477,69 @@ const Navbar = () => {
                           });
                         } else {
                           // Desktop: position dropdown connected to button (no gap)
+                          // Ensure dropdown doesn't go off-screen
+                          const dropdownWidth = 320;
+                          const spaceOnRight = window.innerWidth - rect.right;
+                          const spaceOnLeft = rect.left;
+                          
+                          let rightPosition = window.innerWidth - rect.right;
+                          let leftPosition = 'auto';
+                          
+                          // If not enough space on right, align to left
+                          if (spaceOnRight < dropdownWidth && spaceOnLeft >= dropdownWidth) {
+                            rightPosition = 'auto';
+                            leftPosition = rect.left;
+                          }
+                          
                           setUserMenuPosition({
                             top: rect.bottom + window.scrollY,
-                            right: window.innerWidth - rect.right,
-                            left: 'auto',
+                            right: rightPosition,
+                            left: leftPosition,
                             width: 'auto'
                           });
                         }
                       }
                       setIsUserMenuOpen(!isUserMenuOpen);
                     }}
-                    className="flex items-center space-x-1 sm:space-x-2 text-gray-600 hover:text-red-600 transition-all duration-200 p-1.5 sm:p-2 rounded-lg sm:rounded-xl hover:bg-red-50 group"
+                    className="flex items-center justify-center text-gray-600 hover:text-red-600 transition-all duration-200 rounded-lg hover:bg-red-50 group px-1.5 lg:px-2"
+                    style={{ 
+                      height: '36px', 
+                      minWidth: '36px',
+                      width: 'auto',
+                      maxWidth: '100%'
+                    }}
+                    title={user.name}
                   >
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 bg-white border-2 border-red-600 rounded-full flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-200">
-                      <Icon name="user" className="w-4 h-4 text-red-600" />
+                    <div className="w-6 h-6 bg-white border-2 border-red-600 rounded-full flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-200 flex-shrink-0">
+                      <Icon name="user" className="w-3.5 h-3.5 text-red-600" />
                     </div>
-                    <span className="hidden sm:block text-sm font-medium max-w-20 truncate">{user.name}</span>
-                    <Icon name="chevronDown" className="w-3 h-3 sm:w-4 sm:h-4 transition-transform duration-200 group-hover:rotate-180 text-red-500 group-hover:text-red-600 hidden sm:block" />
+                    <span className="hidden lg:block ml-1.5 text-xs font-medium max-w-[120px] truncate">{user.name}</span>
+                    <Icon name="chevronDown" className={`w-3 h-3 transition-transform duration-200 text-red-500 group-hover:text-red-600 hidden lg:block ml-0.5 flex-shrink-0 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
                   
                   {/* User Dropdown Menu */}
                   {isUserMenuOpen && (
                     <>
                       {/* Mobile backdrop overlay */}
-                      <div 
-                        className="fixed inset-0 bg-black bg-opacity-25 z-40 lg:hidden"
+                      <div
+                        className="fixed inset-0 bg-black bg-opacity-25 lg:hidden"
+                        style={{ zIndex: 99998 }}
                         onClick={() => setIsUserMenuOpen(false)}
                       />
                       
-                      <div 
+                      <div
                         className="bg-white rounded-2xl shadow-2xl border border-gray-200 py-3 backdrop-blur-sm sm:py-4"
-                        style={{ 
+                        style={{
                           position: 'fixed',
                           top: userMenuPosition.top,
                           right: userMenuPosition.right,
                           left: userMenuPosition.left,
                           width: userMenuPosition.width || '288px',
-                          zIndex: 10000,
+                          zIndex: 99999,
                           maxWidth: 'calc(100vw - 32px)',
                           maxHeight: 'calc(100vh - 100px)',
-                          overflowY: 'auto'
+                          overflowY: 'auto',
+                          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
                         }}
                       >
                       {/* User Info Header */}
@@ -479,17 +586,27 @@ const Navbar = () => {
                           <span className="font-medium text-sm sm:text-base">My Orders</span>
                         </button>
                         
-                        <button 
+                        <button
                           onClick={() => {
                             handleNavigation("/wishlist");
                             setIsUserMenuOpen(false);
                           }}
                           className="flex items-center space-x-3 sm:space-x-4 w-full text-left px-4 py-3 sm:px-5 sm:py-3.5 text-gray-700 hover:text-pink-600 hover:bg-pink-50 transition-all duration-200 group"
                         >
-                          <div className="w-7 h-7 sm:w-8 sm:h-8 bg-pink-100 rounded-lg flex items-center justify-center group-hover:bg-pink-200 transition-colors flex-shrink-0">
+                          <div className="relative w-7 h-7 sm:w-8 sm:h-8 bg-pink-100 rounded-lg flex items-center justify-center group-hover:bg-pink-200 transition-colors flex-shrink-0">
                             <Icon name="heart" className="w-4 h-4 text-pink-600" />
+                            {wishlistCount > 0 && (
+                              <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[8px] rounded-full h-4 w-4 flex items-center justify-center font-bold">
+                                {wishlistCount > 9 ? '9+' : wishlistCount}
+                              </span>
+                            )}
                           </div>
-                          <span className="font-medium text-sm sm:text-base">My Wishlist</span>
+                          <span className="font-medium text-sm sm:text-base">
+                            My Wishlist
+                            {wishlistCount > 0 && (
+                              <span className="ml-2 text-xs text-pink-600">({wishlistCount})</span>
+                            )}
+                          </span>
                         </button>
                         
                         {user.role === 'admin' || user.role === 'superadmin' ? (
@@ -528,35 +645,38 @@ const Navbar = () => {
                   )}
                 </div>
               ) : (
-                <div className="flex items-center space-x-1 sm:space-x-2">
+                <div className="flex items-center gap-1.5">
                   <button 
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      console.log('🔑 Desktop Login button clicked');
+                      console.log('🔑 Login button clicked');
                       handleNavigation("/login");
                     }}
-                    className="text-gray-600 hover:text-red-600 transition-colors duration-200 text-xs sm:text-sm font-medium px-2 py-1 rounded"
-                    style={{ minHeight: '44px' }}
+                    className="flex items-center justify-center gap-1.5 text-gray-700 hover:text-red-600 transition-colors duration-200 px-2.5 py-1.5 rounded-lg hover:bg-red-50 group border border-gray-300 hover:border-red-300"
+                    style={{ height: '36px', minHeight: '36px' }}
+                    title="Login"
                   >
-                    Login
+                    <Icon name="user" className="w-4 h-4 text-gray-600 group-hover:text-red-600 transition-colors duration-200" />
+                    <span className="text-xs font-medium whitespace-nowrap">Login</span>
                   </button>
                   <button 
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      console.log('📝 Desktop Signup button clicked');
+                      console.log('📝 Signup button clicked');
                       handleNavigation("/signup");
                     }}
-                    className="bg-gradient-to-r from-red-600 to-red-700 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-xs sm:text-sm font-medium"
-                    style={{ minHeight: '44px' }}
+                    className="bg-gradient-to-r from-red-600 to-red-700 text-white px-2.5 py-1.5 rounded-lg hover:shadow-lg transition-all duration-200 text-xs font-medium whitespace-nowrap"
+                    style={{ height: '36px', minHeight: '36px' }}
+                    title="Sign Up"
                   >
                     Sign Up
                   </button>
                 </div>
               )}
 
-              {/* Enhanced Mobile Menu Button */}
+              {/* Enhanced Mobile Menu Button - Consistent Size */}
               <button
                 onClick={(e) => {
                   e.preventDefault();
@@ -566,14 +686,13 @@ const Navbar = () => {
                   console.log('📱 Screen width:', window.innerWidth);
                   setIsMobileMenuOpen(!isMobileMenuOpen);
                 }}
-                className="lg:hidden mobile-menu-button nav-button p-2 sm:p-3 text-gray-600 hover:text-red-600 transition-all duration-300 rounded-xl sm:rounded-2xl hover:bg-gradient-to-r hover:from-red-50 hover:to-red-50 shadow-sm hover:shadow-lg group relative"
+                className="lg:hidden mobile-menu-button nav-button flex items-center justify-center text-gray-600 hover:text-red-600 transition-all duration-300 rounded-lg hover:bg-gradient-to-r hover:from-red-50 hover:to-red-50 shadow-sm hover:shadow-lg group relative"
                 aria-label="Toggle mobile menu"
                 style={{ 
-                  minWidth: '44px',
-                  minHeight: '44px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
+                  width: '36px',
+                  height: '36px',
+                  minWidth: '36px',
+                  minHeight: '36px'
                 }}
               >
                 <div className="relative w-5 h-5 sm:w-6 sm:h-6">
@@ -595,16 +714,44 @@ const Navbar = () => {
           </div>
         </div>
 
-        {/* Category Navigation Bar - Hidden on Mobile */}
-        <div className="hidden lg:block bg-white border-b border-gray-200 relative -mb-2" style={{ zIndex: 100000 }}>
-          <div className="w-full max-w-none px-3 sm:px-6 lg:px-8">
-            <div className="flex items-center space-x-8 py-3 overflow-x-auto overflow-y-visible scrollbar-hide">
+        {/* Category Navigation Bar - Responsive Design */}
+        <div className="bg-white border-b border-gray-200 relative -mb-2" style={{ zIndex: 100000 }}>
+          <div className="w-full max-w-none px-2 sm:px-3 md:px-4 lg:px-6 xl:px-8">
+            <div className="flex items-center space-x-3 sm:space-x-4 md:space-x-6 lg:space-x-8 py-2 sm:py-2.5 md:py-3 overflow-x-auto overflow-y-visible scrollbar-hide">
 
-              <button 
-                onClick={() => handleNavigation("/products?category=Daughters%20Day%20Cakes")}
-                className="text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-colors"
+              {/* Home */}
+              <button
+                onClick={() => handleNavigation("/")}
+                className="text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-colors flex items-center gap-1"
               >
-                Daughters Day Cakes
+                <Icon name="home" className="w-4 h-4" />
+                Home
+              </button>
+
+              {/* About */}
+              <button
+                onClick={() => handleNavigation("/about")}
+                className="text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-colors flex items-center gap-1"
+              >
+                <Icon name="info" className="w-4 h-4" />
+                About
+              </button>
+
+              {/* Contact */}
+              <button
+                onClick={() => handleNavigation("/contact")}
+                className="text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-colors flex items-center gap-1"
+              >
+                <Icon name="mail" className="w-4 h-4" />
+                Contact
+              </button>
+
+              <button
+                onClick={() => handleNavigation("/products?category=Daughters%20Day%20Cakes")}
+                className="text-gray-700 hover:text-red-600 font-medium text-xs sm:text-sm whitespace-nowrap transition-colors px-2 py-1.5 sm:px-3 sm:py-2 rounded-md hover:bg-red-50 active:bg-red-100"
+              >
+                <span className="hidden sm:inline">Daughters Day Cakes</span>
+                <span className="sm:hidden">Daughters Day</span>
               </button>
               <div className="relative" ref={cakesDropdownRef} style={{ zIndex: 100001 }}>
                 <button 
@@ -623,14 +770,14 @@ const Navbar = () => {
                     
                     setIsCakesDropdownOpen(!isCakesDropdownOpen);
                   }}
-                  className={`text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-all duration-200 relative px-3 py-2 rounded-md ${
+                  className={`text-gray-700 hover:text-red-600 font-medium text-xs sm:text-sm whitespace-nowrap transition-all duration-200 relative px-2 sm:px-3 py-1.5 sm:py-2 rounded-md flex items-center gap-1 ${
                     isCakesDropdownOpen 
                       ? 'text-red-600 bg-red-50 border-b-2 border-red-600' 
-                      : 'hover:bg-gray-50'
+                      : 'hover:bg-red-50 active:bg-red-100'
                   }`}
                 >
-                  Cakes
-                  <svg className="inline-block w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span>Cakes</span>
+                  <svg className="inline-block w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -777,14 +924,15 @@ const Navbar = () => {
                     
                     setIsThemeCakesDropdownOpen(!isThemeCakesDropdownOpen);
                   }}
-                  className={`text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-all duration-200 relative px-3 py-2 rounded-md ${
+                  className={`text-gray-700 hover:text-red-600 font-medium text-xs sm:text-sm whitespace-nowrap transition-all duration-200 relative px-2 sm:px-3 py-1.5 sm:py-2 rounded-md flex items-center gap-1 ${
                     isThemeCakesDropdownOpen 
                       ? 'text-red-600 bg-red-50 border-b-2 border-red-600' 
-                      : 'hover:bg-gray-50'
+                      : 'hover:bg-red-50 active:bg-red-100'
                   }`}
                 >
-                  Theme Cakes
-                  <svg className="inline-block w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span className="hidden sm:inline">Theme Cakes</span>
+                  <span className="sm:hidden">Theme</span>
+                  <svg className="inline-block w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -834,7 +982,7 @@ const Navbar = () => {
                               <button
                                 key={item}
                                 onClick={() => {
-                                  handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                                  handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                                   setIsThemeCakesDropdownOpen(false);
                                 }}
                                 className="block w-full text-left text-xs text-gray-700 hover:text-red-600 py-1.5 px-2 rounded-md hover:bg-red-50 transition-all duration-200"
@@ -860,7 +1008,7 @@ const Navbar = () => {
                               <button
                                 key={item}
                                 onClick={() => {
-                                  handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                                  handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                                   setIsThemeCakesDropdownOpen(false);
                                 }}
                                 className="block w-full text-left text-xs text-gray-700 hover:text-red-600 py-1.5 px-2 rounded-md hover:bg-red-50 transition-all duration-200"
@@ -886,7 +1034,7 @@ const Navbar = () => {
                               <button
                                 key={item}
                                 onClick={() => {
-                                  handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                                  handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                                   setIsThemeCakesDropdownOpen(false);
                                 }}
                                 className="block w-full text-left text-xs text-gray-700 hover:text-red-600 py-1.5 px-2 rounded-md hover:bg-red-50 transition-all duration-200"
@@ -912,7 +1060,7 @@ const Navbar = () => {
                               <button
                                 key={item}
                                 onClick={() => {
-                                  handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                                  handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                                   setIsThemeCakesDropdownOpen(false);
                                 }}
                                 className="block w-full text-left text-xs text-gray-700 hover:text-red-600 py-1.5 px-2 rounded-md hover:bg-red-50 transition-all duration-200"
@@ -944,14 +1092,15 @@ const Navbar = () => {
                     
                     setIsByRelationshipDropdownOpen(!isByRelationshipDropdownOpen);
                   }}
-                  className={`text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-all duration-200 relative px-3 py-2 rounded-md ${
+                  className={`text-gray-700 hover:text-red-600 font-medium text-xs sm:text-sm whitespace-nowrap transition-all duration-200 relative px-2 sm:px-3 py-1.5 sm:py-2 rounded-md flex items-center gap-1 ${
                     isByRelationshipDropdownOpen 
                       ? 'text-red-600 bg-red-50 border-b-2 border-red-600' 
-                      : 'hover:bg-gray-50'
+                      : 'hover:bg-red-50 active:bg-red-100'
                   }`}
                 >
-                  By Relationship
-                  <svg className="inline-block w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span className="hidden sm:inline">By Relationship</span>
+                  <span className="sm:hidden">Relationship</span>
+                  <svg className="inline-block w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -999,7 +1148,7 @@ const Navbar = () => {
                               <button
                                 key={item}
                                 onClick={() => {
-                                  handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                                  handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                                   setIsByRelationshipDropdownOpen(false);
                                 }}
                                 className="block w-full text-left text-xs text-gray-700 hover:text-red-600 py-1.5 px-2 rounded-md hover:bg-red-50 transition-all duration-200"
@@ -1023,7 +1172,7 @@ const Navbar = () => {
                               <button
                                 key={item}
                                 onClick={() => {
-                                  handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                                  handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                                   setIsByRelationshipDropdownOpen(false);
                                 }}
                                 className="block w-full text-left text-xs text-gray-700 hover:text-red-600 py-1.5 px-2 rounded-md hover:bg-red-50 transition-all duration-200"
@@ -1055,14 +1204,14 @@ const Navbar = () => {
                     
                     setIsDessertsDropdownOpen(!isDessertsDropdownOpen);
                   }}
-                  className={`text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-all duration-200 relative px-3 py-2 rounded-md ${
+                  className={`text-gray-700 hover:text-red-600 font-medium text-xs sm:text-sm whitespace-nowrap transition-all duration-200 relative px-2 sm:px-3 py-1.5 sm:py-2 rounded-md flex items-center gap-1 ${
                     isDessertsDropdownOpen 
                       ? 'text-red-600 bg-red-50 border-b-2 border-red-600' 
-                      : 'hover:bg-gray-50'
+                      : 'hover:bg-red-50 active:bg-red-100'
                   }`}
                 >
-                  Desserts
-                  <svg className="inline-block w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span>Desserts</span>
+                  <svg className="inline-block w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -1101,7 +1250,7 @@ const Navbar = () => {
                           <button
                             key={item}
                             onClick={() => {
-                              handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                              handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                               setIsDessertsDropdownOpen(false);
                             }}
                             className="block w-full text-left text-sm text-gray-700 hover:text-red-600 py-2 px-3 rounded-md hover:bg-red-50 transition-all duration-200"
@@ -1131,14 +1280,14 @@ const Navbar = () => {
                     
                     setIsBirthdayDropdownOpen(!isBirthdayDropdownOpen);
                   }}
-                  className={`text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-all duration-200 relative px-3 py-2 rounded-md ${
+                  className={`text-gray-700 hover:text-red-600 font-medium text-xs sm:text-sm whitespace-nowrap transition-all duration-200 relative px-2 sm:px-3 py-1.5 sm:py-2 rounded-md flex items-center gap-1 ${
                     isBirthdayDropdownOpen 
                       ? 'text-red-600 bg-red-50 border-b-2 border-red-600' 
-                      : 'hover:bg-gray-50'
+                      : 'hover:bg-red-50 active:bg-red-100'
                   }`}
                 >
-                  Birthday
-                  <svg className="inline-block w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span>Birthday</span>
+                  <svg className="inline-block w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -1177,7 +1326,7 @@ const Navbar = () => {
                           <button
                             key={item}
                             onClick={() => {
-                              handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                              handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                               setIsBirthdayDropdownOpen(false);
                             }}
                             className="block w-full text-left text-sm text-gray-700 hover:text-red-600 py-2 px-3 rounded-md hover:bg-red-50 transition-all duration-200"
@@ -1207,14 +1356,15 @@ const Navbar = () => {
                     
                     setIsAnniversaryDropdownOpen(!isAnniversaryDropdownOpen);
                   }}
-                  className={`text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-all duration-200 relative px-3 py-2 rounded-md ${
+                  className={`text-gray-700 hover:text-red-600 font-medium text-xs sm:text-sm whitespace-nowrap transition-all duration-200 relative px-2 sm:px-3 py-1.5 sm:py-2 rounded-md flex items-center gap-1 ${
                     isAnniversaryDropdownOpen 
                       ? 'text-red-600 bg-red-50 border-b-2 border-red-600' 
-                      : 'hover:bg-gray-50'
+                      : 'hover:bg-red-50 active:bg-red-100'
                   }`}
                 >
-                  Anniversary
-                  <svg className="inline-block w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span className="hidden sm:inline">Anniversary</span>
+                  <span className="sm:hidden">Anniv.</span>
+                  <svg className="inline-block w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -1253,7 +1403,7 @@ const Navbar = () => {
                           <button
                             key={item}
                             onClick={() => {
-                              handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                              handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
                               setIsAnniversaryDropdownOpen(false);
                             }}
                             className="block w-full text-left text-sm text-gray-700 hover:text-red-600 py-2 px-3 rounded-md hover:bg-red-50 transition-all duration-200"
@@ -1268,390 +1418,582 @@ const Navbar = () => {
               </div>
               <button 
                 onClick={() => handleNavigation("/products")}
-                className="text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-colors"
+                className="text-gray-700 hover:text-red-600 font-medium text-xs sm:text-sm whitespace-nowrap transition-colors px-2 py-1.5 sm:px-3 sm:py-2 rounded-md hover:bg-red-50 active:bg-red-100"
               >
-                Customized Cakes
+                <span className="hidden sm:inline">Customized Cakes</span>
+                <span className="sm:hidden">Customized</span>
               </button>
             </div>
           </div>
         </div>
 
-        {/* Enhanced Mobile Menu - Slide Down Animation */}
-        {isMobileMenuOpen && (
-          <div 
-            className="lg:hidden mobile-menu-container bg-white border-t border-gray-200 shadow-2xl backdrop-blur-sm"
-            style={{ 
-              zIndex: 9998,
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              width: '100%',
-              display: 'block',
-              animation: 'slideDown 0.3s ease-out'
-            }}
-            ref={mobileMenuRef}
-          >
-            
-             {/* Mobile Logo Header */}
-             <div className="px-3 py-4 bg-gradient-to-r from-red-50 to-red-50 border-b border-gray-100">
-               <div className="flex items-center justify-center">
-                 <Logo 
-                   size="mobile" 
-                   showText={false}
-                   onClick={() => {
-                     handleNavigation("/");
-                     setIsMobileMenuOpen(false);
-                   }}
-                 />
-               </div>
-             </div>
-            
-            {/* Compact Mobile Search Bar */}
-            <div className="px-3 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Icon name="search" className="w-4 h-4 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search cakes..."
-                  className="w-full pl-10 pr-16 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 transition-all duration-300 text-sm bg-white shadow-sm hover:shadow-md"
-                />
-                <button
-                  onClick={() => setIsAdvancedSearchOpen(true)}
-                  className="absolute right-1 top-1/2 transform -translate-y-1/2 p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-                >
-                  <Icon name="filter" className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-
-            {/* Mobile Categories Section - Sidebar Style */}
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 lg:hidden">
-              <div className="fixed left-0 top-0 h-full w-80 bg-amber-50 shadow-2xl overflow-y-auto flex flex-col">
-                {/* Header */}
-                <div className="flex-shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-4 flex items-center justify-between">
-                  <h2 className="text-lg font-bold text-gray-900">All Categories</h2>
-              <button 
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-amber-100"
-                  >
-                    <Icon name="x" className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Search Bar */}
-                <div className="flex-shrink-0 px-4 py-3 bg-amber-50 border-b border-amber-200">
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Icon name="search" className="w-4 h-4 text-gray-400" />
-                </div>
-                    <input
-                      type="text"
-                      placeholder="Search cakes..."
-                      className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 text-sm bg-white"
-                    />
-                  </div>
-                </div>
-
-                {/* Categories List - Scrollable */}
-                <div className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-                  {/* Daughters Day Cakes */}
-                  <button 
-                    onClick={() => {
-                      handleNavigation("/products");
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="flex items-center w-full text-left px-3 py-3 text-gray-700 hover:bg-amber-100 rounded-lg group"
-                  >
-                    <Icon name="info" className="w-4 h-4 text-gray-500 mr-3" />
-                    <span className="font-medium">Daughters Day Cakes</span>
-              </button>
-
-                  {/* Cakes - Expandable */}
-                  <div className="space-y-1">
-              <button 
-                      onClick={() => setIsMobileCategoryOpen(!isMobileCategoryOpen)}
-                      className="flex items-center justify-between w-full text-left px-3 py-3 text-gray-700 hover:bg-amber-100 rounded-lg group"
-                    >
-                      <div className="flex items-center">
-                        <Icon name="info" className="w-4 h-4 text-gray-500 mr-3" />
-                        <span className="font-bold">Cakes</span>
-                      </div>
-                      <Icon 
-                        name={isMobileCategoryOpen ? "minus" : "plus"} 
-                        className="w-4 h-4 text-gray-400" 
-                      />
-                    </button>
-                    
-                    {isMobileCategoryOpen && (
-                      <div className="ml-7 space-y-1">
-                        {['Theme Cakes', 'By Relationship'].map((item) => (
-                          <button
-                            key={item}
-                            onClick={() => {
-                  handleNavigation("/products");
-                              setIsMobileMenuOpen(false);
-                }}
-                            className="flex items-center justify-between w-full text-left px-3 py-2 text-gray-600 hover:bg-amber-100 rounded-lg group"
-              >
-                            <div className="flex items-center">
-                              <Icon name="info" className="w-3 h-3 text-gray-500 mr-3" />
-                              <span className="text-sm">{item}</span>
-                </div>
-                            <Icon name="plus" className="w-3 h-3 text-gray-400" />
-              </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Other Categories */}
-                  {['Desserts', 'Birthday', 'Anniversary'].map((category) => (
-              <button 
-                      key={category}
-                      onClick={() => {
-                        handleNavigation("/products");
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className="flex items-center justify-between w-full text-left px-3 py-3 text-gray-700 hover:bg-amber-100 rounded-lg group"
-                    >
-                      <div className="flex items-center">
-                        <Icon name="info" className="w-4 h-4 text-gray-500 mr-3" />
-                        <span className="font-medium">{category}</span>
-                </div>
-                      <Icon name="plus" className="w-4 h-4 text-gray-400" />
-                    </button>
-                  ))}
-                </div>
-
-                {/* User Actions - Fixed at Bottom */}
-                <div className="flex-shrink-0 px-4 py-4 bg-amber-50 border-t border-amber-200 space-y-3">
-                  {user ? (
-                    <>
-                      <button 
-                        onClick={() => {
-                          handleNavigation("/profile");
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className="flex items-center w-full text-left px-3 py-3 text-gray-700 hover:bg-amber-100 rounded-lg group"
-                      >
-                        <Icon name="user" className="w-4 h-4 text-gray-500 mr-3" />
-                        <span className="font-medium">Profile</span>
-              </button>
-
-              <button 
-                        onClick={() => {
-                          handleNavigation("/myorder");
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className="flex items-center w-full text-left px-3 py-3 text-gray-700 hover:bg-amber-100 rounded-lg group"
-                      >
-                        <Icon name="package" className="w-4 h-4 text-gray-500 mr-3" />
-                        <span className="font-medium">Orders</span>
-                      </button>
-                      
-                      {(user.role === 'admin' || user.role === 'superadmin') && (
-                        <button 
-                          onClick={() => {
-                            handleNavigation("/admin");
-                            setIsMobileMenuOpen(false);
-                          }}
-                          className="flex items-center w-full text-left px-3 py-3 text-gray-700 hover:bg-amber-100 rounded-lg group"
-                        >
-                          <Icon name="shield" className="w-4 h-4 text-gray-500 mr-3" />
-                          <span className="font-medium">Admin</span>
-                        </button>
-                      )}
-                      
-                      <button 
-                        onClick={handleLogout}
-                        className="flex items-center w-full text-left px-3 py-3 text-red-600 hover:bg-red-50 rounded-lg group"
-                      >
-                        <Icon name="logout" className="w-4 h-4 text-red-600 mr-3" />
-                        <span className="font-medium">Sign Out</span>
-                      </button>
-                    </>
-                  ) : (
-                    <div className="space-y-2">
-                      <button 
-                        onClick={() => {
-                          handleNavigation("/login");
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-                      >
-                        Login
-                      </button>
-                      <button 
-                        onClick={() => {
-                          handleNavigation("/signup");
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className="w-full bg-white hover:bg-gray-50 text-red-600 font-medium py-2 px-4 rounded-lg border border-red-600 transition-colors"
-                      >
-                        Sign Up
-                      </button>
-                </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Optimized Mobile User Actions */}
-            <div className="px-3 py-4 border-t border-gray-100 space-y-3 bg-gradient-to-b from-gray-50 to-white">
-              {user ? (
-                <div className="space-y-3">
-                  {/* Compact User Profile Card */}
-                  <div className="flex items-center space-x-3 px-4 py-3 bg-white rounded-xl shadow-md border border-gray-100">
-                    <div className="w-12 h-12 bg-gradient-to-br from-red-600 to-red-700 rounded-xl flex items-center justify-center shadow-md">
-                      <span className="text-white text-lg font-bold">
-                        {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-base text-gray-900 truncate">{user.name}</h3>
-                      <p className="text-sm text-gray-600 truncate">{user.email}</p>
-                      <div className="inline-flex items-center px-2 py-0.5 bg-red-100 text-red-800 text-xs font-medium rounded-full mt-1 capitalize">
-                        {user.role || 'user'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Compact Quick Actions */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <button 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('👤 Profile button clicked');
-                        handleNavigation("/profile");
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className="flex flex-col items-center space-y-1.5 px-3 py-3 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 group"
-                      style={{ minHeight: '48px' }}
-                    >
-                      <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center group-hover:bg-red-200 transition-colors">
-                        <Icon name="user" className="w-4 h-4 text-red-600" />
-                      </div>
-                      <span className="text-xs font-medium text-gray-700">Profile</span>
-                    </button>
-
-                    <button 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('📦 Orders button clicked');
-                        handleNavigation("/myorder");
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className="flex flex-col items-center space-y-1.5 px-3 py-3 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 group"
-                      style={{ minHeight: '48px' }}
-                    >
-                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
-                        <Icon name="package" className="w-4 h-4 text-green-600" />
-                      </div>
-                      <span className="text-xs font-medium text-gray-700">Orders</span>
-                    </button>
-
-                    {user.role === 'admin' || user.role === 'superadmin' ? (
-                      <button 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          console.log('🛡️ Admin button clicked');
-                          handleNavigation("/admin");
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className="flex flex-col items-center space-y-1.5 px-3 py-3 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 group"
-                        style={{ minHeight: '48px' }}
-                      >
-                        <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-                          <Icon name="shield" className="w-4 h-4 text-purple-600" />
-                        </div>
-                        <span className="text-xs font-medium text-gray-700">Admin</span>
-                      </button>
-                    ) : (
-                      <button 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          console.log('❤️ Wishlist button clicked');
-                          handleNavigation("/wishlist");
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className="flex flex-col items-center space-y-1.5 px-3 py-3 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 group"
-                        style={{ minHeight: '48px' }}
-                      >
-                        <div className="w-8 h-8 bg-pink-100 rounded-lg flex items-center justify-center group-hover:bg-pink-200 transition-colors">
-                          <Icon name="heart" className="w-4 h-4 text-pink-600" />
-                        </div>
-                        <span className="text-xs font-medium text-gray-700">Wishlist</span>
-                      </button>
-                    )}
-                  </div>
-
-                  <button 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      console.log('🚪 Logout button clicked');
-                      handleLogout();
-                    }}
-                    className="flex items-center justify-center space-x-2 w-full px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-all duration-300 font-medium bg-white shadow-sm hover:shadow-md group"
-                    style={{ minHeight: '48px' }}
-                  >
-                    <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center group-hover:bg-red-200 transition-colors">
-                      <Icon name="logout" className="w-4 h-4 text-red-600" />
-                    </div>
-                    <span className="text-base">Sign Out</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="text-center py-3">
-                    <h3 className="text-base font-semibold text-gray-900 mb-1">Welcome to Sweet Dreams Bakery</h3>
-                    <p className="text-xs text-gray-600">Sign in for exclusive benefits</p>
-                  </div>
-                  
-                  <button 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      console.log('🔑 Login button clicked');
-                      handleNavigation("/login");
-                    }}
-                    className="w-full text-center px-4 py-3 text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-300 font-medium bg-white shadow-sm hover:shadow-md border border-gray-200 hover:border-red-300"
-                    style={{ minHeight: '48px' }}
-                  >
-                    Sign In
-                  </button>
-                  
-                  <button 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      console.log('📝 Signup button clicked');
-                      handleNavigation("/signup");
-                    }}
-                    className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-3 rounded-xl hover:shadow-lg transition-all duration-300 font-medium shadow-md"
-                    style={{ minHeight: '48px' }}
-                  >
-                    Create Account
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Advanced Search Modal */}
-        <AdvancedSearch 
-          isOpen={isAdvancedSearchOpen} 
-          onClose={() => setIsAdvancedSearchOpen(false)} 
+        <AdvancedSearch
+          isOpen={isAdvancedSearchOpen}
+          onClose={() => setIsAdvancedSearchOpen(false)}
         />
       </nav>
+
+      {/* Enhanced Mobile Menu - Moved Outside Nav for Proper Overlay */}
+      {isMobileMenuOpen && (
+        <>
+          {/* Backdrop Overlay */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-60 z-[9998] lg:hidden"
+            onClick={() => setIsMobileMenuOpen(false)}
+            style={{ touchAction: 'none' }}
+          />
+
+          {/* Sidebar Menu */}
+          <div
+            ref={mobileMenuRef}
+            className="fixed left-0 top-0 h-full w-80 max-w-[85vw] shadow-2xl z-[9999] lg:hidden overflow-hidden flex flex-col"
+            style={{
+              animation: 'slideInLeft 0.3s ease-out',
+              backgroundColor: '#FEF3E2',
+              opacity: 1
+            }}
+          >
+            {/* Header */}
+            <div className="flex-shrink-0 bg-gradient-to-r from-red-600 to-red-700 px-6 py-3 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white">Menu</h2>
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"
+                aria-label="Close menu"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Categories List - Bakingo Style with Scrolling */}
+            <div className="flex-1 overflow-y-auto" style={{ backgroundColor: '#FEF3E2' }}>
+              {/* Home */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => {
+                    handleNavigation("/");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-medium">Home</span>
+                  </div>
+                </button>
+              </div>
+
+              {/* About */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => {
+                    handleNavigation("/about");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-medium">About</span>
+                  </div>
+                </button>
+              </div>
+
+              {/* Contact */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => {
+                    handleNavigation("/contact");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-medium">Contact</span>
+                  </div>
+                </button>
+              </div>
+
+              {/* FAQ */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => {
+                    handleNavigation("/faq");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-medium">FAQ</span>
+                  </div>
+                </button>
+              </div>
+
+              {/* Daughters Day Cakes */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => {
+                    handleNavigation("/products?category=Daughters%20Day%20Cakes");
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-medium">Daughters Day Cakes</span>
+                  </div>
+                </button>
+              </div>
+
+              {/* Cakes - Expandable */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => setIsMobileCategoryOpen(!isMobileCategoryOpen)}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-bold">Cakes</span>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-gray-600 transition-transform duration-200 ${isMobileCategoryOpen ? 'rotate-0' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    {isMobileCategoryOpen ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    )}
+                  </svg>
+                </button>
+
+                {/* Cakes Subcategories */}
+                {isMobileCategoryOpen && (
+                  <div className="bg-white border-t border-gray-100">
+                    {/* Trending Cakes - Expandable */}
+                    <div>
+                      <button
+                        onClick={() => setIsMobileTrendingOpen(!isMobileTrendingOpen)}
+                        className="flex items-center justify-between w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors group"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">Trending Cakes</span>
+                        </div>
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isMobileTrendingOpen ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"} />
+                        </svg>
+                      </button>
+                      {isMobileTrendingOpen && (
+                        <div className="bg-amber-50 border-t border-gray-100">
+                          {['Gourmet Cakes', 'Bento Cakes', 'Labubu Cakes', 'Cricket Cakes', 'Pinata Cakes', 'Drip Cakes'].map((item) => (
+                            <button
+                              key={item}
+                              onClick={() => {
+                                handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                                setIsMobileMenuOpen(false);
+                              }}
+                              className="flex items-center w-full px-4 py-2 pl-20 text-left hover:bg-white transition-colors"
+                            >
+                              <span className="text-gray-600 text-xs">{item}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* By Type - Expandable */}
+                    <div>
+                      <button
+                        onClick={() => setIsMobileByTypeOpen(!isMobileByTypeOpen)}
+                        className="flex items-center justify-between w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors group"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">By Type</span>
+                        </div>
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isMobileByTypeOpen ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"} />
+                        </svg>
+                      </button>
+                      {isMobileByTypeOpen && (
+                        <div className="bg-amber-50 border-t border-gray-100">
+                          {['Bestsellers', 'Eggless Cakes', 'Photo Cakes', 'Cheese Cakes', 'Half Cakes', 'Heart Shaped'].map((item) => (
+                            <button
+                              key={item}
+                              onClick={() => {
+                                handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                                setIsMobileMenuOpen(false);
+                              }}
+                              className="flex items-center w-full px-4 py-2 pl-20 text-left hover:bg-white transition-colors"
+                            >
+                              <span className="text-gray-600 text-xs">{item}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* By Flavours - Expandable */}
+                    <div>
+                      <button
+                        onClick={() => setIsMobileByFlavoursOpen(!isMobileByFlavoursOpen)}
+                        className="flex items-center justify-between w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors group"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">By Flavours</span>
+                        </div>
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isMobileByFlavoursOpen ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"} />
+                        </svg>
+                      </button>
+                      {isMobileByFlavoursOpen && (
+                        <div className="bg-amber-50 border-t border-gray-100">
+                          {['Chocolate Cakes', 'Butterscotch Cakes', 'Pineapple Cakes', 'Kit Kat Cakes', 'Black Forest Cakes', 'Red Velvet Cakes'].map((item) => (
+                            <button
+                              key={item}
+                              onClick={() => {
+                                handleNavigation(`/products?category=${encodeURIComponent(item)}`);
+                                setIsMobileMenuOpen(false);
+                              }}
+                              className="flex items-center w-full px-4 py-2 pl-20 text-left hover:bg-white transition-colors"
+                            >
+                              <span className="text-gray-600 text-xs">{item}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                )}
+              </div>
+
+              {/* Theme Cakes - Expandable */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => setIsMobileThemeCakesOpen(!isMobileThemeCakesOpen)}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-bold">Theme Cakes</span>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-gray-600 transition-transform duration-200`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    {isMobileThemeCakesOpen ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    )}
+                  </svg>
+                </button>
+
+                {isMobileThemeCakesOpen && (
+                  <div className="bg-white border-t border-gray-100">
+                    {/* Kids Cakes */}
+                    <div className="px-4 py-2 bg-gray-50">
+                      <span className="text-xs font-bold text-gray-600">Kids Cakes</span>
+                    </div>
+                    {['1st Birthday Cakes', 'Princess Cakes', 'Animal Cakes', 'Masha & The Bear Cakes', 'Cakes For Boys', 'Cakes For Girls', 'Number Cakes', 'Alphabet Cakes'].map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => {
+                          handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="flex items-center w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">{item}</span>
+                        </div>
+                      </button>
+                    ))}
+
+                    {/* Character Cakes */}
+                    <div className="px-4 py-2 bg-gray-50">
+                      <span className="text-xs font-bold text-gray-600">Character Cakes</span>
+                    </div>
+                    {['Spiderman Cakes', 'Unicorn Cakes', 'Barbie Cakes', 'Harry Potter Cakes', 'Avenger Cakes', 'Peppa Pig Cakes', 'Doraemon Cakes', 'Naruto Cakes'].map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => {
+                          handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="flex items-center w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">{item}</span>
+                        </div>
+                      </button>
+                    ))}
+
+                    {/* Grown Up Cakes */}
+                    <div className="px-4 py-2 bg-gray-50">
+                      <span className="text-xs font-bold text-gray-600">Grown Up Cakes</span>
+                    </div>
+                    {['Makeup Cakes', 'Bride To Be Cakes', 'Wedding Cakes', 'Gym Cakes', 'Party Cakes', 'BTS Cakes'].map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => {
+                          handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="flex items-center w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">{item}</span>
+                        </div>
+                      </button>
+                    ))}
+
+                    {/* More Cakes */}
+                    <div className="px-4 py-2 bg-gray-50">
+                      <span className="text-xs font-bold text-gray-600">More Cakes</span>
+                    </div>
+                    {['Jungle Theme Cakes', 'Cricket Cakes', 'Football Cakes', 'Basketball Cakes', 'Rainbow Cakes', 'Butterfly Cakes', 'Shinchan Cakes', 'Dinosaur Cakes'].map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => {
+                          handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="flex items-center w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">{item}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* By Relationship */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => setIsMobileByRelationshipOpen(!isMobileByRelationshipOpen)}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-bold">By Relationship</span>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-gray-600 transition-transform duration-200`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    {isMobileByRelationshipOpen ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    )}
+                  </svg>
+                </button>
+
+                {isMobileByRelationshipOpen && (
+                  <div className="bg-white border-t border-gray-100">
+                    {/* For Him */}
+                    <div className="px-4 py-2 bg-gray-50">
+                      <span className="text-xs font-bold text-gray-600">For Him</span>
+                    </div>
+                    {['Cakes For Friend', 'Cakes For Father', 'Cakes For Husband', 'Cakes For Brother', 'Cakes For Boyfriend'].map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => {
+                          handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="flex items-center w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">{item}</span>
+                        </div>
+                      </button>
+                    ))}
+
+                    {/* For Her */}
+                    <div className="px-4 py-2 bg-gray-50">
+                      <span className="text-xs font-bold text-gray-600">For Her</span>
+                    </div>
+                    {['Cakes For Friend', 'Cakes For Mother', 'Cakes For Wife', 'Cakes For Girlfriend', 'Cakes For Sister'].map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => {
+                          handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="flex items-center w-full px-4 py-3 pl-12 text-left hover:bg-amber-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">{item}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Desserts */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => setIsMobileDessertsOpen(!isMobileDessertsOpen)}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-bold">Desserts</span>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-gray-600 transition-transform duration-200`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    {isMobileDessertsOpen ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    )}
+                  </svg>
+                </button>
+
+                {isMobileDessertsOpen && (
+                  <div className="bg-white border-t border-gray-100">
+                    {['All Desserts', 'Jar Cakes', 'Pastries', 'Cheese Cakes', 'Cup Cakes', 'Brownies', 'Cookies', 'Tea Cakes'].map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => {
+                          handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="flex items-center w-full px-4 py-3 pl-8 text-left hover:bg-amber-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">{item}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Birthday */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => setIsMobileBirthdayOpen(!isMobileBirthdayOpen)}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-bold">Birthday</span>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-gray-600 transition-transform duration-200`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    {isMobileBirthdayOpen ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    )}
+                  </svg>
+                </button>
+
+                {isMobileBirthdayOpen && (
+                  <div className="bg-white border-t border-gray-100">
+                    {['Birthday Cakes', '1st Birthday Cakes', 'Birthday Photo Cakes', 'Half Birthday Cakes'].map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => {
+                          handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="flex items-center w-full px-4 py-3 pl-8 text-left hover:bg-amber-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">{item}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Anniversary */}
+              <div className="border-b border-gray-200">
+                <button
+                  onClick={() => setIsMobileAnniversaryOpen(!isMobileAnniversaryOpen)}
+                  className="flex items-center justify-between w-full px-4 py-4 text-left hover:bg-white transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-lg">✦</span>
+                    <span className="text-gray-800 font-bold">Anniversary</span>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-gray-600 transition-transform duration-200`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    {isMobileAnniversaryOpen ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    )}
+                  </svg>
+                </button>
+
+                {isMobileAnniversaryOpen && (
+                  <div className="bg-white border-t border-gray-100">
+                    {['All Anniversary Cakes', '1st Anniversary Cakes', '25th Anniversary Cakes', 'Anniversary Cakes For Parents', '5th Anniversary Cakes', 'Anniversary Photo Cakes', '10th Anniversary Cakes', '50th Anniversary Cakes'].map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => {
+                          handleNavigation(`/products?subCategory=${encodeURIComponent(item)}`);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="flex items-center w-full px-4 py-3 pl-8 text-left hover:bg-amber-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">✦</span>
+                          <span className="text-gray-700 text-sm">{item}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 };

@@ -1,0 +1,208 @@
+# Hostinger Production .htaccess
+# Optimized for shared hosting environment
+
+# Set default index file FIRST (for root directory access)
+DirectoryIndex frontend/index.html index.html index.php
+
+# Enable rewrite engine
+RewriteEngine On
+
+# Force HTTPS (uncomment if you have SSL)
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Fix MIME types for JavaScript and CSS - CRITICAL FOR PRODUCTION
+# This must be FIRST to ensure correct MIME types for all files
+<IfModule mod_mime.c>
+    # JavaScript MIME types - application/javascript takes priority
+    AddType application/javascript .js
+    AddType application/javascript .mjs
+    # Fallback JavaScript MIME type
+    AddType text/javascript .js
+    # CSS MIME types
+    AddType text/css .css
+    # JSON
+    AddType application/json .json
+    # Fonts
+    AddType font/woff .woff
+    AddType font/woff2 .woff2
+    AddType application/font-ttf .ttf
+    AddType application/vnd.ms-fontobject .eot
+</IfModule>
+
+# Force correct MIME types - CRITICAL
+<IfModule mod_headers.c>
+    # Force JavaScript MIME type for ALL JS files (including assets and rewritten paths)
+    <FilesMatch "\.(js|mjs)$">
+        Header set Content-Type "application/javascript; charset=utf-8"
+        Header set X-Content-Type-Options "nosniff"
+        Header set Cache-Control "public, max-age=31536000"
+    </FilesMatch>
+    
+    # Force CSS MIME type for ALL CSS files (including assets and rewritten paths)
+    <FilesMatch "\.css$">
+        Header set Content-Type "text/css; charset=utf-8"
+        Header set X-Content-Type-Options "nosniff"
+        Header set Cache-Control "public, max-age=31536000"
+    </FilesMatch>
+    
+    # Other static files
+    <FilesMatch "\.(png|jpg|jpeg|gif|ico|svg|webp)$">
+        Header set Cache-Control "public, max-age=31536000"
+    </FilesMatch>
+    
+    # HTML files
+    <FilesMatch "\.(html|htm)$">
+        Header set Content-Type "text/html; charset=utf-8"
+        Header set Cache-Control "public, max-age=3600"
+    </FilesMatch>
+    
+    # Security headers
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options SAMEORIGIN
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</IfModule>
+
+# CRITICAL: Additional MIME type handling for rewritten paths
+# This ensures /frontend/assets/ files get correct MIME types even after rewrite
+<IfModule mod_mime.c>
+    # These AddType directives work for all paths, including rewritten ones
+    # Already set above, but ensuring they're active
+</IfModule>
+
+# CRITICAL: Serve static assets directly - Must come before catch-all rules
+# Handle ALL static files FIRST - This is the most important rule
+
+# STEP 1: Check if file exists at /frontend/assets/ path (for direct access)
+RewriteCond %{REQUEST_URI} ^/frontend/assets/(.+)$
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteCond %{REQUEST_URI} \.(js|mjs|css|png|jpg|jpeg|gif|ico|svg|webp|woff|woff2|ttf|eot|json|map)$ [NC]
+RewriteRule ^frontend/assets/(.+)$ - [L]
+
+# STEP 2: Rewrite /admin/assets/ to /frontend/assets/ and serve if exists
+RewriteCond %{REQUEST_URI} ^/admin/assets/(.+)$
+RewriteCond %{DOCUMENT_ROOT}/frontend/assets/$1 -f
+RewriteRule ^admin/assets/(.+)$ /frontend/assets/$1 [L]
+
+# STEP 3: Rewrite /assets/ to /frontend/assets/ and serve if exists
+RewriteCond %{REQUEST_URI} ^/assets/(.+)$
+RewriteCond %{DOCUMENT_ROOT}/frontend/assets/$1 -f
+RewriteRule ^assets/(.+)$ /frontend/assets/$1 [L]
+
+# STEP 4: Serve ANY other existing file with these extensions directly
+# This catches files in root, frontend/, etc. that weren't caught above
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteCond %{REQUEST_URI} \.(js|mjs|css|png|jpg|jpeg|gif|ico|svg|webp|woff|woff2|ttf|eot|json|map)$ [NC]
+RewriteRule ^(.*)$ - [L]
+
+# Handle specific frontend JavaScript files (must come before API routing)
+RewriteCond %{REQUEST_URI} ^/otp_input_fix\.js$
+RewriteRule ^otp_input_fix\.js$ /frontend/otp_input_fix.js [L]
+
+RewriteCond %{REQUEST_URI} ^/mobile_api_connectivity_fix\.js$
+RewriteRule ^mobile_api_connectivity_fix\.js$ /mobile_api_connectivity_fix.js [L]
+
+# Handle frontend image files (billlogo.webp, logo.webp, etc.)
+# These files are in /frontend/ but referenced from root
+RewriteCond %{REQUEST_URI} ^/billlogo\.webp$
+RewriteCond %{DOCUMENT_ROOT}/frontend/billlogo.webp -f
+RewriteRule ^billlogo\.webp$ /frontend/billlogo.webp [L]
+
+RewriteCond %{REQUEST_URI} ^/logo\.webp$
+RewriteCond %{DOCUMENT_ROOT}/frontend/logo.webp -f
+RewriteRule ^logo\.webp$ /frontend/logo.webp [L]
+
+# Handle sk-bakers-logo.png (can be in root or frontend)
+RewriteCond %{REQUEST_URI} ^/sk-bakers-logo\.png$
+RewriteCond %{DOCUMENT_ROOT}/frontend/sk-bakers-logo.png -f
+RewriteRule ^sk-bakers-logo\.png$ /frontend/sk-bakers-logo.png [L]
+
+# CRITICAL: Handle uploads directory FIRST (before API routing)
+# Serve image files directly without going through PHP to prevent 422 errors
+
+# First, check if file exists in /backend/uploads/ and serve it
+RewriteCond %{REQUEST_URI} ^/backend/uploads/(.+)$
+RewriteCond %{DOCUMENT_ROOT}/backend/uploads/$1 -f
+RewriteCond %{REQUEST_URI} \.(jpg|jpeg|png|gif|webp|svg|ico|pdf)$ [NC]
+RewriteRule ^backend/uploads/(.+)$ - [L]
+
+# If file doesn't exist in /backend/uploads/, return 404 (prevent 422 errors)
+RewriteCond %{REQUEST_URI} ^/backend/uploads/(.+)$
+RewriteCond %{DOCUMENT_ROOT}/backend/uploads/$1 !-f
+RewriteCond %{REQUEST_URI} \.(jpg|jpeg|png|gif|webp|svg|ico|pdf)$ [NC]
+RewriteRule ^backend/uploads/(.+)$ - [R=404,L]
+
+# Also handle /uploads/ path (without /backend/) - redirect to /backend/uploads/
+RewriteCond %{REQUEST_URI} ^/uploads/(.+)$
+RewriteCond %{DOCUMENT_ROOT}/backend/uploads/$1 -f
+RewriteCond %{REQUEST_URI} \.(jpg|jpeg|png|gif|webp|svg|ico|pdf)$ [NC]
+RewriteRule ^uploads/(.+)$ /backend/uploads/$1 [L]
+
+# If file doesn't exist for /uploads/ path, return 404
+RewriteCond %{REQUEST_URI} ^/uploads/(.+)$
+RewriteCond %{DOCUMENT_ROOT}/backend/uploads/$1 !-f
+RewriteCond %{REQUEST_URI} \.(jpg|jpeg|png|gif|webp|svg|ico|pdf)$ [NC]
+RewriteRule ^uploads/(.+)$ - [R=404,L]
+
+# API routing - Handle all /api/* requests
+# CRITICAL: Preserve the full path including /api/ for backend routing
+RewriteCond %{REQUEST_URI} ^/api/(.*)$
+RewriteRule ^api/(.*)$ /backend/index.php?path=%{REQUEST_URI} [QSA,L]
+
+# CRITICAL: Serve frontend/assets/ files directly with correct MIME types
+# This ensures /frontend/assets/* files are served correctly (no rewrite, just serve)
+# Files in /frontend/assets/ are served directly by Apache with correct MIME types from AddType directives above
+
+# Admin panel routing - Exclude /admin/assets/ from this rule
+RewriteCond %{REQUEST_URI} ^/admin/(.*)$
+RewriteCond %{REQUEST_URI} !^/admin/assets/
+RewriteRule ^admin/(.*)$ /frontend/index.html [QSA,L]
+
+# Custom error pages
+ErrorDocument 404 /frontend/404.html
+ErrorDocument 500 /frontend/500.html
+
+# Root directory - serve frontend index (MUST come before other rewrites)
+RewriteCond %{REQUEST_URI} ^/$
+RewriteRule ^$ /frontend/index.html [L]
+
+# Handle all other requests to main site (SPA routing)
+# Exclude static files, API, backend, admin, and assets
+# CRITICAL: Check file existence in frontend/assets/ before serving HTML
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !^/api/
+RewriteCond %{REQUEST_URI} !^/backend/
+RewriteCond %{REQUEST_URI} !^/admin/assets/
+RewriteCond %{REQUEST_URI} !^/admin/
+RewriteCond %{REQUEST_URI} !^/assets/
+RewriteCond %{REQUEST_URI} !^/frontend/assets/
+RewriteCond %{REQUEST_URI} !^/frontend/
+RewriteCond %{REQUEST_URI} !\.(js|mjs|css|png|jpg|jpeg|gif|ico|svg|webp|woff|woff2|ttf|eot|json|map)$ [NC]
+RewriteRule ^(.*)$ /frontend/index.html [QSA,L]
+
+# Prevent access to sensitive files (Apache 2.4 syntax with 2.2 fallback)
+<FilesMatch "\.(env|log|sql|md|txt)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Enable compression
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+</IfModule>

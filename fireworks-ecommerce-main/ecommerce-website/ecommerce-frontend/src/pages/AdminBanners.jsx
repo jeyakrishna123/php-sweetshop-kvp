@@ -33,13 +33,27 @@ const AdminBanners = () => {
       setLoading(true);
       const response = await bannerAPI.getAllBanners();
       if (response.success) {
-        setBanners(response.banners);
+        // Handle nested response structure and ensure it's an array
+        const bannersData = response.data?.banners || response.banners || [];
+
+        if (!Array.isArray(bannersData)) {
+          console.error('Banners is not an array:', bannersData);
+          setBanners([]);
+          showToast('Invalid banners data format', 'error');
+          return;
+        }
+
+        setBanners(bannersData);
         // Save to localStorage for frontend access
-        localStorage.setItem('banners', JSON.stringify(response.banners));
-        console.log('💾 Banners saved to localStorage:', response.banners.length);
+        localStorage.setItem('banners', JSON.stringify(bannersData));
+        console.log('💾 Banners saved to localStorage:', bannersData.length);
+      } else {
+        setBanners([]);
+        showToast(response.message || 'Failed to fetch banners', 'error');
       }
     } catch (error) {
       console.error('Error fetching banners:', error);
+      setBanners([]);
       showToast('Failed to fetch banners', 'error');
     } finally {
       setLoading(false);
@@ -360,12 +374,12 @@ const AdminBanners = () => {
                               {/* Banner Image */}
                               <div className="flex-shrink-0">
                                 <img
-                                  src={`${getImageUrl(banner.mobileImageUrl || banner.desktopImageUrl || banner.imageUrl)}?t=${Date.now()}`}
+                                  src={`${getImageUrl(banner.mobileImageUrl || banner.desktopImageUrl || banner.imageUrl) || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="96" height="64" viewBox="0 0 96 64"%3E%3Crect width="96" height="64" fill="%23f3f4f6"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23666" font-size="10"%3ENo Image%3C/text%3E%3C/svg%3E'}?t=${Date.now()}`}
                                   alt={banner.title}
                                   className="w-24 h-16 object-cover rounded-lg"
                                   onError={(e) => {
                                     console.log('❌ Admin banner image failed to load:', e.target.src);
-                                    e.target.src = 'https://via.placeholder.com/96x64?text=No+Image';
+                                    e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="96" height="64" viewBox="0 0 96 64"%3E%3Crect width="96" height="64" fill="%23f3f4f6"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23666" font-size="10"%3ENo Image%3C/text%3E%3C/svg%3E';
                                   }}
                                 />
                                 {banner.deviceType === 'both' && (

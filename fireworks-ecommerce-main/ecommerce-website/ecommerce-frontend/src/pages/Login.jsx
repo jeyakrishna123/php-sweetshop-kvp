@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Icon from '../components/Icon';
+import ForgotPasswordModal from '../components/ForgotPasswordModal';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -11,6 +12,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   
   const { login, error: contextError, clearError } = useAuth();
   const navigate = useNavigate();
@@ -75,10 +77,10 @@ const Login = () => {
       <div className="w-full max-w-md">
         {/* Logo Section */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-red-600 to-red-700 rounded-2xl shadow-lg mb-6">
-            <Icon name="shoppingBag" size="xl" className="text-white" />
+          <div className="flex items-center justify-center mb-3">
+            <Icon name="user" size="lg" className="text-red-600 mr-3" />
+            <h1 className="text-3xl font-bold text-gray-900">Welcome back</h1>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-3">Welcome back</h1>
           <p className="text-gray-600 text-lg">Sign in to your account to continue</p>
         </div>
 
@@ -140,6 +142,17 @@ const Login = () => {
                   />
                 </button>
               </div>
+            </div>
+
+            {/* Forgot Password Link */}
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-sm text-red-600 hover:text-red-700 hover:underline transition-colors duration-200"
+              >
+                Forgot your password?
+              </button>
             </div>
 
             {/* Error Messages */}
@@ -226,6 +239,16 @@ const Login = () => {
           </p>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      <ForgotPasswordModal
+        isOpen={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
+        onSuccess={() => {
+          setShowForgotPassword(false);
+          // Optionally show success message
+        }}
+      />
     </div>
   );
 };

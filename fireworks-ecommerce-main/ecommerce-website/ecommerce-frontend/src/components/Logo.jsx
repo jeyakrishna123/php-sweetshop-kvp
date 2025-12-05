@@ -15,7 +15,7 @@ const Logo = ({
       tagline: 'text-xs'
     },
     default: {
-      logo: 'w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24',
+      logo: 'w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-20 lg:h-20',
       text: 'text-sm sm:text-base md:text-lg lg:text-xl',
       tagline: 'text-xs sm:text-sm md:text-base'
     },
@@ -36,20 +36,14 @@ const Logo = ({
   return (
     <div className={`flex items-center space-x-2 sm:space-x-3 group flex-shrink-0 ${className}`} onClick={onClick}>
       {/* Logo Image */}
-      <div className="relative flex-shrink-0">
+      <div className="relative flex-shrink-0 overflow-visible">
         {/* Desktop Logo */}
         <img 
-          src="/logo.webp" 
+          src="/sk-bakers-logo.png" 
           alt="SK BAKERS HOME-MADE CAKES AND CAFE" 
-          className={`hidden sm:block ${config.logo} object-contain group-hover:scale-110 transition-transform duration-300 drop-shadow-lg shadow-md rounded-lg`}
-          style={{ 
-            minWidth: '48px', 
-            minHeight: '48px',
-            maxWidth: '120px',
-            maxHeight: '120px'
-          }}
+          className={`hidden sm:block ${config.logo} object-contain transition-all duration-300 group-hover:scale-105`}
+          style={{ maxHeight: '56px', width: 'auto', height: 'auto' }}
           onError={(e) => {
-            // Fallback to icon if logo fails to load
             e.target.style.display = 'none';
             e.target.nextElementSibling.style.display = 'flex';
           }}
@@ -57,17 +51,10 @@ const Logo = ({
         
         {/* Mobile Logo */}
         <img 
-          src="/logo.webp" 
+          src="/sk-bakers-logo.png" 
           alt="SK BAKERS" 
-          className={`block sm:hidden ${config.logo} object-contain group-hover:scale-110 transition-transform duration-300 drop-shadow-lg shadow-md rounded-lg`}
-          style={{ 
-            minWidth: '40px', 
-            minHeight: '40px',
-            maxWidth: '80px',
-            maxHeight: '80px'
-          }}
+          className={`block sm:hidden ${config.logo} object-contain transition-all duration-300 group-hover:scale-105`}
           onError={(e) => {
-            // Fallback to icon if logo fails to load
             e.target.style.display = 'none';
             e.target.nextElementSibling.style.display = 'flex';
           }}

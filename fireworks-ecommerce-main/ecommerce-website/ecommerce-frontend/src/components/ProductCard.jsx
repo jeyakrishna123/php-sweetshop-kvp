@@ -66,6 +66,12 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
       return;
     }
 
+    // Prevent multiple simultaneous requests
+    if (wishlistLoading) {
+      console.log('⏳ Wishlist operation already in progress');
+      return;
+    }
+
     console.log('User:', user);
     console.log('Token exists:', !!token);
     console.log('Product ID:', product._id);
@@ -81,14 +87,28 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
       } else {
         // Add to wishlist
         console.log('Adding to wishlist...');
-        await axios.post("/api/wishlist/add", { productId: product._id });
-        setIsInWishlist(true);
-        showToast("Added to wishlist", "success");
+        try {
+          await axios.post("/api/wishlist/add", { productId: product._id });
+          setIsInWishlist(true);
+          showToast("Added to wishlist", "success");
+        } catch (addError) {
+          // Handle 409 separately - it means already in wishlist
+          if (addError.response?.status === 409) {
+            console.log('⚠️ Product already in wishlist, syncing state');
+            setIsInWishlist(true);  // Sync state with backend
+            showToast("Already in wishlist", "info");
+          } else {
+            throw addError;  // Re-throw other errors to outer catch
+          }
+        }
       }
     } catch (error) {
       console.log('Wishlist toggle error:', error.response?.data || error.message);
-      const errorMessage = error.response?.data?.message || "Failed to update wishlist";
-      showToast(errorMessage, "error");
+      // Handle other errors (409 already handled in inner catch)
+      if (error.response?.status !== 409) {
+        const errorMessage = error.response?.data?.message || "Failed to update wishlist";
+        showToast(errorMessage, "error");
+      }
     } finally {
       setWishlistLoading(false);
     }
@@ -186,8 +206,12 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
 
   // Get the image URL, handling both 'image' and 'images' fields
   const getImageUrl = () => {
+    // Use local placeholder instead of external service
+    const baseUrl = import.meta.env.PROD ? 'https://skbakers.com' : 'http://localhost:8000';
+    const defaultPlaceholder = `${baseUrl}/backend/uploads/products/default-product.png`;
+    
     if (imageError) {
-      return 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=400&fit=crop';
+      return defaultPlaceholder;
     }
     
     if (product.image) {
@@ -204,19 +228,26 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
       }
     }
     
-    return 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=400&fit=crop';
+    return defaultPlaceholder;
   };
 
-  const handleImageError = useCallback(() => {
+  const handleImageError = useCallback((e) => {
     setImageError(true);
+    
+    // Use data URI directly to prevent 404 errors (skip placeholder since it might not exist)
+    const dataUriFallback = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"%3E%3Crect width="400" height="400" fill="%23f3f4f6"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23666" font-size="20"%3ENo Image%3C/text%3E%3C/svg%3E';
+    
+    // Go directly to data URI to avoid 404 for placeholder
+    e.target.src = dataUriFallback;
+    e.target.onerror = null; // Prevent infinite loop
   }, []);
 
   if (viewMode === "list") {
     return (
-      <div className="card overflow-hidden">
-        <div className="flex">
+      <div className="bg-white rounded-lg shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-200 overflow-hidden">
+        <div className="flex flex-col sm:flex-row">
           {/* Product Image */}
-          <div className="relative group cursor-pointer w-48 h-48 flex-shrink-0" onClick={handleProductClick}>
+          <div className="relative group cursor-pointer w-full sm:w-48 h-48 sm:h-48 flex-shrink-0" onClick={handleProductClick}>
             <img
               src={getImageUrl()}
               alt={product.name}
@@ -259,11 +290,11 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
           </div>
 
           {/* Product Info */}
-          <div className="flex-1 p-6">
-            <div className="flex justify-between items-start mb-4">
+          <div className="flex-1 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-3 sm:mb-4">
               <div className="flex-1">
-                <h3 
-                  className="font-display text-gray-900 text-xl mb-2 cursor-pointer hover:text-blue-600 transition-colors duration-200"
+                <h3
+                  className="font-display text-gray-900 text-lg sm:text-xl mb-2 cursor-pointer hover:text-blue-600 transition-colors duration-200"
                   onClick={handleProductClick}
                 >
                   {product.name}
@@ -290,7 +321,7 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
                               ? 'text-white'
                               : 'text-gray-500'
                           }`}>
-                            i
+                            ★
                           </span>
                         </div>
                       ))}
@@ -301,18 +332,18 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
                   <span className="text-gray-600 text-sm">({product.numReviews || 0})</span>
                 </div>
 
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-2xl font-bold text-gray-900">
+                <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                  <span className="text-xl sm:text-2xl font-bold text-gray-900">
                     ₹{product.price?.toLocaleString()}
                   </span>
                   {product.originalPrice && product.originalPrice > product.price && (
-                    <span className="text-lg text-gray-500 line-through">
+                    <span className="text-base sm:text-lg text-gray-500 line-through">
                       ₹{product.originalPrice.toLocaleString()}
                     </span>
                   )}
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
                   <div className="flex items-center gap-2">
                     <label className="text-sm font-medium text-gray-700">Quantity:</label>
                     <QuantitySelector
@@ -330,7 +361,7 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
                   <button
                     onClick={handleAddToCart}
                     disabled={isOutOfStock}
-                    className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                   >
                     {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
                   </button>
@@ -345,35 +376,35 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
 
   // Grid view - Simplified Design with Essential Elements Only
   return (
-    <div className="group relative bg-white rounded-2xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 border border-gray-100 overflow-hidden w-full h-[280px] sm:h-[320px] flex flex-col">
+    <div className="group relative bg-white rounded-md sm:rounded-lg shadow-sm hover:shadow-lg transition-all duration-200 border border-gray-200 overflow-hidden w-full flex flex-col">
       {/* Product Image Container */}
-      <div className="relative w-full h-40 sm:h-48 overflow-hidden cursor-pointer flex-shrink-0 bg-gray-50 flex items-center justify-center rounded-t-2xl" onClick={handleProductClick}>
+      <div className="relative w-full aspect-square overflow-hidden cursor-pointer flex-shrink-0 bg-gray-50 flex items-center justify-center" onClick={handleProductClick}>
         <img
           src={getImageUrl()}
           alt={product.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           onError={handleImageError}
         />
-        
-        {/* Vegetarian Icon */}
-        <div className="absolute top-2 left-2 w-6 h-6 bg-green-500 rounded-sm flex items-center justify-center">
-          <span className="text-white text-xs font-bold">V</span>
+
+        {/* Vegetarian Icon - Hidden on mobile for space */}
+        <div className="hidden sm:flex absolute top-2 left-2 w-6 h-6 sm:w-7 sm:h-7 bg-white rounded-full items-center justify-center shadow-sm border border-gray-200">
+          <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 bg-green-600 rounded-full"></div>
         </div>
-        
+
         {/* Wishlist Button */}
-        <button 
+        <button
           onClick={(e) => {
             e.stopPropagation();
             handleWishlistToggle(e);
           }}
-          className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-all duration-200 hover:scale-110 z-10 ${
+          className={`absolute top-1 sm:top-2 right-1 sm:right-2 w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shadow-sm transition-all duration-200 z-10 ${
             isInWishlist
-              ? 'bg-red-500 text-white border-red-500 shadow-red-500/30'
-              : 'bg-white/90 text-gray-600 hover:text-red-500 border-white/50 hover:border-red-200'
+              ? 'bg-white text-red-500'
+              : 'bg-white/90 text-gray-600 hover:text-red-500'
           }`}
           aria-label="Add to wishlist"
         >
-          <Icon name="heart" className={`w-4 h-4 sm:w-5 sm:h-5 transition-all duration-300 ${isInWishlist ? 'fill-current scale-110' : 'hover:scale-110'}`} />
+          <Icon name="heart" className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-all duration-200 ${isInWishlist ? 'fill-current' : ''}`} />
         </button>
 
         {/* Stock Status Overlay */}
@@ -388,41 +419,71 @@ const ProductCard = memo(({ product, viewMode = "grid" }) => {
       </div>
 
       {/* Product Content */}
-      <div className="flex-1 flex flex-col p-3">
+      <div className="flex flex-col p-1.5 sm:p-3 min-h-0">
         {/* Product Name */}
-        <h3 
-          className="text-sm font-semibold text-gray-900 mb-2 cursor-pointer hover:text-red-600 transition-colors duration-200 line-clamp-2"
+        <h3
+          className="text-[10px] sm:text-sm font-semibold text-gray-900 mb-1 cursor-pointer hover:text-red-600 transition-colors duration-200 line-clamp-1 sm:line-clamp-2 leading-tight"
           onClick={handleProductClick}
           title={product.name}
         >
           {product.name}
         </h3>
 
-        {/* Price */}
-        <div className="mb-2">
-          <span className="text-base font-bold text-gray-900">
+        {/* Price & Rating Row */}
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-sm sm:text-lg font-bold text-red-600">
             ₹{product.price?.toLocaleString()}
           </span>
+          <div className="flex items-center bg-yellow-500 px-1 py-0.5 rounded text-[8px] sm:text-xs">
+            <span className="text-white font-bold mr-0.5">
+              {Number(product.ratings || 4.9).toFixed(1)}
+            </span>
+            <Icon name="star" className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-white fill-current" />
+          </div>
         </div>
 
-        {/* Rating */}
-        <div className="flex items-center">
-          <div className="flex items-center">
-            {[...Array(5)].map((_, i) => (
-              <Icon
-                key={i}
-                name="star"
-                className={`w-3 h-3 ${
-                  i < Math.floor(product.ratings || 4.9)
-                    ? 'text-yellow-400'
-                    : 'text-gray-300'
-                }`}
-              />
-            ))}
+        {/* Quantity & Add Button Row */}
+        <div className="flex items-center gap-1 sm:gap-2">
+          {/* Quantity Selector - Increased Size */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleQuantityDecrease();
+              }}
+              disabled={isOutOfStock || quantity <= 1}
+              className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded text-gray-600 disabled:opacity-50 text-sm sm:text-base font-bold transition-colors duration-200"
+            >
+              −
+            </button>
+            <span className="w-6 sm:w-8 text-center text-xs sm:text-sm font-semibold">{quantity}</span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleQuantityIncrease();
+              }}
+              disabled={isOutOfStock || quantity >= stock}
+              className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded text-gray-600 disabled:opacity-50 text-sm sm:text-base font-bold transition-colors duration-200"
+            >
+              +
+            </button>
           </div>
-          <span className="text-xs text-gray-500 ml-1">
-            ({product.numReviews || Math.floor(Math.random() * 100) + 10})
-          </span>
+
+          {/* Add to Cart Button - Reduced Size */}
+          <button
+            onClick={handleAddToCart}
+            disabled={isOutOfStock || cartLoading}
+            className="flex-1 bg-red-600 hover:bg-red-700 text-white text-[8px] sm:text-xs font-bold py-1.5 sm:py-2 px-2 rounded transition-all duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-0.5 sm:gap-1"
+          >
+            {cartLoading ? (
+              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+            ) : (
+              <>
+                <Icon name="shopping-cart" className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                <span>{isOutOfStock ? 'Out' : 'Add'}</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

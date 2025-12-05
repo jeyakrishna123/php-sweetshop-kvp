@@ -123,9 +123,10 @@ const WelcomeOfferPopup = () => {
           // Find the first active popup that should show on initial page
           activePopup = popups.find(popup => {
             const isActive = popup.isActive === true;
-            const notExpired = new Date(popup.endDate) > new Date();
+            // If endDate is null/undefined, popup is not expired (no expiration set)
+            const notExpired = !popup.endDate || new Date(popup.endDate) > new Date();
             const shouldShowOnInitial = popup.showOnInitialPage !== false;
-            
+
             console.log('🔍 Checking popup:', {
               id: popup._id,
               couponCode: popup.couponCode,
@@ -135,7 +136,7 @@ const WelcomeOfferPopup = () => {
               endDate: popup.endDate,
               currentDate: new Date().toISOString()
             });
-            
+
             return isActive && notExpired && shouldShowOnInitial;
           });
           
@@ -164,31 +165,12 @@ const WelcomeOfferPopup = () => {
         }
       }
       
-      // If still no popup, use fallback mock data
+      // No popup found - don't show anything
       if (!activePopup) {
-        activePopup = {
-          _id: "fallback-popup",
-          title: "Welcome to SK Bakers!",
-          subtitle: "Get 20% off your first order",
-          couponCode: "WELCOME20",
-          description: "Use code WELCOME20 at checkout to get 20% off your first order. Valid for new customers only.",
-          popupImage: "https://images.unsplash.com/photo-1578985545062-69aa9484c9c2?w=400&h=300&fit=crop&q=80&fm=jpg&crop=center",
-          isActive: true,
-          showOnInitialPage: true,
-          triggerType: 'page_load', // Explicitly set trigger type
-          showDelay: 2000, // Reduced delay for testing
-          maxShowsPerSession: 1,
-          offerText: "20% OFF",
-          offerSubtext: "First Order",
-          termsAndConditions: "Valid for new customers. One-time use only. Expires in 30 days.",
-          products: [
-            { name: 'Cakes', initials: 'CK', color: 'pink' },
-            { name: 'Bread', initials: 'BR', color: 'orange' },
-            { name: 'Pastry', initials: 'PS', color: 'red' }
-          ],
-          endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          createdAt: new Date().toISOString()
-        };
+        console.log('ℹ️ No active popup found. Create one in the admin panel.');
+        setPopupData(null);
+        setLoading(false);
+        return;
       }
       
       setPopupData(activePopup);
@@ -329,9 +311,9 @@ const WelcomeOfferPopup = () => {
           {/* CLEAN IMAGE POPUP - NO BACKGROUND */}
           {popupData.popupImage ? (
             <div className="relative w-full max-w-6xl mx-auto">
-              {/* Direct Image Display - No Background */}
+              {/* Direct Image Display - Same as ResponsiveBanner (line 215) */}
               <img
-                src={popupData.popupImage.startsWith('data:') ? popupData.popupImage : getImageUrl(popupData.popupImage)}
+                src={popupData.popupImage}
                 alt="Special Offer"
                 className="w-full h-auto object-contain rounded-2xl shadow-2xl"
                 style={{
@@ -340,25 +322,15 @@ const WelcomeOfferPopup = () => {
                   objectFit: 'contain'
                 }}
                 onError={(e) => {
-                  console.log('❌ Image failed to load:', popupData.popupImage);
-                  e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'flex';
+                  console.log('❌ Popup image failed to load:', popupData.popupImage);
+                  console.log('❌ Failed URL:', e.target.src);
+                  // Use fallback image (same as ResponsiveBanner line 232)
+                  e.target.src = 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&h=600&fit=crop&q=80&fm=jpg&crop=center';
                 }}
                 onLoad={() => {
-                  console.log('✅ Full image loaded successfully:', popupData.popupImage);
+                  console.log('✅ Popup image loaded successfully:', popupData.popupImage);
                 }}
               />
-              
-              {/* Fallback for failed image - Minimal design */}
-              <div className="w-full min-h-[400px] bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl flex items-center justify-center hidden">
-                <div className="text-center p-8">
-                  <div className="w-24 h-24 bg-gray-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Icon name="image" className="w-12 h-12 text-gray-300" />
-                  </div>
-                  <p className="text-xl text-gray-300 mb-2">Image Failed to Load</p>
-                  <p className="text-sm text-gray-400 break-all max-w-md">URL: {popupData.popupImage}</p>
-                </div>
-              </div>
             </div>
           ) : (
             <div className="w-full max-w-4xl mx-auto">

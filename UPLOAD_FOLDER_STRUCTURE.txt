@@ -1,0 +1,54 @@
+🚀 HOSTINGER UPLOAD - EXACT FOLDER STRUCTURE
+============================================
+
+📁 YOUR LOCAL COMPUTER FILES:
+C:\Users\jeyakrishna\Documents\php-sweetshop-kvp\
+├── .htaccess                                    ← Upload to public_html/
+├── sk-bakers-logo.png                          ← Upload to public_html/
+├── setup_hostinger_database.php               ← Upload to public_html/
+├── php-backend/                                ← Upload ENTIRE folder to public_html/backend/
+│   ├── api/
+│   ├── config/
+│   ├── includes/
+│   ├── middleware/
+│   ├── database/
+│   ├── uploads/
+│   └── logs/
+└── fireworks-ecommerce-main/ecommerce-website/ecommerce-frontend/dist/
+    ├── index.html                              ← Upload to public_html/frontend/
+    ├── assets/                                 ← Upload to public_html/frontend/
+    ├── sk-bakers-logo.png                     ← Upload to public_html/frontend/
+    └── manifest.json                           ← Upload to public_html/frontend/
+
+📁 HOSTINGER SERVER STRUCTURE (After Upload):
+public_html/
+├── .htaccess
+├── sk-bakers-logo.png
+├── setup_hostinger_database.php
+├── backend/                                    ← Created from php-backend/
+│   ├── api/
+│   ├── config/
+│   ├── includes/
+│   ├── middleware/
+│   ├── database/
+│   ├── uploads/
+│   └── logs/
+└── frontend/                                   ← Created from dist/
+    ├── index.html
+    ├── assets/
+    ├── sk-bakers-logo.png
+    └── manifest.json
+
+🎯 UPLOAD STEPS:
+1. Upload 3 root files to public_html/
+2. Create 'backend' folder in public_html/
+3. Upload php-backend/ contents to public_html/backend/
+4. Create 'frontend' folder in public_html/
+5. Upload dist/ contents to public_html/frontend/
+
+⚠️ IMPORTANT:
+- Update database passwords BEFORE uploading
+- Rename config_production.php to config.php AFTER uploading
+- Set folder permissions: backend/uploads/ and backend/logs/ to 755
+- Run setup_hostinger_database.php on server
+- Delete setup file after successful database creation

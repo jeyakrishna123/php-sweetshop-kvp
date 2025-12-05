@@ -10,15 +10,40 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {/* Company Info */}
           <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-pink-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">E</span>
+            <div className="flex items-center space-x-4">
+              {/* Real SK Bakers Logo */}
+              <div className="flex items-center space-x-4">
+                {/* SK Bakers Logo Image */}
+                <div className="flex-shrink-0">
+                  <img 
+                    src="/sk-bakers-logo.png" 
+                    alt="SK BAKERS HOME-MADE CAKES AND CAFE" 
+                    className="w-16 h-16 object-contain"
+                    onError={(e) => {
+                      // Fallback to gradient logo if image fails to load
+                      e.target.style.display = 'none';
+                      e.target.nextElementSibling.style.display = 'flex';
+                    }}
+                  />
+                  {/* Fallback Logo */}
+                  <div className="w-16 h-16 bg-gradient-to-br from-pink-600 to-red-600 rounded-lg flex items-center justify-center shadow-lg hidden">
+                    <div className="text-white font-bold text-center">
+                      <div className="text-sm font-black">SK</div>
+                      <div className="text-xs font-bold">BAKERS</div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Brand Text */}
+                <div className="flex flex-col">
+                  <div className="text-2xl font-bold text-white">SK BAKERS</div>
+                  <div className="text-sm text-gray-300">HOME-MADE CAKES AND CAFE</div>
+                </div>
               </div>
-              <span className="text-xl font-bold">ModernEcommerce</span>
             </div>
             <p className="text-gray-300 text-sm leading-relaxed">
-              Your one-stop destination for modern fashion, electronics, and lifestyle products. 
-              Quality products at competitive prices.
+              Your trusted bakery for fresh cakes, pastries, and sweet delights.
+              Crafted with love, baked to perfection. Quality ingredients, unforgettable taste.
             </p>
             <div className="flex space-x-4">
               <a href="#" aria-label="Follow us on Twitter" className="text-gray-400 hover:text-pink-500 transition duration-200">
@@ -73,6 +98,11 @@ const Footer = () => {
                   About Us
                 </Link>
               </li>
+              <li>
+                <Link to="/faq" className="text-gray-300 hover:text-pink-500 transition duration-200">
+                  FAQ
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -97,7 +127,7 @@ const Footer = () => {
               </li>
               <li>
                 <a href="#" className="text-gray-300 hover:text-pink-500 transition duration-200">
-                  Size Guide
+                  Custom Orders
                 </a>
               </li>
               <li>
@@ -114,7 +144,7 @@ const Footer = () => {
         <div className="mt-12 pt-8 border-t border-gray-800">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <div className="text-gray-400 text-sm">
-              © {currentYear} ModernEcommerce. All rights reserved.
+              © {currentYear} SK Bakers. All rights reserved.
             </div>
             <div className="flex space-x-6 text-sm">
               <a href="#" className="text-gray-400 hover:text-pink-500 transition duration-200">

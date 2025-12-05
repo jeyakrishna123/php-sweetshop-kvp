@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Icon from '../components/Icon';
+import SignupOtpModal from '../components/SignupOtpModal';
+import FixedOtpModal from '../components/FixedOtpModal';
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -16,6 +18,8 @@ const Signup = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [pendingUser, setPendingUser] = useState(null);
   
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -62,10 +66,18 @@ const Signup = () => {
     setError('');
 
     try {
+      // Register user (this will create user but not activate account)
       await register(formData.name, formData.email, formData.phone, formData.password);
       
-      // Show success message
-      setSuccess(true);
+      // Store pending user data for OTP verification
+      setPendingUser({
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone
+      });
+      
+      // Show OTP modal instead of success message
+      setShowOtpModal(true);
       
       // Clear form data
       setFormData({
@@ -76,16 +88,28 @@ const Signup = () => {
         confirmPassword: ''
       });
       
-      // Automatically navigate to login page after 3 seconds
-      setTimeout(() => {
-        navigate('/login');
-      }, 3000);
-      
     } catch (error) {
       setError(error.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOtpSuccess = () => {
+    setShowOtpModal(false);
+    setSuccess(true);
+    setPendingUser(null);
+    
+    // Navigate to login page after showing success
+    setTimeout(() => {
+      navigate('/login');
+    }, 3000);
+  };
+
+  const handleOtpClose = () => {
+    setShowOtpModal(false);
+    setPendingUser(null);
+    // User can try again or go back to form
   };
 
   // If success, show success message
@@ -131,8 +155,8 @@ const Signup = () => {
       <div className="w-full max-w-md">
         {/* Logo Section */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-red-600 to-red-700 rounded-2xl shadow-lg mb-6">
-            <Icon name="shoppingBag" size="xl" className="text-white" />
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-white border-2 border-red-600 rounded-2xl shadow-lg mb-6">
+            <Icon name="user" size="xl" className="text-red-600" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-3">Join Our Community</h1>
           <p className="text-gray-600 text-lg">Create your account and start shopping today</p>
@@ -376,6 +400,17 @@ const Signup = () => {
           </p>
         </div>
       </div>
+
+      {/* OTP Verification Modal */}
+      {showOtpModal && pendingUser && (
+        <FixedOtpModal
+          isOpen={showOtpModal}
+          onClose={handleOtpClose}
+          onSuccess={handleOtpSuccess}
+          email={pendingUser.email}
+          userName={pendingUser.name}
+        />
+      )}
     </div>
   );
 };

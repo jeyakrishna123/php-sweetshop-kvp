@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .section { margin: 20px 0; padding: 15px; background: #f9f9f9; border-left: 4px solid #4CAF50; }
+        .error { border-left-color: #f44336; background: #ffebee; }
+        .success { border-left-color: #4CAF50; background: #e8f5e9; }
+        button { background: #2196F3; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #1976D2; }
+        pre { background: #263238; color: #aed581; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        .input-group { margin: 10px 0; }
+        input { padding: 8px; width: 100%; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Dashboard API Test</h1>
+
+        <div class="section">
+            <h3>Step 1: Get Your Auth Token</h3>
+            <p>Open your admin panel and run this in the browser console:</p>
+            <pre>localStorage.getItem('token')</pre>
+            <p>Copy the token and paste it below:</p>
+            <div class="input-group">
+                <input type="text" id="tokenInput" placeholder="Paste your JWT token here" />
+            </div>
+            <button onclick="saveToken()">Save Token</button>
+            <p id="tokenStatus"></p>
+        </div>
+
+        <div class="section">
+            <h3>Step 2: Test Dashboard API</h3>
+            <button onclick="testDashboard()">🚀 Test Dashboard API</button>
+            <div id="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>Step 3: View Results</h3>
+            <div id="stats"></div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = null;
+
+        function saveToken() {
+            const input = document.getElementById('tokenInput');
+            authToken = input.value.trim();
+
+            if (authToken) {
+                localStorage.setItem('testToken', authToken);
+                document.getElementById('tokenStatus').innerHTML =
+                    '<span style="color: green;">✅ Token saved! Now click "Test Dashboard API"</span>';
+            } else {
+                document.getElementById('tokenStatus').innerHTML =
+                    '<span style="color: red;">❌ Please paste a valid token</span>';
+            }
+        }
+
+        async function testDashboard() {
+            const resultDiv = document.getElementById('result');
+            const statsDiv = document.getElementById('stats');
+
+            // Get token
+            if (!authToken) {
+                authToken = localStorage.getItem('testToken');
+            }
+
+            if (!authToken) {
+                resultDiv.innerHTML = '<div class="section error"><strong>❌ Error:</strong> No token provided. Please complete Step 1 first.</div>';
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="section"><strong>⏳ Testing...</strong></div>';
+            statsDiv.innerHTML = '';
+
+            try {
+                console.log('🔑 Using token:', authToken.substring(0, 20) + '...');
+
+                const response = await fetch('http://localhost:8000/api/admin/dashboard', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                console.log('📊 Response status:', response.status);
+
+                const data = await response.json();
+                console.log('📊 Response data:', data);
+
+                if (data.success && data.stats) {
+                    resultDiv.innerHTML = '<div class="section success"><strong>✅ Success!</strong> Dashboard API is working correctly!</div>';
+
+                    statsDiv.innerHTML = `
+                        <h3>📊 Dashboard Statistics</h3>
+                        <pre>${JSON.stringify(data.stats, null, 2)}</pre>
+                        <div style="margin-top: 20px;">
+                            <h4>Summary:</h4>
+                            <ul>
+                                <li><strong>Total Products:</strong> ${data.stats.totalProducts}</li>
+                                <li><strong>Total Orders:</strong> ${data.stats.totalOrders}</li>
+                                <li><strong>Total Users:</strong> ${data.stats.totalUsers}</li>
+                                <li><strong>Total Revenue:</strong> ₹${data.stats.totalRevenue.toLocaleString()}</li>
+                                <li><strong>Pending Orders:</strong> ${data.stats.pendingOrders}</li>
+                                <li><strong>Processing Orders:</strong> ${data.stats.processingOrders}</li>
+                                <li><strong>Shipped Orders:</strong> ${data.stats.shippedOrders}</li>
+                                <li><strong>Delivered Orders:</strong> ${data.stats.deliveredOrders}</li>
+                                <li><strong>Low Stock Products:</strong> ${data.stats.lowStockProducts}</li>
+                                <li><strong>Out of Stock Products:</strong> ${data.stats.outOfStockProducts}</li>
+                            </ul>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="section error">
+                            <strong>❌ Error:</strong> API returned an error
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('❌ Error:', error);
+                resultDiv.innerHTML = `
+                    <div class="section error">
+                        <strong>❌ Error:</strong> ${error.message}
+                        <pre>${error.stack}</pre>
+                    </div>
+                `;
+            }
+        }
+
+        // Auto-load token if available
+        window.onload = function() {
+            const savedToken = localStorage.getItem('testToken');
+            if (savedToken) {
+                document.getElementById('tokenInput').value = savedToken;
+                authToken = savedToken;
+                document.getElementById('tokenStatus').innerHTML =
+                    '<span style="color: green;">✅ Token loaded from previous session</span>';
+            }
+        };
+    </script>
+</body>
+</html>

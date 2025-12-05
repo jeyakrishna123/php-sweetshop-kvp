@@ -1,0 +1,18 @@
+[2025-10-25 10:14:53] Password reset requested | Data: {"user_id":3,"email":"test@example.com"}
+[2025-10-25 10:25:23] Password reset OTP sent | Data: {"user_id":2,"email":"jeyakrishna614@gmail.com"}
+[2025-10-25 10:26:27] Password reset OTP sent | Data: {"user_id":2,"email":"jeyakrishna614@gmail.com"}
+[2025-10-25 10:29:45] Password reset OTP sent | Data: {"user_id":2,"email":"jeyakrishna614@gmail.com"}
+[2025-10-25 10:30:26] Password reset OTP sent | Data: {"user_id":2,"email":"jeyakrishna614@gmail.com"}
+[2025-10-25 11:35:51] User registered - OTP sent | Data: {"user_id":"13","email":"testuser@example.com"}
+[2025-10-25 11:44:25] User registered - OTP sent | Data: {"user_id":"15","email":"apitest@example.com"}
+[2025-10-25 11:51:01] User registered - OTP sent | Data: {"user_id":"16","email":"jeyakrishna40@gmail.com"}
+[2025-10-25 11:52:31] User registered - OTP sent | Data: {"user_id":"17","email":"upgradenowtechnologies@gmail.com"}
+[2025-10-25 12:02:06] User registered - OTP sent | Data: {"user_id":"18","email":"jeyakrishna40@gmail.com"}
+[2025-10-25 12:05:35] User registered - OTP sent | Data: {"user_id":"19","email":"jeyakrishna40@gmail.com"}
+[2025-10-25 12:08:46] User registered - OTP sent | Data: {"user_id":"20","email":"upgradenowtechnologies@gmail.com"}
+[2025-10-25 12:10:08] Signup OTP sent | Data: {"user_id":20,"email":"upgradenowtechnologies@gmail.com"}
+[2025-10-25 13:28:39] User registered - OTP sent | Data: {"user_id":"22","email":"apitest2@example.com"}
+[2025-10-25 13:29:47] Signup OTP sent | Data: {"user_id":22,"email":"apitest2@example.com"}
+[2025-10-26 07:49:49] User registered - OTP sent | Data: {"user_id":"23","email":"jeyakrishna4@gmail.com"}
+[2025-10-26 08:36:39] User registered - OTP sent | Data: {"user_id":"24","email":"jeyakrishna402@gmail.com"}
+[2025-10-26 09:45:55] User registered - OTP sent | Data: {"user_id":"25","email":"info@upgradenow.in"}

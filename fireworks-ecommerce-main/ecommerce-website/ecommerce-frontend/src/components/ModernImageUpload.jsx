@@ -1,4 +1,11 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+
+// Debug helper
+const debugLog = (message, data = null) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[ModernImageUpload] ${message}`, data || '');
+  }
+};
 
 const ModernImageUpload = ({ 
   images = [], 
@@ -12,6 +19,14 @@ const ModernImageUpload = ({
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Debug: Log when component mounts and fileInputRef is set
+  useEffect(() => {
+    debugLog('Component mounted, fileInputRef:', fileInputRef.current);
+    if (fileInputRef.current) {
+      debugLog('File input is ready');
+    }
+  }, []);
+
   const handleFileUpload = async (files) => {
     if (!files || files.length === 0) return;
 
@@ -20,7 +35,7 @@ const ModernImageUpload = ({
 
     for (let i = 0; i < files.length && images.length + newImages.length < maxImages; i++) {
       const file = files[i];
-      
+
       // Validate file type
       if (!file.type.startsWith('image/')) {
         alert(`File ${file.name} is not an image. Please select only image files.`);
@@ -103,6 +118,48 @@ const ModernImageUpload = ({
     e.preventDefault();
   };
 
+  const handleClick = (e) => {
+    // Don't prevent default on the outer div - let it bubble naturally
+    // Only stop if clicking on nested elements that shouldn't trigger file picker
+    const target = e.target;
+    const currentTarget = e.currentTarget;
+    
+    // If clicking on a button or link inside, don't trigger file picker
+    if (target.tagName === 'BUTTON' || target.tagName === 'A' || target.closest('button') || target.closest('a')) {
+      return;
+    }
+    
+    // Only trigger if clicking directly on the drop zone or its direct children
+    if (target === currentTarget || currentTarget.contains(target)) {
+      e.stopPropagation(); // Prevent bubbling to parent forms/mods
+      
+      if (!isUploading && images.length < maxImages) {
+        // Ensure the file input exists and is accessible
+        if (fileInputRef.current) {
+          console.log('🖱️ ModernImageUpload: Click detected, opening file picker...');
+          // Use setTimeout to ensure DOM is ready and event cycle completes
+          setTimeout(() => {
+            try {
+              if (fileInputRef.current) {
+                fileInputRef.current.click();
+                console.log('✅ ModernImageUpload: File picker triggered');
+              } else {
+                console.error('❌ ModernImageUpload: File input ref is null');
+              }
+            } catch (error) {
+              console.error('❌ ModernImageUpload: Error opening file picker:', error);
+            }
+          }, 10);
+        } else {
+          console.error('❌ ModernImageUpload: fileInputRef.current is null');
+        }
+      } else {
+        console.log('⚠️ ModernImageUpload: Cannot open picker - uploading:', isUploading, 'images:', images.length, 'max:', maxImages);
+      }
+    }
+  };
+
+
   return (
     <div className="space-y-4">
       {/* Mode Toggle */}
@@ -133,14 +190,36 @@ const ModernImageUpload = ({
 
       {/* Upload Mode */}
       {uploadMode === 'upload' && (
-        <div
-          className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 ${
-            isUploading
-              ? 'border-blue-400 bg-blue-50'
-              : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+        <label
+          htmlFor="file-upload-input"
+          className={`block border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 ${
+            isUploading || images.length >= maxImages
+              ? 'border-blue-400 bg-blue-50 cursor-not-allowed'
+              : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50 cursor-pointer'
           }`}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
+          onClick={(e) => {
+            // If clicking on label, let it handle naturally via htmlFor
+            // Only use custom handler for drag zone clicks
+            if (isUploading || images.length >= maxImages) {
+              e.preventDefault();
+              return;
+            }
+            // Fallback: ensure input is triggered even if label doesn't work
+            if (fileInputRef.current && !e.target.matches('input[type="file"]')) {
+              setTimeout(() => {
+                if (fileInputRef.current && document.activeElement !== fileInputRef.current) {
+                  fileInputRef.current.click();
+                }
+              }, 0);
+            }
+          }}
+          style={{ 
+            pointerEvents: isUploading || images.length >= maxImages ? 'none' : 'auto',
+            position: 'relative',
+            display: 'block'
+          }}
         >
           <div className="space-y-4">
             <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
@@ -164,29 +243,39 @@ const ModernImageUpload = ({
                 Supports JPG, PNG, GIF up to 5MB each. Max {maxImages} images.
               </p>
             </div>
-
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading || images.length >= maxImages}
-              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 font-medium"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Choose Files
-            </button>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={(e) => handleFileUpload(Array.from(e.target.files))}
-              className="hidden"
-            />
           </div>
-        </div>
+
+          <input
+            id="file-upload-input"
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={(e) => {
+              const files = e.target.files;
+              console.log('📁 ModernImageUpload: Files selected:', files?.length || 0);
+              if (files && files.length > 0) {
+                handleFileUpload(Array.from(files));
+              }
+              // Reset input to allow selecting the same file again
+              e.target.value = '';
+            }}
+            disabled={isUploading || images.length >= maxImages}
+            className="sr-only"
+            style={{ 
+              position: 'absolute',
+              width: '1px',
+              height: '1px',
+              padding: 0,
+              margin: '-1px',
+              overflow: 'hidden',
+              clip: 'rect(0, 0, 0, 0)',
+              whiteSpace: 'nowrap',
+              borderWidth: 0
+            }}
+            tabIndex={-1}
+          />
+        </label>
       )}
 
       {/* URL Mode */}
@@ -241,17 +330,76 @@ const ModernImageUpload = ({
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {images.map((image, index) => (
+            {images.map((image, index) => {
+              // Safely extract image URL from different possible formats
+              let imageUrl;
+              if (typeof image === 'string') {
+                imageUrl = image;
+              } else if (image && typeof image === 'object') {
+                imageUrl = image.preview || image.url || null;
+              } else {
+                imageUrl = null;
+              }
+
+              // CRITICAL: Check if it's a base64 image before converting to URL
+              // Base64 images should never be converted to URLs - they cause 414 errors
+              // Check for data:image/ anywhere in the string (not just at start)
+              const isBase64 = imageUrl && typeof imageUrl === 'string' && (
+                imageUrl.includes('data:image/') || 
+                imageUrl.includes(';base64,') ||
+                // Check if it's a long base64-like string (even if it has path prefixes)
+                (imageUrl.length > 200 && /data:image\/[^;]+;base64,/.test(imageUrl)) ||
+                // Check for raw base64 pattern (long string with base64 chars)
+                (imageUrl.length > 100 && /^[A-Za-z0-9+\/]+=*$/.test(imageUrl) && !imageUrl.includes('http') && !imageUrl.includes('.jpg') && !imageUrl.includes('.png') && !imageUrl.includes('.webp'))
+              );
+              
+              // Prepend API base URL if it's a relative path (not base64)
+              if (imageUrl && typeof imageUrl === 'string' && !imageUrl.startsWith('http://') && !imageUrl.startsWith('https://') && !isBase64) {
+                // Additional safety: if string contains base64-like patterns, don't construct URL
+                if (imageUrl.includes('base64') || (imageUrl.length > 500 && !imageUrl.includes('.'))) {
+                  console.error('❌ ModernImageUpload: Suspicious image string detected, skipping URL construction:', imageUrl.substring(0, 100));
+                  imageUrl = null; // Set to null to prevent invalid URL
+                } else {
+                  const apiURL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+                  imageUrl = `${apiURL}${imageUrl}`;
+                }
+              } else if (isBase64) {
+                // Base64 image - keep for display in edit mode
+                // The base64 is already in the database, so displaying it is safe
+                // When the form is submitted, the backend will convert it to a file
+                console.warn('⚠️ ModernImageUpload: Base64 image detected - displaying for edit mode');
+                // Keep imageUrl as-is (the base64 string) for display
+              }
+
+              return (
               <div key={index} className="relative group">
                 <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 border-2 border-gray-200">
-                  <img
-                    src={typeof image === 'string' ? image : (image.preview || image.url || image)}
-                    alt={`Preview ${index + 1}`}
-                    className="w-full h-full object-contain"
-                    onError={(e) => {
-                      e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%23666" font-size="12"%3EError%3C/text%3E%3C/svg%3E';
-                    }}
-                  />
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt={`Preview ${index + 1}`}
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        console.error('Image load error:', imageUrl);
+                        // If it's a base64 or suspicious URL, don't try to load it
+                        if (imageUrl && (imageUrl.includes('base64') || imageUrl.includes('data:image/'))) {
+                          e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%23666" font-size="12"%3EInvalid Image%3C/text%3E%3C/svg%3E';
+                        } else {
+                          e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%23666" font-size="12"%3EError%3C/text%3E%3C/svg%3E';
+                        }
+                      }}
+                      onLoad={() => {
+                        console.log('✅ ModernImageUpload: Image loaded successfully:', imageUrl?.substring(0, 100));
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm flex-col gap-2">
+                      <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span>No preview</span>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Remove Button */}
@@ -264,14 +412,15 @@ const ModernImageUpload = ({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
-                
+
                 {/* Image Info */}
                 <div className="mt-2 text-xs text-gray-500 truncate">
-                  {image.name}
-                  {image.size && ` (${(image.size / 1024).toFixed(1)}KB)`}
+                  {typeof image === 'object' && image.name ? image.name : 'Image'}
+                  {typeof image === 'object' && image.size && ` (${(image.size / 1024).toFixed(1)}KB)`}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
