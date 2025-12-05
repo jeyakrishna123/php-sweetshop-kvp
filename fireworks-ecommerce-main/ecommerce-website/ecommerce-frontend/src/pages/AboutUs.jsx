@@ -70,8 +70,14 @@ const AboutUs = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Compact Hero Section */}
-      <div className="relative bg-gradient-to-br from-pink-600 via-pink-700 to-red-600 overflow-hidden">
+      {/* Compact Hero Section - Consistent colors on all devices */}
+      <div 
+        className="relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(to bottom right, #db2777, #be185d, #dc2626)',
+          backgroundImage: 'linear-gradient(135deg, #db2777 0%, #be185d 50%, #dc2626 100%)'
+        }}
+      >
         {/* Elegant Background Pattern */}
         <div className="absolute inset-0 opacity-5">
           <div className="absolute inset-0" style={{
@@ -428,8 +434,14 @@ const AboutUs = () => {
         </div>
       </div>
 
-      {/* CTA Section */}
-      <div className="py-12 sm:py-16 lg:py-20 text-white relative overflow-hidden bg-gradient-to-br from-pink-600 via-pink-700 to-red-600">
+      {/* CTA Section - Consistent colors on all devices */}
+      <div 
+        className="py-12 sm:py-16 lg:py-20 text-white relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(to bottom right, #db2777, #be185d, #dc2626)',
+          backgroundImage: 'linear-gradient(135deg, #db2777 0%, #be185d 50%, #dc2626 100%)'
+        }}
+      >
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div className="absolute inset-0" style={{

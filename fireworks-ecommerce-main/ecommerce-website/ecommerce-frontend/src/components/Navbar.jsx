@@ -165,10 +165,24 @@ const Navbar = () => {
             width: dropdownWidth
           });
         } else {
+          // Desktop: ensure dropdown doesn't go off-screen
+          const dropdownWidth = 320;
+          const spaceOnRight = window.innerWidth - rect.right;
+          const spaceOnLeft = rect.left;
+          
+          let rightPosition = window.innerWidth - rect.right;
+          let leftPosition = 'auto';
+          
+          // If not enough space on right, align to left
+          if (spaceOnRight < dropdownWidth && spaceOnLeft >= dropdownWidth) {
+            rightPosition = 'auto';
+            leftPosition = rect.left;
+          }
+          
           setUserMenuPosition({
             top: rect.bottom + window.scrollY,
-            right: window.innerWidth - rect.right,
-            left: 'auto',
+            right: rightPosition,
+            left: leftPosition,
             width: 'auto'
           });
         }
@@ -463,25 +477,44 @@ const Navbar = () => {
                           });
                         } else {
                           // Desktop: position dropdown connected to button (no gap)
+                          // Ensure dropdown doesn't go off-screen
+                          const dropdownWidth = 320;
+                          const spaceOnRight = window.innerWidth - rect.right;
+                          const spaceOnLeft = rect.left;
+                          
+                          let rightPosition = window.innerWidth - rect.right;
+                          let leftPosition = 'auto';
+                          
+                          // If not enough space on right, align to left
+                          if (spaceOnRight < dropdownWidth && spaceOnLeft >= dropdownWidth) {
+                            rightPosition = 'auto';
+                            leftPosition = rect.left;
+                          }
+                          
                           setUserMenuPosition({
                             top: rect.bottom + window.scrollY,
-                            right: window.innerWidth - rect.right,
-                            left: 'auto',
+                            right: rightPosition,
+                            left: leftPosition,
                             width: 'auto'
                           });
                         }
                       }
                       setIsUserMenuOpen(!isUserMenuOpen);
                     }}
-                    className="flex items-center justify-center text-gray-600 hover:text-red-600 transition-all duration-200 rounded-lg hover:bg-red-50 group"
-                    style={{ height: '36px', width: '36px', minWidth: '36px' }}
+                    className="flex items-center justify-center text-gray-600 hover:text-red-600 transition-all duration-200 rounded-lg hover:bg-red-50 group px-1.5 lg:px-2"
+                    style={{ 
+                      height: '36px', 
+                      minWidth: '36px',
+                      width: 'auto',
+                      maxWidth: '100%'
+                    }}
                     title={user.name}
                   >
-                    <div className="w-6 h-6 bg-white border-2 border-red-600 rounded-full flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-200">
+                    <div className="w-6 h-6 bg-white border-2 border-red-600 rounded-full flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-200 flex-shrink-0">
                       <Icon name="user" className="w-3.5 h-3.5 text-red-600" />
                     </div>
-                    <span className="hidden lg:block ml-1.5 text-xs font-medium max-w-20 truncate">{user.name}</span>
-                    <Icon name="chevronDown" className="w-3 h-3 transition-transform duration-200 group-hover:rotate-180 text-red-500 group-hover:text-red-600 hidden lg:block ml-0.5" />
+                    <span className="hidden lg:block ml-1.5 text-xs font-medium max-w-[120px] truncate">{user.name}</span>
+                    <Icon name="chevronDown" className={`w-3 h-3 transition-transform duration-200 text-red-500 group-hover:text-red-600 hidden lg:block ml-0.5 flex-shrink-0 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
                   
                   {/* User Dropdown Menu */}
@@ -681,10 +714,10 @@ const Navbar = () => {
           </div>
         </div>
 
-        {/* Category Navigation Bar - Hidden on Mobile */}
-        <div className="hidden lg:block bg-white border-b border-gray-200 relative -mb-2" style={{ zIndex: 100000 }}>
-          <div className="w-full max-w-none px-3 sm:px-6 lg:px-8">
-            <div className="flex items-center space-x-8 py-3 overflow-x-auto overflow-y-visible scrollbar-hide">
+        {/* Category Navigation Bar - Responsive Design */}
+        <div className="bg-white border-b border-gray-200 relative -mb-2" style={{ zIndex: 100000 }}>
+          <div className="w-full max-w-none px-2 sm:px-3 md:px-4 lg:px-6 xl:px-8">
+            <div className="flex items-center space-x-3 sm:space-x-4 md:space-x-6 lg:space-x-8 py-2 sm:py-2.5 md:py-3 overflow-x-auto overflow-y-visible scrollbar-hide">
 
               {/* Home */}
               <button
@@ -715,9 +748,10 @@ const Navbar = () => {
 
               <button
                 onClick={() => handleNavigation("/products?category=Daughters%20Day%20Cakes")}
-                className="text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-colors"
+                className="text-gray-700 hover:text-red-600 font-medium text-xs sm:text-sm whitespace-nowrap transition-colors px-2 py-1.5 sm:px-3 sm:py-2 rounded-md hover:bg-red-50 active:bg-red-100"
               >
-                Daughters Day Cakes
+                <span className="hidden sm:inline">Daughters Day Cakes</span>
+                <span className="sm:hidden">Daughters Day</span>
               </button>
               <div className="relative" ref={cakesDropdownRef} style={{ zIndex: 100001 }}>
                 <button 
@@ -736,14 +770,14 @@ const Navbar = () => {
                     
                     setIsCakesDropdownOpen(!isCakesDropdownOpen);
                   }}
-                  className={`text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-all duration-200 relative px-3 py-2 rounded-md ${
+                  className={`text-gray-700 hover:text-red-600 font-medium text-xs sm:text-sm whitespace-nowrap transition-all duration-200 relative px-2 sm:px-3 py-1.5 sm:py-2 rounded-md flex items-center gap-1 ${
                     isCakesDropdownOpen 
                       ? 'text-red-600 bg-red-50 border-b-2 border-red-600' 
-                      : 'hover:bg-gray-50'
+                      : 'hover:bg-red-50 active:bg-red-100'
                   }`}
                 >
-                  Cakes
-                  <svg className="inline-block w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span>Cakes</span>
+                  <svg className="inline-block w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -890,14 +924,15 @@ const Navbar = () => {
                     
                     setIsThemeCakesDropdownOpen(!isThemeCakesDropdownOpen);
                   }}
-                  className={`text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-all duration-200 relative px-3 py-2 rounded-md ${
+                  className={`text-gray-700 hover:text-red-600 font-medium text-xs sm:text-sm whitespace-nowrap transition-all duration-200 relative px-2 sm:px-3 py-1.5 sm:py-2 rounded-md flex items-center gap-1 ${
                     isThemeCakesDropdownOpen 
                       ? 'text-red-600 bg-red-50 border-b-2 border-red-600' 
-                      : 'hover:bg-gray-50'
+                      : 'hover:bg-red-50 active:bg-red-100'
                   }`}
                 >
-                  Theme Cakes
-                  <svg className="inline-block w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span className="hidden sm:inline">Theme Cakes</span>
+                  <span className="sm:hidden">Theme</span>
+                  <svg className="inline-block w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -1057,14 +1092,15 @@ const Navbar = () => {
                     
                     setIsByRelationshipDropdownOpen(!isByRelationshipDropdownOpen);
                   }}
-                  className={`text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-all duration-200 relative px-3 py-2 rounded-md ${
+                  className={`text-gray-700 hover:text-red-600 font-medium text-xs sm:text-sm whitespace-nowrap transition-all duration-200 relative px-2 sm:px-3 py-1.5 sm:py-2 rounded-md flex items-center gap-1 ${
                     isByRelationshipDropdownOpen 
                       ? 'text-red-600 bg-red-50 border-b-2 border-red-600' 
-                      : 'hover:bg-gray-50'
+                      : 'hover:bg-red-50 active:bg-red-100'
                   }`}
                 >
-                  By Relationship
-                  <svg className="inline-block w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span className="hidden sm:inline">By Relationship</span>
+                  <span className="sm:hidden">Relationship</span>
+                  <svg className="inline-block w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -1168,14 +1204,14 @@ const Navbar = () => {
                     
                     setIsDessertsDropdownOpen(!isDessertsDropdownOpen);
                   }}
-                  className={`text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-all duration-200 relative px-3 py-2 rounded-md ${
+                  className={`text-gray-700 hover:text-red-600 font-medium text-xs sm:text-sm whitespace-nowrap transition-all duration-200 relative px-2 sm:px-3 py-1.5 sm:py-2 rounded-md flex items-center gap-1 ${
                     isDessertsDropdownOpen 
                       ? 'text-red-600 bg-red-50 border-b-2 border-red-600' 
-                      : 'hover:bg-gray-50'
+                      : 'hover:bg-red-50 active:bg-red-100'
                   }`}
                 >
-                  Desserts
-                  <svg className="inline-block w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span>Desserts</span>
+                  <svg className="inline-block w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -1244,14 +1280,14 @@ const Navbar = () => {
                     
                     setIsBirthdayDropdownOpen(!isBirthdayDropdownOpen);
                   }}
-                  className={`text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-all duration-200 relative px-3 py-2 rounded-md ${
+                  className={`text-gray-700 hover:text-red-600 font-medium text-xs sm:text-sm whitespace-nowrap transition-all duration-200 relative px-2 sm:px-3 py-1.5 sm:py-2 rounded-md flex items-center gap-1 ${
                     isBirthdayDropdownOpen 
                       ? 'text-red-600 bg-red-50 border-b-2 border-red-600' 
-                      : 'hover:bg-gray-50'
+                      : 'hover:bg-red-50 active:bg-red-100'
                   }`}
                 >
-                  Birthday
-                  <svg className="inline-block w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span>Birthday</span>
+                  <svg className="inline-block w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -1320,14 +1356,15 @@ const Navbar = () => {
                     
                     setIsAnniversaryDropdownOpen(!isAnniversaryDropdownOpen);
                   }}
-                  className={`text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-all duration-200 relative px-3 py-2 rounded-md ${
+                  className={`text-gray-700 hover:text-red-600 font-medium text-xs sm:text-sm whitespace-nowrap transition-all duration-200 relative px-2 sm:px-3 py-1.5 sm:py-2 rounded-md flex items-center gap-1 ${
                     isAnniversaryDropdownOpen 
                       ? 'text-red-600 bg-red-50 border-b-2 border-red-600' 
-                      : 'hover:bg-gray-50'
+                      : 'hover:bg-red-50 active:bg-red-100'
                   }`}
                 >
-                  Anniversary
-                  <svg className="inline-block w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span className="hidden sm:inline">Anniversary</span>
+                  <span className="sm:hidden">Anniv.</span>
+                  <svg className="inline-block w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -1381,9 +1418,10 @@ const Navbar = () => {
               </div>
               <button 
                 onClick={() => handleNavigation("/products")}
-                className="text-gray-700 hover:text-red-600 font-medium text-sm whitespace-nowrap transition-colors"
+                className="text-gray-700 hover:text-red-600 font-medium text-xs sm:text-sm whitespace-nowrap transition-colors px-2 py-1.5 sm:px-3 sm:py-2 rounded-md hover:bg-red-50 active:bg-red-100"
               >
-                Customized Cakes
+                <span className="hidden sm:inline">Customized Cakes</span>
+                <span className="sm:hidden">Customized</span>
               </button>
             </div>
           </div>

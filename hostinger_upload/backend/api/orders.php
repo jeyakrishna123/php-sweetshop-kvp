@@ -2358,15 +2358,26 @@ function sendBillEmailWithPDF($db, $id) {
         if (file_exists(__DIR__ . "/../includes/EmailService.php")) {
             require_once __DIR__ . "/../includes/EmailService.php";
             $emailServiceLoaded = class_exists('EmailService');
+            error_log("📧 sendBillEmailWithPDF - EmailService file exists: YES");
+            error_log("📧 sendBillEmailWithPDF - EmailService class loaded: " . ($emailServiceLoaded ? 'YES' : 'NO'));
+        } else {
+            error_log("❌ sendBillEmailWithPDF - EmailService.php file not found at: " . __DIR__ . "/../includes/EmailService.php");
         }
         
         if (!$emailServiceLoaded) {
-            sendError('Email service not available', [], 500);
+            error_log("❌ sendBillEmailWithPDF - EmailService class not available");
+            sendError('Email service not available', [
+                'error' => 'EmailService class could not be loaded',
+                'file_path' => __DIR__ . "/../includes/EmailService.php",
+                'file_exists' => file_exists(__DIR__ . "/../includes/EmailService.php")
+            ], 500);
             return;
         }
         
         // Prepare email content
         $emailService = new EmailService();
+        error_log("📧 sendBillEmailWithPDF - EmailService instance created successfully");
+        error_log("📧 sendBillEmailWithPDF - PHPMailer available: " . ($emailService->isPHPMailerAvailable() ? 'YES' : 'NO'));
         $subject = "Bill of Supply - Order #" . $displayOrderId . " - SK Bakers";
         
         // Create email body
@@ -2483,14 +2494,46 @@ function sendBillEmailWithPDF($db, $id) {
                 return;
             }
             
-            $emailSent = $emailService->sendEmailWithAttachment(
-                $customerEmail,
-                $subject,
-                $emailBody,
-                $pdfBase64,
-                $pdfFilename,
-                true // isBase64
-            );
+            // Check if PHPMailer is available before attempting to send
+            $phpmailerAvailable = $emailService->isPHPMailerAvailable();
+            error_log("📧 sendBillEmailWithPDF - PHPMailer available: " . ($phpmailerAvailable ? 'YES' : 'NO'));
+            
+            if (!$phpmailerAvailable) {
+                error_log("❌ sendBillEmailWithPDF - PHPMailer is not available. Cannot send email with PDF attachment.");
+                error_log("❌ sendBillEmailWithPDF - Attempting to send email without PDF attachment as fallback...");
+                
+                // Fallback: Send email without PDF attachment
+                $emailSent = $emailService->sendEmail(
+                    $customerEmail,
+                    $subject . " (PDF attachment unavailable)",
+                    $emailBody . "<p><strong>Note:</strong> The PDF attachment could not be included. Please contact support for the bill.</p>",
+                    true
+                );
+                
+                if ($emailSent) {
+                    error_log("⚠️ sendBillEmailWithPDF - Email sent without PDF attachment (fallback mode)");
+                    sendError('Email sent but PDF attachment could not be included. PHPMailer is not installed on the server. Please install PHPMailer to enable PDF attachments.', [
+                        'email' => $customerEmail,
+                        'order_id' => $displayOrderId,
+                        'phpmailer_installed' => false,
+                        'email_sent_without_pdf' => true,
+                        'hint' => 'Install PHPMailer: composer require phpmailer/phpmailer or upload PHPMailer files to vendor/phpmailer/phpmailer/'
+                    ], 200); // 200 because email was sent, just without PDF
+                    return;
+                } else {
+                    error_log("❌ sendBillEmailWithPDF - Fallback email also failed");
+                }
+            } else {
+                // PHPMailer is available, send with PDF attachment
+                $emailSent = $emailService->sendEmailWithAttachment(
+                    $customerEmail,
+                    $subject,
+                    $emailBody,
+                    $pdfBase64,
+                    $pdfFilename,
+                    true // isBase64
+                );
+            }
             
             $emailDuration = round(microtime(true) - $emailStartTime, 2);
             error_log("📧 sendBillEmailWithPDF - Email send completed in {$emailDuration} seconds");

@@ -383,8 +383,13 @@ class EmailService {
             $mail->Password = $this->smtpPassword;
             $mail->SMTPSecure = $encryptionStartTLS;
             $mail->Port = $this->smtpPort;
-            $mail->SMTPDebug = 0;
-            $mail->Timeout = 30;
+            // Enable SMTP debug in production to diagnose issues (set to 2 for verbose output)
+            // Change back to 0 after fixing the issue
+            $mail->SMTPDebug = 2; // Enable debug to see SMTP errors
+            $mail->Debugoutput = function($str, $level) {
+                error_log("📧 PHPMailer SMTP Debug (Level $level): $str");
+            };
+            $mail->Timeout = 60; // Increase timeout for slow connections
             $mail->CharSet = 'UTF-8';
             
             $mail->SMTPOptions = array(
